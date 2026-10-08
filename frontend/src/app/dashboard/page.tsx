@@ -57,7 +57,7 @@ export default async function DashboardHome() {
         <Card className="flex flex-col items-start gap-3 p-6">
           <h2 className="font-semibold">Crea tu primera API key</h2>
           <p className="text-sm text-[var(--muted)]">Necesitas una key para empezar a llamar a la API.</p>
-          <Link href="/dashboard/keys" className="inline-flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white brand-gradient">
+          <Link href="/dashboard/keys" className="inline-flex items-center gap-1 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--on-primary)] hover:bg-[var(--primary-hover)]">
             Crear API key <ArrowRight size={16} />
           </Link>
         </Card>

@@ -19,20 +19,52 @@ export interface Feature {
   description: string;
 }
 
+/**
+ * Paleta de cada marca, tomada de los colores oficiales de su web. Se expone como variables
+ * CSS en el layout raíz (ver themeVars). Donde el color oficial no llega a contraste AA con
+ * texto blanco o sobre blanco, se usa una variante más oscura (primary/accent).
+ */
+export interface BrandTheme {
+  font: 'fira' | 'inter' | 'roboto';
+  foreground: string;
+  muted: string;
+  /** Botón principal. */
+  primary: string;
+  primaryHover: string;
+  onPrimary: string;
+  /** Acento legible sobre blanco (texto, íconos) y su fondo suave. */
+  accent: string;
+  accentSoft: string;
+  /** Color insignia de la marca y el texto que va encima. */
+  signature: string;
+  onSignature: string;
+  /** Isotipo del header. */
+  mark: string;
+  onMark: string;
+  header: string;
+  onHeader: string;
+  /** Secciones oscuras (hero, footer) y su texto secundario. */
+  dark: string;
+  darker: string;
+  onDarkMuted: string;
+  /** Color secundario de la marca en tono claro. */
+  tint: string;
+  /** Fondo de secciones alternas. */
+  section: string;
+}
+
 export interface Brand {
   id: BrandId;
   name: string; // "Shalom API"
   product: string; // "Shalom"
+  /** Con quién NO estamos afiliados, para el aviso legal. */
+  owner: string;
   // Host de producción (para resolver la marca por dominio). Ajustable luego.
   hosts: string[];
   tagline: string;
   heroTitle: string;
   heroSubtitle: string;
-  // Tema
-  accent: string;
-  accentSoft: string;
-  gradientFrom: string;
-  gradientTo: string;
+  theme: BrandTheme;
   // API
   apiPrefix: string; // "/v1/olva"
   features: Feature[];
@@ -55,19 +87,37 @@ export const BRANDS: Record<BrandId, Brand> = {
     id: 'shalom',
     name: 'Shalom API',
     product: 'Shalom',
+    owner: 'Shalom Empresarial',
     hosts: ['shalom.mathyu.dev', 'api-shalom.mathyu.dev'],
     tagline: 'Integra Shalom en tu ecommerce',
-    heroTitle: 'La API de Shalom que tu ecommerce necesita',
+    heroTitle: 'Tu ecommerce, conectado a Shalom',
     heroSubtitle:
       'Rastrea envíos, consulta agencias y cotiza tarifas de Shalom con una API REST simple, rápida y con tu propia cuota. Sin complicaciones.',
-    accent: '#F25C05',
-    accentSoft: '#FFF1E8',
-    gradientFrom: '#FF7A18',
-    gradientTo: '#F25C05',
+    theme: {
+      font: 'fira',
+      foreground: '#222F5C',
+      muted: '#5B5B5B',
+      primary: '#D41F25',
+      primaryHover: '#B9171C',
+      onPrimary: '#FFFFFF',
+      accent: '#D41F25',
+      accentSoft: '#FDECEC',
+      signature: '#EE2A2F',
+      onSignature: '#FFFFFF',
+      mark: '#EE2A2F',
+      onMark: '#FFFFFF',
+      header: '#FFFFFF',
+      onHeader: '#222F5C',
+      dark: '#222F5C',
+      darker: '#19234A',
+      onDarkMuted: '#C9CFE6',
+      tint: '#DDF2FB',
+      section: '#F4F4F4',
+    },
     apiPrefix: '/v1/shalom',
     features: [
       { icon: 'MapPin', title: 'Rastreo de envíos', description: 'Consulta el estado de una guía por número y clave, o por su id interno, con estados normalizados.' },
-      { icon: 'Building2', title: 'Agencias', description: 'Las 500+ agencias de Shalom con dirección, horarios y coordenadas, filtrables por departamento y provincia.' },
+      { icon: 'Building2', title: 'Agencias', description: 'Más de 550 agencias de Shalom con dirección, horarios y coordenadas, filtrables por departamento y provincia.' },
       { icon: 'Calculator', title: 'Cotización', description: 'Calcula tarifas entre agencias antes de registrar el envío.' },
       { icon: 'Webhook', title: 'Webhooks', description: 'Recibe un aviso cuando una guía cambia de estado, sin hacer polling.' },
       { icon: 'Gauge', title: 'Tu propia cuota', description: 'Cada API key tiene su límite mensual y lo ves en tiempo real en tu panel.' },
@@ -99,15 +149,33 @@ export const BRANDS: Record<BrandId, Brand> = {
     id: 'olva',
     name: 'Olva API',
     product: 'Olva',
+    owner: 'Olva Courier',
     hosts: ['olva.mathyu.dev', 'api-olva.mathyu.dev'],
     tagline: 'Integra Olva Courier en tu ecommerce',
     heroTitle: 'La API de Olva Courier, lista para tu tienda',
     heroSubtitle:
       'Tracking, agencias, ubigeos y cotización de Olva en una sola API REST. Empieza en minutos y paga solo por lo que usas.',
-    accent: '#00A651',
-    accentSoft: '#E8F8EF',
-    gradientFrom: '#2BD576',
-    gradientTo: '#00A651',
+    theme: {
+      font: 'inter',
+      foreground: '#020617',
+      muted: '#475569',
+      primary: '#020617',
+      primaryHover: '#1E293B',
+      onPrimary: '#FFFFFF',
+      accent: '#2546BB',
+      accentSoft: '#FFF6DF',
+      signature: '#F9B52F',
+      onSignature: '#020617',
+      mark: '#020617',
+      onMark: '#F9B52F',
+      header: '#F9B52F',
+      onHeader: '#020617',
+      dark: '#020617',
+      darker: '#0F172A',
+      onDarkMuted: '#CBD5E1',
+      tint: '#FFF6DF',
+      section: '#F8FAFC',
+    },
     apiPrefix: '/v1/olva',
     features: [
       { icon: 'MapPin', title: 'Rastreo de envíos', description: 'Consulta el estado de una guía por emisión y número, con historial de eventos normalizado.' },
@@ -151,15 +219,33 @@ export const BRANDS: Record<BrandId, Brand> = {
     id: 'sunat',
     name: 'SUNAT API',
     product: 'SUNAT',
+    owner: 'la SUNAT ni al Estado peruano',
     hosts: ['sunat.mathyu.dev', 'api-sunat.mathyu.dev'],
     tagline: 'Facturación electrónica y consultas SUNAT',
     heroTitle: 'Emite comprobantes y consulta SUNAT por API',
     heroSubtitle:
       'Factura y boleta electrónica, notas, guías de remisión y consulta de RUC/DNI. Una API REST sobre los servicios oficiales de SUNAT.',
-    accent: '#0B5FA5',
-    accentSoft: '#E7F1FA',
-    gradientFrom: '#2E8BD6',
-    gradientTo: '#0B5FA5',
+    theme: {
+      font: 'roboto',
+      foreground: '#26292E',
+      muted: '#4A515C',
+      primary: '#0056AC',
+      primaryHover: '#00468C',
+      onPrimary: '#FFFFFF',
+      accent: '#0056AC',
+      accentSoft: '#E6F2F8',
+      signature: '#0056AC',
+      onSignature: '#FFFFFF',
+      mark: '#0056AC',
+      onMark: '#FFFFFF',
+      header: '#FFFFFF',
+      onHeader: '#26292E',
+      dark: '#0056AC',
+      darker: '#26292E',
+      onDarkMuted: '#DEE3EA',
+      tint: '#E6F2F8',
+      section: '#EDF0F4',
+    },
     apiPrefix: '/v1/sunat',
     features: [
       { icon: 'FileText', title: 'Comprobantes electrónicos', description: 'Factura, boleta, notas de crédito y débito firmadas y enviadas a SUNAT.' },

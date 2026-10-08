@@ -25,14 +25,14 @@ export function BrandSwitcher({ current }: { current: BrandId }) {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--muted)] hover:bg-[var(--surface)]"
+        className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-black/15 px-2.5 py-1.5 text-xs font-medium text-[var(--on-header)] hover:bg-black/6"
         title="Ver otra marca (solo preview)"
       >
         Demo: {OPTIONS.find((o) => o.id === current)?.label}
         <ChevronDown size={14} />
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-40 overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-lg">
+        <div className="absolute right-0 z-50 mt-1 w-40 overflow-hidden rounded-xl border border-[var(--border)] bg-white text-[var(--foreground)] shadow-lg">
           {OPTIONS.map((o) => (
             <button
               key={o.id}
