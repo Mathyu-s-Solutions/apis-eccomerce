@@ -70,6 +70,15 @@ servicio aparte se justifica desde el inicio, por madurez de ecosistema.
    Prisma 6 y no 7: la v7 exige driver adapters + `prisma.config.ts` y aún se está
    asentando; migrar cuando madure. Migraciones como SQL versionado aplicadas con
    `migrate deploy` (sin shadow DB, que en Neon da fricción).
-5. **Caché + workers**: Redis + BullMQ (refresco de tracking, webhooks firmados). ← siguiente
-6. **SUNAT**: padrón RUC primero, luego emisión en beta.
-7. **Registro de envíos**: Olva (carrito OAuth) y Shalom Pro (instancias por cliente).
+5. **Despliegue** (hecho): Cloud Run en `southamerica-east1` con CI/CD de GitHub
+   Actions (ver README → Despliegue). Verificado en producción, incluido el
+   captcha de Shalom con Chromium dentro de Cloud Run desde IPs de São Paulo.
+6. **Caché + tareas periódicas, sin Redis** (capa gratis): ← siguiente
+   - Caché de agencias/ubigeos en memoria por instancia con TTL (Shalom expone
+     `agencias/version` para invalidar).
+   - Suscripciones de tracking y entregas de webhooks como tablas en Postgres.
+   - Cloud Scheduler (3 jobs gratis por cuenta de facturación) → endpoint interno
+     autenticado con OIDC que refresca guías activas y dispara webhooks. Intervalo
+     ≥ 30 min: cada ejecución despierta Neon y consume horas de cómputo gratis.
+7. **SUNAT**: padrón RUC primero, luego emisión en beta.
+8. **Registro de envíos**: Olva (carrito OAuth) y Shalom Pro (instancias por cliente).

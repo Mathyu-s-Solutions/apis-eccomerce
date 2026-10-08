@@ -17,22 +17,27 @@ Monolito modular en **NestJS 12 + Fastify 5**, gestionado con **pnpm**.
 
 ```bash
 pnpm install             # también genera el cliente Prisma (postinstall)
-cp .env.example .env     # define DATABASE_URL/DIRECT_DATABASE_URL (Neon) y/o DEV_API_KEY
-pnpm db:migrate          # aplica migraciones en la BD
+cp .env.example .env     # local: store en memoria + DEV_API_KEY
 pnpm start:dev           # desarrollo con watch
-# o
-pnpm build && pnpm start # producción
 ```
 
-Sin `DATABASE_URL` la API arranca igual con un store de keys en memoria (útil
-para desarrollo); con ella, keys y cuotas se persisten en Postgres.
+**Dos archivos de entorno, ambos fuera de git:**
 
-## API keys de clientes
+| Archivo | Para qué | Base de datos |
+|---|---|---|
+| `.env` | correr la app en local | ninguna (store en memoria) o una rama `dev` de Neon |
+| `.env.prod` | scripts de administración (`key:*`, `db:*`) | Neon producción |
+
+El `.env` local **nunca** apunta a la base de producción: así una key de prueba
+no puede terminar siendo válida en la API pública.
+
+## API keys de clientes (producción)
 
 ```bash
 pnpm key:create -- --name "Tienda X" --limit 5000   # o --limit unlimited
 pnpm key:list                                       # uso del mes por key
 pnpm key:revoke -- --prefix sk_live_abcd            # corta el acceso al instante
+pnpm db:status                                      # estado de migraciones
 ```
 
 La key completa se muestra **una sola vez** al crearla. En la BD solo se guarda
@@ -98,8 +103,14 @@ Los PRs solo corren [ci.yml](.github/workflows/ci.yml).
 | Auth CI→GCP | Workload Identity Federation, sin llaves JSON; solo `refs/heads/main` de este repo |
 | Costos | Presupuesto de 1 USD con alertas al 50/90/100 % (avisa, no corta) |
 
-Las API keys de clientes se crean desde local contra Neon: `pnpm key:create`.
-En producción **no** se define `DEV_API_KEY`.
+URL: https://mathyu-apis-vzuxpxsama-rj.a.run.app (docs en `/docs`).
+Desplegar a mano sin push: *Actions → Deploy → Run workflow*.
+
+Latencias medidas en producción: cotización Olva < 1 s; tracking Shalom con
+captcha ~9 s si Chromium arranca en frío y ~2,3 s en caliente.
+
+Las migraciones nuevas (`prisma/migrations/`) las aplica el CD antes de cada
+despliegue. En producción **no** se define `DEV_API_KEY`.
 
 > Sin Redis/BullMQ para mantenernos en capa gratis: la caché vive en memoria de
 > cada instancia y el estado durable en Postgres. Tareas periódicas futuras
