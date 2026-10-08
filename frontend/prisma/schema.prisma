@@ -1,0 +1,79 @@
+// COPIA del esquema que vive en backend/prisma/schema.prisma.
+// El portal solo LEE/ESCRIBE; las migraciones las corre el backend (dueño del
+// esquema). No ejecutar `prisma migrate` desde aquí: mantener en sync a mano.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] // Vercel runtime
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String?
+  role         String    @default("user")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  apiKeys      ApiKey[]
+  payments     Payment[]
+
+  @@map("users")
+}
+
+model ApiKey {
+  id           String         @id @default(cuid())
+  keyHash      String         @unique @map("key_hash")
+  prefix       String
+  name         String
+  product      String         @default("all")
+  monthlyLimit Int?           @map("monthly_limit")
+  enabled      Boolean        @default(true)
+  userId       String?        @map("user_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  counters     UsageCounter[]
+
+  @@index([userId])
+  @@map("api_keys")
+}
+
+model UsageCounter {
+  id       String @id @default(cuid())
+  apiKeyId String @map("api_key_id")
+  period   String
+  used     Int    @default(0)
+  apiKey   ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([apiKeyId, period], map: "usage_counters_api_key_id_period_key")
+  @@map("usage_counters")
+}
+
+model Payment {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  product       String
+  plan          String
+  amountPen     Int       @map("amount_pen")
+  monthlyLimit  Int?      @map("monthly_limit")
+  method        String
+  operationCode String?   @map("operation_code")
+  proofMime     String    @map("proof_mime")
+  proofData     Bytes     @map("proof_data")
+  status        String    @default("pending")
+  note          String?
+  reviewedBy    String?   @map("reviewed_by")
+  reviewedAt    DateTime? @map("reviewed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+  @@map("payments")
+}
