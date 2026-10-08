@@ -83,6 +83,11 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
+          # Un solo manifiesto por build (sin índice ni atestaciones): la política
+          # de limpieza de Artifact Registry cuenta "versiones" y las atestaciones
+          # podrían desplazar a la imagen que Cloud Run está sirviendo.
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:latest

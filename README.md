@@ -98,7 +98,7 @@ Los PRs solo corren [ci.yml](.github/workflows/ci.yml).
 |---|---|
 | Proyecto | `mathyu-apis`, región `southamerica-east1` (misma ciudad que Neon `sa-east-1`) |
 | Cloud Run | servicio `mathyu-apis`, 1 vCPU / 1 GiB, facturación por request, 0–2 instancias |
-| Imágenes | Artifact Registry `apis`; conserva solo las 2 últimas (límite gratis 0,5 GB) |
+| Imágenes | Artifact Registry `apis`; conserva las 3 últimas y `latest`, borra las de +7 días (~350 MB por imagen, capas compartidas; límite gratis 0,5 GB) |
 | Secretos | Secret Manager `database-url` y `direct-database-url` (réplica única) |
 | Auth CI→GCP | Workload Identity Federation, sin llaves JSON; solo `refs/heads/main` de este repo |
 | Costos | Presupuesto de 1 USD con alertas al 50/90/100 % (avisa, no corta) |
