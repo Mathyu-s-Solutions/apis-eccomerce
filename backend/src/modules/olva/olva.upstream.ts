@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CONFIG_TOKEN, type AppConfig } from '../../config/configuration';
 import { HttpClientService } from '../../common/http/http-client.service';
+import { UpstreamError } from '../../common/errors/upstream.error';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
@@ -43,12 +44,16 @@ export class OlvaUpstream {
     };
   }
 
-  /** Tracking vía reports.olvaexpress.pe (apikey pública embebida en su front). */
+  /**
+   * Tracking vía reports.olvaexpress.pe (apikey pública embebida en su front).
+   * Forma real: { success, msg, data: { general, details: [...] } }; si la guía
+   * no existe, 404 con { success: false, code: 404 } → `null`.
+   */
   async getTrackingInformation(
     tracking: string,
     emision: string | undefined,
-  ): Promise<unknown> {
-    const res = await this.http.request<unknown>(
+  ): Promise<Record<string, any> | null> {
+    const res = await this.http.request<Record<string, any> | string | undefined>(
       `${this.config.olva.trackingBase}/webservice/rest/getTrackingInformation`,
       {
         upstream: this.UPSTREAM,
@@ -65,7 +70,14 @@ export class OlvaUpstream {
         },
       },
     );
-    return res.data;
+    const body = typeof res.data === 'object' ? res.data : null;
+    if (res.status === 404 || (body?.success === false && Number(body.code) === 404)) return null;
+    if (res.status >= 400 || !body) {
+      throw new UpstreamError(this.UPSTREAM, `Olva respondió ${res.status} al rastrear`, {
+        detail: body ?? undefined,
+      });
+    }
+    return body;
   }
 
   /** Agencias/tiendas (WordPress admin-ajax, sin auth). */

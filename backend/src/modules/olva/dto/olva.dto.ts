@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RawQuerySchema } from '../../../common/courier/raw-query';
 
 export const OlvaTrackSchema = z.object({
   orderNumber: z
@@ -35,7 +36,7 @@ export const OlvaQuoteSchema = z.object({
 });
 export type OlvaQuoteDto = z.infer<typeof OlvaQuoteSchema>;
 
-export const OlvaAgenciesQuerySchema = z.object({
+export const OlvaAgenciesQuerySchema = RawQuerySchema.extend({
   q: z.string().trim().optional(),
   department: z.string().trim().optional(),
   province: z.string().trim().optional(),

@@ -137,6 +137,8 @@ export function ShalomLanding({ brand, apiUrl }: { brand: Brand; apiUrl: string 
                       {k('"carrier"')}: {str('"shalom"')},{'\n  '}
                       {k('"trackingNumber"')}: {str('"[N° DE GUÍA]"')},{'\n  '}
                       {k('"status"')}: {num('"IN_TRANSIT"')},{'\n  '}
+                      {k('"delivered"')}: {num('false')},{'\n  '}
+                      {k('"transitTime"')}: {str('"24 horas"')},{'\n  '}
                       {k('"events"')}: [{'\n    { '}
                       {k('"status"')}: {str('"REGISTERED"')}, {k('"rawStatus"')}: {str('"registrado"')}
                       {' },\n    { '}
@@ -160,11 +162,19 @@ export function ShalomLanding({ brand, apiUrl }: { brand: Brand; apiUrl: string 
                     <>
                       {'[{\n  '}
                       {k('"code"')}: {str('"3"')},{'\n  '}
+                      {k('"name"')}: {str('"CHACHAPOYAS CO DOS DE MAYO"')},{'\n  '}
                       {k('"department"')}: {str('"AMAZONAS"')},{'\n  '}
                       {k('"province"')}: {str('"CHACHAPOYAS"')},{'\n  '}
+                      {k('"district"')}: {str('"CHACHAPOYAS"')},{'\n  '}
                       {k('"address"')}: {str('"JR. DOS DE MAYO CDRA. 15 S/N…"')},{'\n  '}
+                      {k('"ubigeo"')}: {str('"010101"')},{'\n  '}
                       {k('"latitude"')}: {num('-6.23867')},{'\n  '}
-                      {k('"longitude"')}: {num('-77.86801')}
+                      {k('"longitude"')}: {num('-77.86801')},{'\n  '}
+                      {k('"schedule"')}: {'{ '}
+                      {k('"monday"')}: {'{ '}
+                      {k('"open"')}: {str('"08:00"')}, {k('"close"')}: {str('"20:00"')}
+                      {' }, … },\n  '}
+                      {k('"receivesShipments"')}: {num('true')}
                       {'\n}, …]'}
                     </>
                   ),
