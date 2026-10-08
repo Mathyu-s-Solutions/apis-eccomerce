@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/firebase/firebase-tools/master/schema/firebase-config.json",
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Mathyu's APIs",
+        "supportEmail": "xmathyu@gmail.com",
+        "authorizedRedirectUris": ["https://apis-eccomerce.firebaseapp.com/__/auth/handler"]
+      }
+    }
+  }
+}

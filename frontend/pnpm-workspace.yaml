@@ -4,3 +4,6 @@ allowBuilds:
   prisma: true
   sharp: true
   unrs-resolver: true
+  # postinstall de firebase (autoconfig de App Hosting / chequeo de versión): no se usan.
+  '@firebase/util': false
+  protobufjs: false
