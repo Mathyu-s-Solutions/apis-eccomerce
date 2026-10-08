@@ -8,10 +8,6 @@
   "engines": {
     "node": ">=20"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": ["@swc/core"],
-    "ignoredBuiltDependencies": ["@scarf/scarf"]
-  },
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",
@@ -37,7 +33,6 @@
     "@nestjs/platform-fastify": "^12.1.2",
     "@nestjs/swagger": "^12.0.2",
     "@nestjs/throttler": "^6.7.1",
-    "@prisma/client": "^6.19.3",
     "fastify": "^5.12.5",
     "nestjs-pino": "^5.3.1",
     "pino": "^10.4.0",
@@ -51,6 +46,7 @@
     "@nestjs/cli": "^12.0.8",
     "@nestjs/schematics": "^12.0.6",
     "@nestjs/testing": "^12.1.2",
+    "@prisma/client": "^6.19.3",
     "@swc/cli": "^0.8.1",
     "@swc/core": "^1.16.13",
     "@types/node": "^26.6.4",

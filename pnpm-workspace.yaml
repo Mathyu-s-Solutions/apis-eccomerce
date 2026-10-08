@@ -1,7 +1,7 @@
-onlyBuiltDependencies:
-  - '@swc/core'
-  - '@prisma/client'
-  - '@prisma/engines'
-  - 'prisma'
-ignoredBuiltDependencies:
-  - '@scarf/scarf'
+# pnpm 11: qué dependencias pueden ejecutar scripts de build/postinstall.
+allowBuilds:
+  '@swc/core': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  prisma: true
+  '@scarf/scarf': false # telemetría, no hace falta
