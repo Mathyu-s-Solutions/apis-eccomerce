@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Boxes } from 'lucide-react';
 import { getCurrentUser } from '@/lib/current-user';
 import { HUB } from '@/lib/brands';
 import { PanelFrame } from '@/components/site/panel-frame';
+
+export const metadata: Metadata = { title: { default: HUB.name, template: `%s · ${HUB.name}` } };
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
