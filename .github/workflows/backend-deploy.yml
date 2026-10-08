@@ -1,40 +1,42 @@
-name: Deploy
+name: Backend Deploy
 
-# Push a main -> CI -> migraciones -> imagen -> Cloud Run -> smoke test.
-# Autenticación con GCP por Workload Identity Federation (sin llaves JSON):
-# el proveedor solo acepta tokens de este repo y de refs/heads/main.
+# Push a main (cambios en backend/) -> CI -> migraciones -> imagen -> Cloud Run.
+# Auth con GCP por Workload Identity Federation (sin llaves JSON): el proveedor
+# solo acepta tokens de este repo y de refs/heads/main.
 #
-# Variables del repo (Settings -> Secrets and variables -> Actions -> Variables):
-#   GCP_PROJECT_ID, GCP_REGION, GCP_WIF_PROVIDER, GCP_DEPLOY_SA, GCP_RUN_SA,
-#   GCP_AR_REPO, CLOUD_RUN_SERVICE
-# Los secretos (URLs de Neon) viven en Secret Manager, no en GitHub.
+# Variables del repo: GCP_PROJECT_ID, GCP_REGION, GCP_WIF_PROVIDER,
+#   GCP_DEPLOY_SA, GCP_RUN_SA, GCP_AR_REPO, CLOUD_RUN_SERVICE
+# Secretos (URLs de Neon) en Secret Manager, no en GitHub.
 
 on:
   push:
     branches: [main]
-    # Cambios solo de documentación no redespliegan.
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy.yml'
+      - '.github/workflows/backend-ci.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write # para el token OIDC que canjea Workload Identity Federation
+  id-token: write
 
 concurrency:
-  group: deploy-production
+  group: backend-deploy-production
   cancel-in-progress: false
 
 jobs:
   ci:
-    uses: ./.github/workflows/ci.yml
+    uses: ./.github/workflows/backend-ci.yml
 
   deploy:
     name: Desplegar en Cloud Run
     needs: ci
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       REGION: ${{ vars.GCP_REGION }}
@@ -52,12 +54,14 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v3
 
-      # ---- Migraciones (antes de la nueva revisión: expand -> deploy) ----
       - uses: pnpm/action-setup@v6
+        with:
+          version: 11.1.1
       - uses: actions/setup-node@v7
         with:
-          node-version-file: .nvmrc
+          node-version-file: backend/.nvmrc
           cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
 
       - name: Aplicar migraciones Prisma
@@ -69,7 +73,6 @@ jobs:
           export DATABASE_URL DIRECT_DATABASE_URL
           pnpm exec prisma migrate deploy
 
-      # ---- Imagen ----
       - uses: docker/login-action@v4
         with:
           registry: ${{ vars.GCP_REGION }}-docker.pkg.dev
@@ -80,12 +83,9 @@ jobs:
 
       - uses: docker/build-push-action@v7
         with:
-          context: .
+          context: backend
           platforms: linux/amd64
           push: true
-          # Un solo manifiesto por build (sin índice ni atestaciones): la política
-          # de limpieza de Artifact Registry cuenta "versiones" y las atestaciones
-          # podrían desplazar a la imagen que Cloud Run está sirviendo.
           provenance: false
           sbom: false
           tags: |
@@ -94,9 +94,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ---- Cloud Run ----
-      # --cpu-throttling = facturación por request (la que cubre la capa gratis).
-      # --max-instances acota el costo; --min-instances 0 permite escalar a cero.
       - name: Desplegar
         run: |
           gcloud run deploy "$SERVICE" \
