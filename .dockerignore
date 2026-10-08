@@ -1,0 +1,20 @@
+# Secretos: jamás dentro de la imagen
+.env
+.env.*
+
+# Artefactos locales (se regeneran dentro del build)
+node_modules
+dist
+generated
+coverage
+*.tsbuildinfo
+
+# No necesarios en runtime
+.git
+.github
+docs
+scripts
+test
+*.md
+vitest.config.mts
+.DS_Store

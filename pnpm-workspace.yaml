@@ -1,0 +1,7 @@
+onlyBuiltDependencies:
+  - '@swc/core'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - 'prisma'
+ignoredBuiltDependencies:
+  - '@scarf/scarf'

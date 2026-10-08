@@ -1,0 +1,41 @@
+// Schema de persistencia de Mathyu's APIs.
+// Modelo inicial: API keys + contadores de cuota mensual.
+
+generator client {
+  provider = "prisma-client-js"
+  // Salida fuera de node_modules: la imagen de producción instala solo deps de
+  // runtime (--ignore-scripts) y copia este cliente ya generado para Linux.
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+model ApiKey {
+  id           String         @id @default(cuid())
+  // Nunca guardamos la key en claro: solo su SHA-256 (hex) y un prefijo visible.
+  keyHash      String         @unique @map("key_hash")
+  prefix       String
+  name         String
+  monthlyLimit Int?           @map("monthly_limit") // null = ilimitado
+  enabled      Boolean        @default(true)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  counters     UsageCounter[]
+
+  @@map("api_keys")
+}
+
+model UsageCounter {
+  id       String @id @default(cuid())
+  apiKeyId String @map("api_key_id")
+  period   String // YYYYMM
+  used     Int    @default(0)
+  apiKey   ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([apiKeyId, period], map: "usage_counters_api_key_id_period_key")
+  @@map("usage_counters")
+}
