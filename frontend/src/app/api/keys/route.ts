@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/current-user';
 import { apiKeyPrefix, generateApiKey, hashApiKey } from '@/lib/apikey';
-import { getPlan } from '@/lib/plans';
+import { freePlan } from '@/lib/plans';
 import { currentPeriod } from '@/lib/period';
 
 export async function GET() {
@@ -45,9 +45,9 @@ export async function POST(request: Request) {
   }
   const { name, product } = parsed.data;
 
-  // Límite de la key nueva: plan gratis del producto (se amplía al aprobar un pago).
-  const planProduct = product === 'all' ? 'shalom' : product;
-  const freeLimit = getPlan(planProduct, 'free')?.monthlyLimit ?? 100;
+  // La cuota es la del plan del cliente en cada API (la comparten todas sus keys).
+  // El límite propio de la key solo rige si algún día queda sin dueño: el gratis.
+  const freeLimit = freePlan(product === 'all' ? 'shalom' : product).monthlyLimit;
 
   const raw = generateApiKey();
   await prisma.apiKey.create({

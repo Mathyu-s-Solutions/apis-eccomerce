@@ -1,5 +1,9 @@
 import type { Metadata } from 'next';
-import { getBrand } from '@/lib/brand-server';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
+import { getSite } from '@/lib/brand-server';
+import { BRAND_IDS, BRANDS } from '@/lib/brands';
+import { panelHref, siteHref } from '@/lib/urls';
 import { Card, Badge } from '@/components/ui/primitives';
 import { CodeBlock } from '@/components/ui/code-block';
 import { ButtonLink } from '@/components/ui/button';
@@ -14,7 +18,10 @@ const methodTone: Record<string, string> = {
 };
 
 export default async function DocsPage() {
-  const brand = await getBrand();
+  const site = await getSite();
+  // Sitio central: cada API tiene su documentación en su landing.
+  if (site.id === 'hub') return <DocsIndex />;
+  const brand = site;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
   return (
@@ -29,7 +36,8 @@ export default async function DocsPage() {
       <section className="mt-10">
         <h2 className="text-2xl font-semibold">Autenticación</h2>
         <p className="mt-2 text-[var(--muted)]">
-          Crea una API key en tu panel y envíala en cada petición. Cada key tiene su cuota mensual.
+          Crea una API key de {brand.product} (o una de todas las APIs) en tu panel y envíala en cada petición.
+          La cuota es la de tu plan de {brand.product}: la comparten todas tus keys.
         </p>
         <div className="mt-4">
           <CodeBlock
@@ -38,7 +46,7 @@ export default async function DocsPage() {
           />
         </div>
         <div className="mt-4">
-          <ButtonLink href="/dashboard/keys" size="sm">Crear mi API key</ButtonLink>
+          <ButtonLink href={panelHref(`/dashboard/keys?product=${brand.id}`)} size="sm">Crear mi API key</ButtonLink>
         </div>
       </section>
 
@@ -84,9 +92,36 @@ export default async function DocsPage() {
         <h2 className="text-2xl font-semibold">Respuestas y errores</h2>
         <p className="mt-2 text-[var(--muted)]">
           Las respuestas son JSON. Los errores devuelven un código HTTP y un cuerpo con <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">message</code>.
-          Si agotas tu cuota recibes <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">429</code>; si la key es inválida, <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">401</code>.
+          Si agotas la cuota de tu plan recibes <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">429</code>; si la key es inválida, <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">401</code>;
+          si la key es de otra API, <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">403</code>.
         </p>
       </section>
+    </div>
+  );
+}
+
+function DocsIndex() {
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-14">
+      <h1 className="text-4xl font-bold tracking-tight">Documentación</h1>
+      <p className="mt-3 max-w-2xl text-[var(--muted)]">
+        Todas las APIs usan la misma cuenta y el mismo header <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">x-api-key</code>. Elige una:
+      </p>
+      <div className="mt-8 grid gap-4 md:grid-cols-3">
+        {BRAND_IDS.map((id) => (
+          <Link key={id} href={siteHref(id, '/docs')} className="group">
+            <Card className="h-full p-6 transition group-hover:-translate-y-0.5 group-hover:shadow-md">
+              <span className="block h-1.5 w-10 rounded-full" style={{ background: BRANDS[id].theme.signature }} />
+              <h2 className="mt-4 text-lg font-semibold">{BRANDS[id].name}</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">{BRANDS[id].tagline}</p>
+              <code className="mt-4 block text-xs text-[var(--muted)]">{BRANDS[id].apiPrefix}</code>
+              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[var(--accent)]">
+                Ver documentación <ArrowRight size={14} />
+              </span>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

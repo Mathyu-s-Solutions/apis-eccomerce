@@ -2,14 +2,15 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/current-user';
+import { grantPlans, paymentItems } from '@/lib/subscriptions';
 
 const schema = z.object({
   action: z.enum(['approve', 'reject']),
   note: z.string().trim().max(300).optional(),
 });
 
-// Valida o rechaza un pago. Al aprobar, amplía la cuota de las keys del usuario
-// para ese producto al límite del plan pagado (crea una key si no tiene).
+// Valida o rechaza un pago. Al aprobar, activa por un mes los planes que compró
+// (uno, o los de un pack): la cuota de cada API es la de su plan.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getCurrentUser();
   if (!admin?.isAdmin) return NextResponse.json({ message: 'Prohibido' }, { status: 403 });
@@ -27,17 +28,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { action, note } = parsed.data;
 
   if (action === 'approve') {
-    await prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id },
+    // Solo si sigue pendiente: dos aprobaciones a la vez no suman dos meses.
+    const approved = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.payment.updateMany({
+        where: { id, status: 'pending' },
         data: { status: 'approved', note: note ?? null, reviewedBy: admin.email, reviewedAt: new Date() },
       });
-      // Amplía la cuota de las keys del usuario para ese producto (o 'all').
-      await tx.apiKey.updateMany({
-        where: { userId: payment.userId, enabled: true, product: { in: [payment.product, 'all'] } },
-        data: { monthlyLimit: payment.monthlyLimit },
-      });
+      if (count === 1) await grantPlans(tx, payment.userId, paymentItems(payment));
+      return count === 1;
     });
+    if (!approved) return NextResponse.json({ message: 'Este pago ya fue revisado' }, { status: 409 });
   } else {
     await prisma.payment.update({
       where: { id },

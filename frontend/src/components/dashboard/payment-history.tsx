@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { formatDateTime, formatSoles } from '@/lib/utils';
+import { paymentLabel } from '@/lib/subscriptions';
 import { Card, Badge } from '@/components/ui/primitives';
 
 const STATUS: Record<string, { label: string; tone: 'warning' | 'success' | 'danger' }> = {
@@ -27,7 +28,7 @@ export async function PaymentHistory({ userId }: { userId: string }) {
           <Card key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-medium capitalize">{p.product} · {p.plan}</span>
+                <span className="font-medium">{paymentLabel(p)}</span>
                 <Badge tone={s.tone}>{s.label}</Badge>
               </div>
               <p className="mt-0.5 text-xs text-[var(--muted)]">

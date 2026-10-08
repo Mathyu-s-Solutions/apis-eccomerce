@@ -22,7 +22,9 @@
     "db:status": "node --env-file=.env.prod node_modules/prisma/build/index.js migrate status",
     "key:create": "node --env-file=.env.prod scripts/api-keys.mjs create",
     "key:list": "node --env-file=.env.prod scripts/api-keys.mjs list",
-    "key:revoke": "node --env-file=.env.prod scripts/api-keys.mjs revoke"
+    "key:revoke": "node --env-file=.env.prod scripts/api-keys.mjs revoke",
+    "plan:list": "node --env-file=.env.prod scripts/plans.mjs list",
+    "plan:set": "node --env-file=.env.prod scripts/plans.mjs set"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.1",

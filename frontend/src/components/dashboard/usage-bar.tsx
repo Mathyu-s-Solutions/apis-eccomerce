@@ -7,7 +7,7 @@ export function UsageBar({ used, limit }: { used: number; limit: number | null }
   return (
     <div>
       <div className="flex items-baseline justify-between text-sm">
-        <span className="font-medium">{formatNumber(used)} <span className="text-[var(--muted)]">consultas</span></span>
+        <span className="font-medium">{formatNumber(used)} <span className="text-[var(--muted)]">{used === 1 ? 'consulta' : 'consultas'}</span></span>
         <span className="text-[var(--muted)]">{limit === null ? 'Ilimitado' : `de ${formatNumber(limit)}`}</span>
       </div>
       <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-[var(--surface)]">

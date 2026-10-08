@@ -67,6 +67,23 @@ Todas las rutas bajo `/v1` requieren la cabecera `x-api-key`.
 | SUNAT | `/v1/sunat/*` | 🚧 stub (501), ver doc §3 |
 | Auth | `GET /v1/validate` | ✅ valida key y cuota |
 
+### API keys, planes y cuota
+
+- Cada key es de una API (`shalom`, `olva`, `sunat`) o de todas (`all`). Una key
+  de otra API recibe **403**.
+- La **cuota es del plan del cliente en cada API**, no de la key: la comparten
+  todas sus keys (`subscriptions` = plan y vencimiento, `plan_usage` = consumo del
+  mes, contado de forma atómica). Sin plan, o vencido, rige el gratis
+  (`FREE_MONTHLY_LIMIT` en `src/auth/plan-quota.ts`, igual que en
+  `frontend/src/lib/plans.ts`). `usage_counters` sigue contando por key (informativo).
+- Una key **sin dueño** (creada a mano sin `--email`) usa su propio límite.
+- `GET /v1/validate` devuelve el plan y el consumo de la API de la key (o de cada
+  API en una key de todas).
+- Planes a mano: `pnpm plan:list` y `pnpm plan:set -- --email E --product P --plan X --limit N [--months N | --forever]`
+  (o desde el admin del portal). Los pagos aprobados en el portal los activan solos.
+- Test contra Postgres real: `TEST_DATABASE_URL=… pnpm test` (corre
+  `test/prisma-store.int.spec.ts`; sin la variable se salta).
+
 ### Contrato común de Shalom y Olva
 
 - **Agencias** (`GET /agencies`): `code`, `name`, `department`, `province`,

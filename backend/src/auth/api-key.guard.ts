@@ -1,6 +1,7 @@
 import {
   type CanActivate,
   type ExecutionContext,
+  ForbiddenException,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -9,11 +10,13 @@ import { Reflector } from '@nestjs/core';
 import { API_KEY_STORE, type ApiKeyStore } from './api-key.store';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { REQUEST_KEY_PROP } from './current-key.decorator';
+import { PRODUCT_KEY, PRODUCT_LABEL, type Product } from './product.decorator';
 
 const HEADER = 'x-api-key';
 
 /**
- * Guard global: exige `x-api-key` válida salvo en rutas @Public().
+ * Guard global: exige `x-api-key` válida salvo en rutas @Public(), y que la
+ * key sea de la API de la ruta (@ForProduct) o de todas.
  * Deja el record en la request para que CurrentKey y la cuota lo usen.
  */
 @Injectable()
@@ -41,6 +44,17 @@ export class ApiKeyGuard implements CanActivate {
     const record = await this.store.findByKey(key);
     if (!record) {
       throw new UnauthorizedException('API key inválida o deshabilitada.');
+    }
+
+    const product = this.reflector.getAllAndOverride<Product | undefined>(PRODUCT_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+    if (product && record.product !== 'all' && record.product !== product) {
+      const own = PRODUCT_LABEL[record.product as Product] ?? record.product;
+      throw new ForbiddenException(
+        `Esta API key es de ${own}. Para ${PRODUCT_LABEL[product]} crea una key de ${PRODUCT_LABEL[product]} (o de todas las APIs) en tu panel.`,
+      );
     }
 
     req[REQUEST_KEY_PROP] = record;

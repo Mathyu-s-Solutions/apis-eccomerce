@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, Check } from 'lucide-react';
 import type { Brand } from '@/lib/brands';
 import { cn } from '@/lib/utils';
+import { panelHref } from '@/lib/urls';
 import { DocumentBuilder } from './document-builder';
 import { CountUp, Reveal, Stagger } from './motion';
 import { RucValidator } from './ruc-validator';
@@ -28,7 +29,7 @@ export function SunatLanding({ brand }: { brand: Brand }) {
             <p className="max-w-xl text-[19px] leading-relaxed text-[var(--muted)]">{brand.heroSubtitle}</p>
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/register"
+                href={panelHref('/register')}
                 className="inline-flex items-center gap-2.5 rounded-xl bg-[var(--primary)] px-6 py-4 text-[17px] font-medium text-white transition hover:-translate-y-px hover:bg-[var(--primary-hover)]"
               >
                 Crear mi API key <ArrowRight size={20} />

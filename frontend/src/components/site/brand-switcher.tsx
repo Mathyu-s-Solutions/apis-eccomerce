@@ -3,19 +3,20 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { BrandId } from '@/lib/brands';
+import type { SiteId } from '@/lib/brands';
 
-const OPTIONS: { id: BrandId; label: string }[] = [
+const OPTIONS: { id: SiteId; label: string }[] = [
+  { id: 'hub', label: 'Central' },
   { id: 'shalom', label: 'Shalom' },
   { id: 'olva', label: 'Olva' },
   { id: 'sunat', label: 'SUNAT' },
 ];
 
-export function BrandSwitcher({ current }: { current: BrandId }) {
+export function BrandSwitcher({ current }: { current: SiteId }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  function pick(id: BrandId) {
+  function pick(id: SiteId) {
     document.cookie = `mathyu_brand=${id}; path=/; max-age=${60 * 60 * 24 * 30}`;
     setOpen(false);
     router.refresh();
@@ -28,7 +29,7 @@ export function BrandSwitcher({ current }: { current: BrandId }) {
         className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-black/15 px-2.5 py-1.5 text-xs font-medium text-[var(--on-header)] hover:bg-black/6"
         title="Ver otra marca (solo preview)"
       >
-        Demo: {OPTIONS.find((o) => o.id === current)?.label}
+        <span className="hidden sm:inline">Demo:</span> {OPTIONS.find((o) => o.id === current)?.label}
         <ChevronDown size={14} />
       </button>
       {open && (

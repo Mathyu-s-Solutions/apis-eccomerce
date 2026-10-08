@@ -2,7 +2,8 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import type { Brand, BrandId } from '@/lib/brands';
-import { PLANS } from '@/lib/plans';
+import { BUNDLES, PLANS, bundleListPrice, PRODUCT_NAME } from '@/lib/plans';
+import { billingHref, panelHref } from '@/lib/urls';
 import { cn, formatNumber } from '@/lib/utils';
 import { FeatureIcon } from '@/components/marketing/icon';
 import { Reveal } from './motion';
@@ -97,7 +98,7 @@ export function Steps({ brand }: { brand: Brand }) {
   const steps = [
     { title: 'Crea tu cuenta y tu API key', desc: 'Regístrate y genera una key desde el panel en un clic.' },
     { title: 'Llama a la API', desc: `Envía tu key en el header x-api-key a ${brand.apiPrefix}. Copia un ejemplo de la documentación.` },
-    { title: 'Escala cuando quieras', desc: 'Sube de plan pagando con Yape o Plin; nosotros validamos y ampliamos tu cuota.' },
+    { title: 'Escala cuando quieras', desc: 'Sube de plan pagando con Yape o Plin; validamos el pago y activamos tu plan. Con la misma cuenta usas las demás APIs.' },
   ];
   const dark = brand.id === 'shalom';
 
@@ -176,7 +177,7 @@ export function Pricing({ brand, title }: { brand: Brand; title: string }) {
         <Reveal>
           <div className="grid gap-[18px] pt-3 sm:grid-cols-2 lg:grid-cols-4">
             {PLANS[brand.id].map((plan) => {
-              const href = plan.pricedPen === 0 ? '/register' : `/dashboard/billing?plan=${plan.id}`;
+              const href = plan.pricedPen === 0 ? panelHref('/register') : billingHref({ product: brand.id, plan: plan.id });
               return (
                 <div
                   key={plan.id}
@@ -220,7 +221,22 @@ export function Pricing({ brand, title }: { brand: Brand; title: string }) {
             })}
           </div>
         </Reveal>
-        <p className="text-[15px] text-[var(--muted)]">Pagas con Yape o Plin, subes tu comprobante y ampliamos tu cuota al validarlo.</p>
+        {BUNDLES.filter((b) => b.items.some((i) => i.product === brand.id)).map((b) => (
+          <Link
+            key={b.id}
+            href={billingHref({ bundle: b.id })}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border-2 border-dashed border-[var(--primary)] bg-white px-6 py-5 transition-colors hover:bg-[var(--tint)]"
+          >
+            <span className="text-[17px]">
+              <b>{b.name}:</b> {b.items.map((i) => `${PRODUCT_NAME[i.product]} ${PLANS[i.product].find((p) => p.id === i.plan)?.name ?? i.plan}`).join(' + ')} por{' '}
+              <b>S/ {b.pricedPen}</b> al mes{bundleListPrice(b) > b.pricedPen ? ` (en vez de S/ ${bundleListPrice(b)})` : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-[var(--primary)]">Quiero el pack <ArrowRight size={18} /></span>
+          </Link>
+        ))}
+        <p className="text-[15px] text-[var(--muted)]">
+          Pagas con Yape o Plin, subes tu comprobante y activamos tu plan al validarlo. Con la misma cuenta usas las demás APIs.
+        </p>
       </div>
     </section>
   );
@@ -240,7 +256,7 @@ export function CtaBand({ brand, title, text }: { brand: Brand; title: string; t
           <p className="text-lg opacity-90">{text}</p>
         </div>
         <Link
-          href="/register"
+          href={panelHref('/register')}
           className={cn(
             'inline-flex items-center gap-2.5 rounded-xl px-7 py-[18px] text-lg font-bold transition-colors',
             olva ? 'bg-[#020617] text-white hover:bg-[#1E293B]' : 'bg-white text-[var(--dark)] hover:bg-[#EDF0F4]',

@@ -3,24 +3,29 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Smartphone, Upload } from 'lucide-react';
-import type { Plan } from '@/lib/plans';
 import { Button } from '@/components/ui/button';
 import { Card, Input, Label, Select, Alert } from '@/components/ui/primitives';
 import { formatSoles } from '@/lib/utils';
 
+/** Algo que se puede pagar: `plan:<api>:<plan>` o `bundle:<pack>`. */
+export interface PaymentChoice {
+  value: string;
+  group: string;
+  label: string;
+  amountPen: number;
+}
+
 interface Props {
-  product: string;
-  plans: Plan[];
-  initialPlan?: string;
+  choices: PaymentChoice[];
+  initial: string;
   yape: string;
   plin: string;
   payName: string;
 }
 
-export function PaymentForm({ product, plans, initialPlan, yape, plin, payName }: Props) {
+export function PaymentForm({ choices, initial, yape, plin, payName }: Props) {
   const router = useRouter();
-  const paid = plans.filter((p) => p.pricedPen > 0);
-  const [planId, setPlanId] = useState(initialPlan && paid.some((p) => p.id === initialPlan) ? initialPlan : paid[0]?.id);
+  const [choiceValue, setChoiceValue] = useState(initial);
   const [method, setMethod] = useState<'yape' | 'plin'>('yape');
   const [operationCode, setOperationCode] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -28,7 +33,8 @@ export function PaymentForm({ product, plans, initialPlan, yape, plin, payName }
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const plan = paid.find((p) => p.id === planId);
+  const choice = choices.find((c) => c.value === choiceValue);
+  const groups = [...new Set(choices.map((c) => c.group))];
   const number = method === 'yape' ? yape : plin;
 
   async function submit(e: React.FormEvent) {
@@ -38,8 +44,12 @@ export function PaymentForm({ product, plans, initialPlan, yape, plin, payName }
     setLoading(true);
     try {
       const fd = new FormData();
-      fd.set('product', product);
-      fd.set('plan', planId!);
+      const [kind, a, b] = choiceValue.split(':');
+      if (kind === 'bundle') fd.set('bundle', a);
+      else {
+        fd.set('product', a);
+        fd.set('plan', b);
+      }
       fd.set('method', method);
       fd.set('operationCode', operationCode);
       fd.set('proof', file);
@@ -56,7 +66,7 @@ export function PaymentForm({ product, plans, initialPlan, yape, plin, payName }
   if (done) {
     return (
       <Alert tone="success">
-        ¡Recibimos tu comprobante! Lo validaremos pronto y activaremos tu nueva cuota. Puedes ver el estado abajo.
+        ¡Recibimos tu comprobante! Lo validaremos pronto y activaremos tu plan. Puedes ver el estado abajo.
       </Alert>
     );
   }
@@ -65,16 +75,20 @@ export function PaymentForm({ product, plans, initialPlan, yape, plin, payName }
     <Card className="p-6">
       <h2 className="font-semibold">Pagar con Yape o Plin</h2>
       <p className="mt-1 text-sm text-[var(--muted)]">
-        Elige tu plan, realiza el pago y sube la foto del comprobante. Validamos y activamos tu cuota.
+        Elige el plan de una API o un pack, realiza el pago y sube la foto del comprobante. Validamos y activamos tu plan.
       </p>
 
       <form onSubmit={submit} className="mt-5 space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="plan">Plan</Label>
-            <Select id="plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
-              {paid.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} — {formatSoles(p.pricedPen)}/mes</option>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="min-w-0">
+            <Label htmlFor="plan">Qué activas</Label>
+            <Select id="plan" value={choiceValue} onChange={(e) => setChoiceValue(e.target.value)}>
+              {groups.map((g) => (
+                <optgroup key={g} label={g}>
+                  {choices.filter((c) => c.group === g).map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </optgroup>
               ))}
             </Select>
           </div>
@@ -90,7 +104,7 @@ export function PaymentForm({ product, plans, initialPlan, yape, plin, payName }
         <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
           <div className="flex items-center gap-2 text-sm font-medium"><Smartphone size={16} /> {method === 'yape' ? 'Yapea' : 'Plinea'} a este número</div>
           <p className="mt-2 text-2xl font-bold tracking-wide">{number}</p>
-          <p className="text-sm text-[var(--muted)]">{payName} · {plan ? formatSoles(plan.pricedPen) : ''}</p>
+          <p className="text-sm text-[var(--muted)]">{payName} · {choice ? formatSoles(choice.amountPen) : ''}</p>
         </div>
 
         <div>
