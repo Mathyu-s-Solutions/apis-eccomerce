@@ -3,6 +3,7 @@ import { ArrowRight, Check } from 'lucide-react';
 import type { Brand } from '@/lib/brands';
 import { agencyStats } from '@/lib/agency-stats';
 import { cn } from '@/lib/utils';
+import { panelHref } from '@/lib/urls';
 import { AgencyMap } from './agency-map';
 import { CodeTabs } from './code-tabs';
 import { CountUp, Marquee, Reveal, Stagger } from './motion';
@@ -32,7 +33,7 @@ export function ShalomLanding({ brand, apiUrl }: { brand: Brand; apiUrl: string 
             <p className="max-w-xl text-[19px] leading-relaxed text-[var(--on-dark-muted)]">{brand.heroSubtitle}</p>
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/register"
+                href={panelHref('/register')}
                 className="inline-flex items-center gap-2.5 rounded-xl bg-[var(--primary)] px-6 py-4 text-[17px] font-semibold text-white transition hover:-translate-y-px hover:bg-[var(--primary-hover)]"
               >
                 Crear mi API key <ArrowRight size={20} />

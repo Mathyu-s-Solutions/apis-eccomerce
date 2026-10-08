@@ -23,6 +23,7 @@ import {
   withRaw,
 } from '../../common/courier/raw-query';
 import { Cost } from '../../auth/cost.decorator';
+import { ForProduct } from '../../auth/product.decorator';
 import { ShalomService } from './shalom.service';
 import {
   ShalomAgenciesQuerySchema,
@@ -42,6 +43,7 @@ const RAW_QUERY = {
 
 @ApiTags('shalom')
 @ApiSecurity('api-key')
+@ForProduct('shalom')
 @Controller('shalom')
 export class ShalomController {
   constructor(private readonly shalom: ShalomService) {}

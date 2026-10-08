@@ -23,6 +23,7 @@ import {
   withRaw,
 } from '../../common/courier/raw-query';
 import { Cost } from '../../auth/cost.decorator';
+import { ForProduct } from '../../auth/product.decorator';
 import { OlvaService } from './olva.service';
 import {
   OlvaAgenciesQuerySchema,
@@ -44,6 +45,7 @@ const RAW_QUERY = {
 
 @ApiTags('olva')
 @ApiSecurity('api-key')
+@ForProduct('olva')
 @Controller('olva')
 export class OlvaController {
   constructor(private readonly olva: OlvaService) {}

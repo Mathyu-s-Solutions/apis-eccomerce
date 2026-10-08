@@ -120,7 +120,7 @@ export const BRANDS: Record<BrandId, Brand> = {
       { icon: 'Building2', title: 'Agencias', description: 'Más de 550 agencias de Shalom con dirección, horarios y coordenadas, filtrables por departamento y provincia.' },
       { icon: 'Calculator', title: 'Cotización', description: 'Calcula tarifas entre agencias antes de registrar el envío.' },
       { icon: 'Webhook', title: 'Webhooks', description: 'Recibe un aviso cuando una guía cambia de estado, sin hacer polling.' },
-      { icon: 'Gauge', title: 'Tu propia cuota', description: 'Cada API key tiene su límite mensual y lo ves en tiempo real en tu panel.' },
+      { icon: 'Gauge', title: 'Un panel para todo', description: 'La cuota de tu plan, compartida por todas tus keys, y tus otras APIs en el mismo panel.' },
       { icon: 'ShieldCheck', title: 'Estable y monitoreado', description: 'Nos encargamos de los cambios en Shalom para que tu integración no se rompa.' },
     ],
     docs: [
@@ -182,7 +182,7 @@ export const BRANDS: Record<BrandId, Brand> = {
       { icon: 'Layers', title: 'Rastreo en lote', description: 'Hasta 50 guías en una sola llamada.' },
       { icon: 'Building2', title: 'Agencias y ubigeos', description: 'Todas las oficinas de Olva y el catálogo de ubigeos del Perú.' },
       { icon: 'Calculator', title: 'Cotización', description: 'Calcula el costo de un envío por ubigeo de origen y destino.' },
-      { icon: 'Gauge', title: 'Tu propia cuota', description: 'Cada API key tiene su límite mensual visible en tu panel.' },
+      { icon: 'Gauge', title: 'Un panel para todo', description: 'La cuota de tu plan, compartida por todas tus keys, y tus otras APIs en el mismo panel.' },
       { icon: 'ShieldCheck', title: 'Estable y monitoreado', description: 'Vigilamos los cambios de Olva para que tu integración siga funcionando.' },
     ],
     docs: [
@@ -252,7 +252,7 @@ export const BRANDS: Record<BrandId, Brand> = {
       { icon: 'Search', title: 'Consulta RUC y DNI', description: 'Datos de empresas y personas al instante para completar tus comprobantes.' },
       { icon: 'Truck', title: 'Guías de remisión', description: 'Emite guías de remisión remitente y transportista.' },
       { icon: 'FileCheck2', title: 'Estado y CDR', description: 'Consulta el estado del comprobante y descarga el XML firmado y el CDR.' },
-      { icon: 'Gauge', title: 'Tu propia cuota', description: 'Cada API key tiene su límite mensual visible en tu panel.' },
+      { icon: 'Gauge', title: 'Un panel para todo', description: 'La cuota de tu plan, compartida por todas tus keys, y tus otras APIs en el mismo panel.' },
       { icon: 'ShieldCheck', title: 'Sobre servicios oficiales', description: 'Construida sobre los web services oficiales de SUNAT.' },
     ],
     docs: [
@@ -278,14 +278,66 @@ export const BRANDS: Record<BrandId, Brand> = {
   },
 };
 
-export const DEFAULT_BRAND: BrandId = 'shalom';
 export const BRAND_IDS: BrandId[] = ['shalom', 'olva', 'sunat'];
 
-export function brandByHost(host?: string | null): BrandId | null {
+/**
+ * Sitio central: landing de todas las APIs y el panel único (cuenta, keys y
+ * pagos). Las landings de cada API siguen en sus dominios y mandan al panel.
+ */
+export interface HubSite {
+  id: 'hub';
+  name: string;
+  tagline: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  hosts: string[];
+  theme: BrandTheme;
+}
+
+export type SiteId = BrandId | 'hub';
+export type Site = Brand | HubSite;
+
+export const HUB: HubSite = {
+  id: 'hub',
+  name: "Mathyu's APIs",
+  tagline: 'Envíos y facturación para tu ecommerce en Perú',
+  heroTitle: 'Las APIs de tu ecommerce, en una sola cuenta',
+  heroSubtitle:
+    'Shalom, Olva y SUNAT con un solo registro, un solo panel y pagos con Yape o Plin. Pagas solo por las APIs que usas.',
+  hosts: ['mathyu.dev', 'www.mathyu.dev', 'app.mathyu.dev'],
+  theme: {
+    font: 'inter',
+    foreground: '#0F172A',
+    muted: '#475569',
+    primary: '#4F46E5',
+    primaryHover: '#4338CA',
+    onPrimary: '#FFFFFF',
+    accent: '#4F46E5',
+    accentSoft: '#EEF2FF',
+    signature: '#4F46E5',
+    onSignature: '#FFFFFF',
+    mark: '#0F172A',
+    onMark: '#FFFFFF',
+    header: '#FFFFFF',
+    onHeader: '#0F172A',
+    dark: '#0F172A',
+    darker: '#020617',
+    onDarkMuted: '#CBD5E1',
+    tint: '#E0E7FF',
+    section: '#F8FAFC',
+  },
+};
+
+export const SITE_IDS: SiteId[] = ['hub', ...BRAND_IDS];
+/** Sin dominio propio ni cookie (preview en un solo dominio): la landing central. */
+export const DEFAULT_SITE: SiteId = 'hub';
+
+export function getSiteById(id: SiteId): Site {
+  return id === 'hub' ? HUB : BRANDS[id];
+}
+
+export function siteByHost(host?: string | null): SiteId | null {
   if (!host) return null;
   const h = host.split(':')[0].toLowerCase();
-  for (const id of BRAND_IDS) {
-    if (BRANDS[id].hosts.some((bh) => bh === h)) return id;
-  }
-  return null;
+  return SITE_IDS.find((id) => getSiteById(id).hosts.includes(h)) ?? null;
 }

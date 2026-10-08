@@ -11,9 +11,11 @@ import { catchError, from, type Observable, switchMap, throwError } from 'rxjs';
 import { API_KEY_STORE, type ApiKeyRecord, type ApiKeyStore } from './api-key.store';
 import { BILLING_COST_KEY } from './cost.decorator';
 import { REQUEST_KEY_PROP } from './current-key.decorator';
+import { PRODUCT_KEY, type Product } from './product.decorator';
 
 /**
- * Cobro de cuota según @Cost(n):
+ * Cobro de cuota según @Cost(n), contra el plan del cliente para la API de la
+ * ruta (@ForProduct) o, en keys sin dueño, contra la cuota de la key:
  *  1. Reserva las unidades ANTES del handler. Si no hay saldo -> 429 y no se
  *     ejecuta nada (no gastamos captcha ni llamadas al upstream).
  *  2. Si el handler (o la validación) falla, devuelve las unidades.
@@ -35,17 +37,22 @@ export class QuotaInterceptor implements NestInterceptor {
         ctx.getClass(),
       ]) ?? 0;
 
+    const product = this.reflector.getAllAndOverride<Product | undefined>(PRODUCT_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+
     const req = ctx.switchToHttp().getRequest();
     const record: ApiKeyRecord | undefined = req[REQUEST_KEY_PROP];
 
     if (cost <= 0 || !record) return next.handle();
 
-    return from(this.store.consume(record, cost)).pipe(
+    return from(this.store.consume(record, cost, product)).pipe(
       switchMap(() =>
         next.handle().pipe(
           catchError((err) =>
             from(
-              this.store.refund(record, cost).catch((e) =>
+              this.store.refund(record, cost, product).catch((e) =>
                 this.logger.error(`No se pudo devolver cuota a ${record.prefix}: ${String(e)}`),
               ),
             ).pipe(switchMap(() => throwError(() => err))),

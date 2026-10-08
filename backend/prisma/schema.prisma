@@ -25,8 +25,10 @@ model User {
   role         String    @default("user") // user | admin
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
-  apiKeys      ApiKey[]
-  payments     Payment[]
+  apiKeys       ApiKey[]
+  payments      Payment[]
+  subscriptions Subscription[]
+  planUsage     PlanUsage[]
 
   @@map("users")
 }
@@ -37,8 +39,10 @@ model ApiKey {
   keyHash      String         @unique @map("key_hash")
   prefix       String
   name         String
-  // Producto al que pertenece la key: shalom | olva | sunat | all
+  // API a la que da acceso la key: shalom | olva | sunat | all
   product      String         @default("all")
+  // Cuota de la key solo si no tiene dueño (keys creadas a mano). Con dueño
+  // manda el plan del cliente para cada API (Subscription + PlanUsage).
   monthlyLimit Int?           @map("monthly_limit") // null = ilimitado
   enabled      Boolean        @default(true)
   userId       String?        @map("user_id")
@@ -74,6 +78,9 @@ model Payment {
   operationCode String?   @map("operation_code") // nro de operación declarado
   proofMime     String    @map("proof_mime")
   proofData     Bytes     @map("proof_data")
+  // Lo que activa el pago: [{ product, plan, monthlyLimit }]. Un pack trae
+  // varias APIs (product = "bundle", plan = id del pack). null en pagos antiguos.
+  items         Json?
   status        String    @default("pending") // pending | approved | rejected
   note          String? // nota del admin al revisar
   reviewedBy    String?   @map("reviewed_by")
@@ -84,4 +91,33 @@ model Payment {
   @@index([status])
   @@index([userId])
   @@map("payments")
+}
+
+// Plan de un cliente en una API. Sin fila, o vencido, rige el plan gratis.
+// La cuota es del plan: la comparten todas las keys del cliente para esa API.
+model Subscription {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  product      String // shalom | olva | sunat
+  plan         String // id del plan (frontend/src/lib/plans.ts)
+  monthlyLimit Int?      @map("monthly_limit") // null = ilimitado
+  expiresAt    DateTime? @map("expires_at") // null = no vence
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, product])
+  @@map("subscriptions")
+}
+
+// Consumo del mes de un cliente en una API (contra la cuota de su plan).
+model PlanUsage {
+  userId  String @map("user_id")
+  product String
+  period  String // YYYYMM
+  used    Int    @default(0)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, product, period])
+  @@map("plan_usage")
 }

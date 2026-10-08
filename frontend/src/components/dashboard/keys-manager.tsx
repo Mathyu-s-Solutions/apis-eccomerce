@@ -17,7 +17,7 @@ interface ApiKey {
 }
 
 const PRODUCT_LABEL: Record<string, string> = {
-  shalom: 'Shalom', olva: 'Olva', sunat: 'SUNAT', all: 'Todos',
+  shalom: 'Shalom', olva: 'Olva', sunat: 'SUNAT', all: 'Todas las APIs',
 };
 
 export function KeysManager({ defaultProduct }: { defaultProduct: string }) {
@@ -85,7 +85,10 @@ export function KeysManager({ defaultProduct }: { defaultProduct: string }) {
       {/* Crear */}
       <Card className="p-6">
         <h2 className="font-semibold">Crear una API key</h2>
-        <form onSubmit={create} className="mt-4 grid gap-4 sm:grid-cols-[1fr_180px_auto] sm:items-end">
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Una key de una API solo funciona con esa API. Una de todas las APIs sirve para las tres y gasta el plan de cada una.
+        </p>
+        <form onSubmit={create} className="mt-4 grid gap-4 sm:grid-cols-[1fr_200px_auto] sm:items-end">
           <div>
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Mi tienda" required />
@@ -93,10 +96,10 @@ export function KeysManager({ defaultProduct }: { defaultProduct: string }) {
           <div>
             <Label htmlFor="product">Producto</Label>
             <Select id="product" value={product} onChange={(e) => setProduct(e.target.value)}>
+              <option value="all">Todas las APIs</option>
               <option value="shalom">Shalom</option>
               <option value="olva">Olva</option>
               <option value="sunat">SUNAT</option>
-              <option value="all">Todos</option>
             </Select>
           </div>
           <Button type="submit" disabled={creating}>
@@ -128,8 +131,8 @@ export function KeysManager({ defaultProduct }: { defaultProduct: string }) {
                     <code className="mt-1 block text-sm text-[var(--muted)]">{k.prefix}••••••••</code>
                   </div>
                   <div className="text-right text-sm">
-                    <p className="font-medium">{formatNumber(k.used)} / {formatNumber(k.monthlyLimit)}</p>
-                    <p className="text-xs text-[var(--muted)]">consultas este mes</p>
+                    <p className="font-medium">{formatNumber(k.used)}</p>
+                    <p className="text-xs text-[var(--muted)]">consultas este mes, de la cuota de tu plan</p>
                   </div>
                   {k.enabled && (
                     <button

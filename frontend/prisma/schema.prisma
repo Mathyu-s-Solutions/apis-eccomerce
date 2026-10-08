@@ -20,8 +20,10 @@ model User {
   role         String    @default("user")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
-  apiKeys      ApiKey[]
-  payments     Payment[]
+  apiKeys       ApiKey[]
+  payments      Payment[]
+  subscriptions Subscription[]
+  planUsage     PlanUsage[]
 
   @@map("users")
 }
@@ -66,6 +68,7 @@ model Payment {
   operationCode String?   @map("operation_code")
   proofMime     String    @map("proof_mime")
   proofData     Bytes     @map("proof_data")
+  items         Json?
   status        String    @default("pending")
   note          String?
   reviewedBy    String?   @map("reviewed_by")
@@ -76,4 +79,30 @@ model Payment {
   @@index([status])
   @@index([userId])
   @@map("payments")
+}
+
+model Subscription {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  product      String
+  plan         String
+  monthlyLimit Int?      @map("monthly_limit")
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, product])
+  @@map("subscriptions")
+}
+
+model PlanUsage {
+  userId  String @map("user_id")
+  product String
+  period  String
+  used    Int    @default(0)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, product, period])
+  @@map("plan_usage")
 }

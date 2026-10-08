@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import type { Brand } from '@/lib/brands';
 import { agencyStats } from '@/lib/agency-stats';
 import { cn } from '@/lib/utils';
+import { panelHref } from '@/lib/urls';
 import { AgencyMap } from './agency-map';
 import { BatchRoutes } from './batch-routes';
 import { CountUp, Marquee, Reveal, Stagger } from './motion';
@@ -25,7 +26,7 @@ export function OlvaLanding({ brand, apiUrl }: { brand: Brand; apiUrl: string })
             <p className="max-w-xl text-[19px] leading-relaxed text-[#2A2410]">{brand.heroSubtitle}</p>
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/register"
+                href={panelHref('/register')}
                 className="inline-flex items-center gap-2.5 rounded-xl bg-[#020617] px-6 py-4 text-[17px] font-semibold text-white transition hover:-translate-y-px hover:bg-[#1E293B]"
               >
                 Crear mi API key <ArrowRight size={20} />
@@ -81,7 +82,7 @@ export function OlvaLanding({ brand, apiUrl }: { brand: Brand; apiUrl: string })
             <pre className="code-scroll mt-6 overflow-x-auto whitespace-pre rounded-[14px] bg-[#020617] px-5 py-[18px] font-mono text-[13.5px] leading-7 text-[#E2E8F0]">
               <span className="text-[var(--signature)]">POST</span> {brand.apiPrefix}/track/batch{'\n'}
               {'{ '}
-              <span className="text-[#93C5FD]">&quot;items&quot;</span>: [{'\n  { '}
+              <span className="text-[#93C5FD]">&quot;orders&quot;</span>: [{'\n  { '}
               <span className="text-[#93C5FD]">&quot;orderNumber&quot;</span>: <span className="text-[#FDE68A]">&quot;[N° DE GUÍA]&quot;</span>,{' '}
               <span className="text-[#93C5FD]">&quot;orderCode&quot;</span>: <span className="text-[#FDE68A]">&quot;[EMISIÓN]&quot;</span>
               {' },\n  …\n] }'}

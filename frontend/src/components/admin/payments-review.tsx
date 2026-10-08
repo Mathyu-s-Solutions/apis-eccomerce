@@ -10,6 +10,8 @@ interface AdminPayment {
   id: string;
   product: string;
   plan: string;
+  label: string;
+  items: { product: string; plan: string; monthlyLimit: number | null }[];
   amountPen: number;
   monthlyLimit: number | null;
   method: string;
@@ -88,11 +90,12 @@ export function PaymentsReview() {
                   </div>
                   <p className="text-sm text-[var(--muted)]">{p.userEmail}</p>
                   <p className="mt-2 text-sm">
-                    <span className="capitalize">{p.product}</span> · plan <b>{p.plan}</b> · {formatSoles(p.amountPen)} · {p.method}
+                    <b>{p.label}</b> · {formatSoles(p.amountPen)} · {p.method}
                     {p.operationCode ? ` · Op. ${p.operationCode}` : ''}
                   </p>
                   <p className="text-xs text-[var(--muted)]">
-                    {formatDateTime(p.createdAt)} · nueva cuota: {formatNumber(p.monthlyLimit)}
+                    {formatDateTime(p.createdAt)} · activa por un mes:{' '}
+                    {p.items.map((i) => `${i.product} ${i.plan} (${formatNumber(i.monthlyLimit)}/mes)`).join(' + ')}
                   </p>
                   <a
                     href={`/api/payments/${p.id}/proof`}

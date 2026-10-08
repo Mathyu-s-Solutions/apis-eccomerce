@@ -1,35 +1,35 @@
 import 'server-only';
 import { cookies, headers } from 'next/headers';
-import { BRANDS, brandByHost, DEFAULT_BRAND, type Brand, type BrandId, BRAND_IDS } from './brands';
+import { DEFAULT_SITE, getSiteById, siteByHost, SITE_IDS, type Site, type SiteId } from './brands';
 
 const BRAND_COOKIE = 'mathyu_brand';
 
 /**
- * Resuelve la marca activa:
- *  1. por dominio (producción: cada marca su dominio),
+ * Resuelve el sitio activo (landing central o la de una API):
+ *  1. por dominio (producción: cada sitio su dominio),
  *  2. por cookie (preview en un solo dominio, con el switcher),
- *  3. default.
+ *  3. la landing central.
  */
-export async function getBrandId(): Promise<BrandId> {
+export async function getSiteId(): Promise<SiteId> {
   const h = await headers();
-  const byHost = brandByHost(h.get('host'));
+  const byHost = siteByHost(h.get('host'));
   if (byHost) return byHost;
 
   const store = await cookies();
-  const c = store.get(BRAND_COOKIE)?.value as BrandId | undefined;
-  if (c && BRAND_IDS.includes(c)) return c;
+  const c = store.get(BRAND_COOKIE)?.value as SiteId | undefined;
+  if (c && SITE_IDS.includes(c)) return c;
 
-  return DEFAULT_BRAND;
+  return DEFAULT_SITE;
 }
 
-export async function getBrand(): Promise<Brand> {
-  return BRANDS[await getBrandId()];
+export async function getSite(): Promise<Site> {
+  return getSiteById(await getSiteId());
 }
 
-/** True si la marca viene del dominio (en prod no mostramos el switcher). */
-export async function isBrandFromHost(): Promise<boolean> {
+/** True si el sitio viene del dominio (en prod no mostramos el switcher). */
+export async function isSiteFromHost(): Promise<boolean> {
   const h = await headers();
-  return brandByHost(h.get('host')) !== null;
+  return siteByHost(h.get('host')) !== null;
 }
 
 export { BRAND_COOKIE };

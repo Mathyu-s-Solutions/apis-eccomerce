@@ -1,10 +1,12 @@
 import { Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { Cost } from '../../auth/cost.decorator';
+import { ForProduct } from '../../auth/product.decorator';
 import { SunatService } from './sunat.service';
 
 @ApiTags('sunat')
 @ApiSecurity('api-key')
+@ForProduct('sunat')
 @Controller('sunat')
 export class SunatController {
   constructor(private readonly sunat: SunatService) {}

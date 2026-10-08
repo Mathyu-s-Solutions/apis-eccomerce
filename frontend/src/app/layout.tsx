@@ -1,9 +1,9 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { Fira_Sans, Geist_Mono, Inter, Roboto } from 'next/font/google';
 import './globals.css';
-import { getBrand } from '@/lib/brand-server';
-import type { BrandTheme } from '@/lib/brands';
+import { getSite } from '@/lib/brand-server';
+import { themeVars } from '@/lib/theme';
 
 // Cada marca usa la tipografía de su web oficial. La marca se resuelve por request, así que
 // ninguna se precarga: se descarga solo la que el CSS termina usando.
@@ -13,46 +13,22 @@ const roboto = Roboto({ variable: '--font-roboto', subsets: ['latin'], weight: [
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const brand = await getBrand();
+  const site = await getSite();
   return {
-    title: { default: `${brand.name} — ${brand.tagline}`, template: `%s · ${brand.name}` },
-    description: brand.heroSubtitle,
+    title: { default: `${site.name} — ${site.tagline}`, template: `%s · ${site.name}` },
+    description: site.heroSubtitle,
   };
 }
 
-function themeVars(t: BrandTheme): CSSProperties {
-  return {
-    '--font-brand': `var(--font-${t.font})`,
-    '--foreground': t.foreground,
-    '--muted': t.muted,
-    '--primary': t.primary,
-    '--primary-hover': t.primaryHover,
-    '--on-primary': t.onPrimary,
-    '--accent': t.accent,
-    '--accent-soft': t.accentSoft,
-    '--signature': t.signature,
-    '--on-signature': t.onSignature,
-    '--mark': t.mark,
-    '--on-mark': t.onMark,
-    '--header': t.header,
-    '--on-header': t.onHeader,
-    '--dark': t.dark,
-    '--darker': t.darker,
-    '--on-dark-muted': t.onDarkMuted,
-    '--tint': t.tint,
-    '--section': t.section,
-  } as CSSProperties;
-}
-
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const brand = await getBrand();
+  const site = await getSite();
 
   return (
     <html
       lang="es"
       className={`${fira.variable} ${inter.variable} ${roboto.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full" style={themeVars(brand.theme)}>
+      <body className="min-h-full" style={themeVars(site.theme)}>
         <div className="flex min-h-screen flex-col">{children}</div>
       </body>
     </html>
