@@ -1,5 +1,7 @@
-// Schema de persistencia de Mathyu's APIs.
-// Modelo inicial: API keys + contadores de cuota mensual.
+// Schema de persistencia de Mathyu's APIs (dueño único del esquema).
+// El portal web (frontend/) genera su cliente Prisma desde una copia de estos
+// modelos pero NUNCA corre migraciones: las migraciones salen de aquí y las
+// aplica el CD del backend.
 
 generator client {
   provider = "prisma-client-js"
@@ -14,18 +16,38 @@ datasource db {
   directUrl = env("DIRECT_DATABASE_URL")
 }
 
+// Cliente del portal (quien crea API keys y paga). El admin valida pagos.
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String?
+  role         String    @default("user") // user | admin
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  apiKeys      ApiKey[]
+  payments     Payment[]
+
+  @@map("users")
+}
+
 model ApiKey {
   id           String         @id @default(cuid())
   // Nunca guardamos la key en claro: solo su SHA-256 (hex) y un prefijo visible.
   keyHash      String         @unique @map("key_hash")
   prefix       String
   name         String
+  // Producto al que pertenece la key: shalom | olva | sunat | all
+  product      String         @default("all")
   monthlyLimit Int?           @map("monthly_limit") // null = ilimitado
   enabled      Boolean        @default(true)
+  userId       String?        @map("user_id")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
+  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   counters     UsageCounter[]
 
+  @@index([userId])
   @@map("api_keys")
 }
 
@@ -38,4 +60,28 @@ model UsageCounter {
 
   @@unique([apiKeyId, period], map: "usage_counters_api_key_id_period_key")
   @@map("usage_counters")
+}
+
+// Comprobante de pago subido por el cliente (Yape/Plin). El admin lo valida.
+model Payment {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  product       String // shalom | olva | sunat
+  plan          String // identificador del plan elegido
+  amountPen     Int       @map("amount_pen") // monto en soles (entero)
+  monthlyLimit  Int?      @map("monthly_limit") // cuota que otorga el plan
+  method        String // yape | plin
+  operationCode String?   @map("operation_code") // nro de operación declarado
+  proofMime     String    @map("proof_mime")
+  proofData     Bytes     @map("proof_data")
+  status        String    @default("pending") // pending | approved | rejected
+  note          String? // nota del admin al revisar
+  reviewedBy    String?   @map("reviewed_by")
+  reviewedAt    DateTime? @map("reviewed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+  @@map("payments")
 }
