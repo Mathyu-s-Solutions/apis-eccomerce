@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Boxes } from 'lucide-react';
 import { HUB } from '@/lib/brands';
 import { siteHref } from '@/lib/urls';
 import { PanelFrame } from '@/components/site/panel-frame';
+
+export const metadata: Metadata = { title: { default: HUB.name, template: `%s · ${HUB.name}` } };
 
 // Una sola cuenta para todas las APIs: el ingreso es el del sitio central.
 export default async function AuthLayout({ children }: { children: ReactNode }) {
