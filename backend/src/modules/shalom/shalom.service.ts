@@ -5,6 +5,7 @@ import type {
   TrackQuery,
 } from '../../common/courier/courier-adapter.interface';
 import type { TrackingResult } from '../../common/courier/tracking.model';
+import { UpstreamError } from '../../common/errors/upstream.error';
 import { ShalomWebClient } from './shalom-web.client';
 import { CAPTCHA_PROVIDER, type CaptchaProvider } from './captcha/captcha.provider';
 import { mapShalomAgency, mapShalomStatus } from './shalom.mapper';
@@ -63,22 +64,34 @@ export class ShalomService implements CourierAdapter {
 
   /**
    * Rastreo por guía + clave. Requiere resolver reCAPTCHA (action rastrea_buscar).
-   * Con SHALOM_CAPTCHA_PROVIDER=none esto devuelve 501.
+   * Con SHALOM_CAPTCHA_PROVIDER=none esto devuelve 501. `null` = Shalom no
+   * tiene esa guía con esa clave.
    */
-  async track(query: TrackQuery): Promise<TrackingResult> {
+  async track(query: TrackQuery): Promise<TrackingResult | null> {
     const recaptchaToken = await this.captcha.getToken('rastrea_buscar');
-    const found = await this.web.post<{ data: Record<string, any> }>('rastrea/buscar', {
-      numero: query.orderNumber,
-      codigo: query.orderCode ?? '',
-      ose_id: '',
-      recaptcha_token: recaptchaToken,
-    });
-    const oseId = found?.data?.ose_id;
-    if (!oseId) {
-      return mapShalomStatus(query.orderNumber, 'No encontrado', null);
+    let found: { data?: Record<string, any> };
+    try {
+      found = await this.web.post<{ data?: Record<string, any> }>('rastrea/buscar', {
+        numero: query.orderNumber,
+        codigo: query.orderCode ?? '',
+        ose_id: '',
+        recaptcha_token: recaptchaToken,
+      });
+    } catch (err) {
+      // Shalom responde 400 "No se encontró la orden de servicio."
+      if (err instanceof UpstreamError && err.getStatus() === 400 && /no se encontr/i.test(err.message)) {
+        return null;
+      }
+      throw err;
     }
-    const result = await this.statusByOseId(String(oseId));
-    return { ...result, trackingNumber: query.orderNumber };
+    const oseId = found?.data?.ose_id;
+    if (!oseId) return null;
+
+    const res = await this.web.post<{ message?: string; data?: Record<string, any> }>(
+      'rastrea/estados',
+      { ose_id: String(oseId) },
+    );
+    return mapShalomStatus(query.orderNumber, res?.message, res?.data ?? null, found.data);
   }
 }
 

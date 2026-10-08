@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RawQuerySchema } from '../../../common/courier/raw-query';
 
 export const ShalomTrackSchema = z.object({
   orderNumber: z
@@ -19,7 +20,7 @@ export const ShalomStatusSchema = z.object({
 });
 export type ShalomStatusDto = z.infer<typeof ShalomStatusSchema>;
 
-export const ShalomAgenciesQuerySchema = z.object({
+export const ShalomAgenciesQuerySchema = RawQuerySchema.extend({
   q: z.string().trim().optional(),
   department: z.string().trim().optional(),
   province: z.string().trim().optional(),

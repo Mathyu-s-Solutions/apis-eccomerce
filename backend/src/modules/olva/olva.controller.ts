@@ -4,11 +4,24 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ZodValidationPipe } from '../../common/zod/zod-validation.pipe';
+import {
+  RawQuerySchema,
+  type RawQueryDto,
+  withRaw,
+} from '../../common/courier/raw-query';
 import { Cost } from '../../auth/cost.decorator';
 import { OlvaService } from './olva.service';
 import {
@@ -22,6 +35,13 @@ import {
   type OlvaTrackDto,
 } from './dto/olva.dto';
 
+const RAW_QUERY = {
+  name: 'raw',
+  required: false,
+  enum: ['1', '0'],
+  description: 'Incluye la respuesta cruda de Olva (pesa más; en el rastreo trae datos personales).',
+} as const;
+
 @ApiTags('olva')
 @ApiSecurity('api-key')
 @Controller('olva')
@@ -32,6 +52,8 @@ export class OlvaController {
   @HttpCode(HttpStatus.OK)
   @Cost(1)
   @ApiOperation({ summary: 'Rastrea una guía de Olva' })
+  @ApiQuery(RAW_QUERY)
+  @ApiNotFoundResponse({ description: 'Olva no tiene esa guía con ese año de emisión (no gasta cuota).' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -42,28 +64,41 @@ export class OlvaController {
       },
     },
   })
-  track(@Body(new ZodValidationPipe(OlvaTrackSchema)) dto: OlvaTrackDto) {
-    return this.olva.track(dto);
+  async track(
+    @Body(new ZodValidationPipe(OlvaTrackSchema)) dto: OlvaTrackDto,
+    @Query(new ZodValidationPipe(RawQuerySchema)) query: RawQueryDto,
+  ) {
+    const result = await this.olva.track(dto);
+    if (!result) throw new NotFoundException('No se encontró la guía en Olva con ese año de emisión.');
+    return withRaw(result, query.raw);
   }
 
   @Post('track/batch')
   @HttpCode(HttpStatus.OK)
   @Cost(1)
-  @ApiOperation({ summary: 'Rastrea hasta 50 guías de Olva' })
-  trackBatch(
+  @ApiOperation({
+    summary: 'Rastrea hasta 50 guías de Olva',
+    description: 'Mismo orden que `orders`; `null` en las guías que Olva no tiene.',
+  })
+  @ApiQuery(RAW_QUERY)
+  async trackBatch(
     @Body(new ZodValidationPipe(OlvaTrackBatchSchema)) dto: OlvaTrackBatchDto,
+    @Query(new ZodValidationPipe(RawQuerySchema)) query: RawQueryDto,
   ) {
-    return this.olva.trackBatch(dto.orders);
+    const results = await this.olva.trackBatch(dto.orders);
+    return results.map((r) => r && withRaw(r, query.raw));
   }
 
   @Get('agencies')
   @Cost(0)
   @ApiOperation({ summary: 'Lista agencias/tiendas de Olva (cacheable)' })
-  agencies(
+  @ApiQuery(RAW_QUERY)
+  async agencies(
     @Query(new ZodValidationPipe(OlvaAgenciesQuerySchema))
     query: OlvaAgenciesQueryDto,
   ) {
-    return this.olva.agencies(query);
+    const list = await this.olva.agencies(query);
+    return list.map((a) => withRaw(a, query.raw));
   }
 
   @Get('locations/ubigeos')

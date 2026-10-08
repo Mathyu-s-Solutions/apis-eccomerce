@@ -2,7 +2,7 @@
 //
 // Desde la API (local o prod):
 //   API_URL=http://localhost:3000 API_KEY=dev-... node scripts/snapshot-agencies.mjs
-// Desde respuestas ya guardadas de GET /v1/{marca}/agencies:
+// Desde respuestas ya guardadas de GET /v1/{marca}/agencies?raw=1:
 //   node scripts/snapshot-agencies.mjs shalom.json olva.json
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,7 +15,8 @@ async function load(brand, file) {
   if (file) return JSON.parse(fs.readFileSync(file, 'utf8'));
   const { API_URL, API_KEY } = process.env;
   if (!API_URL || !API_KEY) throw new Error('Define API_URL y API_KEY, o pasa los archivos JSON como argumentos.');
-  const res = await fetch(`${API_URL}/v1/${brand}/agencies`, { headers: { 'x-api-key': API_KEY } });
+  // raw=1: el teléfono de Shalom y el tipo de oficina de Olva solo vienen en la respuesta cruda.
+  const res = await fetch(`${API_URL}/v1/${brand}/agencies?raw=1`, { headers: { 'x-api-key': API_KEY } });
   if (!res.ok) throw new Error(`${brand}: HTTP ${res.status}`);
   return res.json();
 }

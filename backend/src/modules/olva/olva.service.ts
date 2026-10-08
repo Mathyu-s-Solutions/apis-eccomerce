@@ -15,15 +15,17 @@ export class OlvaService implements CourierAdapter {
 
   constructor(private readonly upstream: OlvaUpstream) {}
 
-  async track(query: TrackQuery): Promise<TrackingResult> {
+  /** `null` = Olva no tiene esa guía (con ese año de emisión). */
+  async track(query: TrackQuery): Promise<TrackingResult | null> {
     const raw = await this.upstream.getTrackingInformation(
       query.orderNumber,
       query.orderCode,
     );
-    return mapTracking(query.orderNumber, raw);
+    return raw ? mapTracking(query.orderNumber, raw) : null;
   }
 
-  async trackBatch(queries: TrackQuery[]): Promise<TrackingResult[]> {
+  /** En el mismo orden que `queries`; `null` en las guías que Olva no tiene. */
+  async trackBatch(queries: TrackQuery[]): Promise<Array<TrackingResult | null>> {
     // Olva no tiene batch nativo; paralelizamos con límite implícito del pool.
     return Promise.all(queries.map((q) => this.track(q)));
   }

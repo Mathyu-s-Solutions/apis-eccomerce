@@ -67,6 +67,21 @@ Todas las rutas bajo `/v1` requieren la cabecera `x-api-key`.
 | SUNAT | `/v1/sunat/*` | 🚧 stub (501), ver doc §3 |
 | Auth | `GET /v1/validate` | ✅ valida key y cuota |
 
+### Contrato común de Shalom y Olva
+
+- **Agencias** (`GET /agencies`): `code`, `name`, `department`, `province`,
+  `district`, `address`, `ubigeo` (INEI), `latitude`, `longitude`,
+  `schedule` (`{ monday: { open: "08:00", close: "20:00" }, … }` o `null`) y
+  `receivesShipments` (en Shalom ~60 agencias solo despachan: no sirven como destino).
+- **Rastreo** (`POST /track`): `status` normalizado, `delivered`, `deliveredAt`,
+  `transitTime` (Shalom: "24 horas"), `destination` (Olva) y `events` del más
+  antiguo al más reciente (`status`, `rawStatus`, `location`, `at` en hora de Lima).
+  **404** si el courier no tiene la guía (no gasta cuota). En `/olva/track/batch`,
+  esas guías salen como `null`, en el mismo orden.
+- **`?raw=1`** agrega la respuesta cruda del courier. Va apagado por defecto: la
+  lista de Shalom pasa de ~0,35 MB a ~3 MB y en el rastreo trae nombres y
+  documentos del remitente y del destinatario.
+
 > **Captcha de Shalom**: el tracking por guía resuelve reCAPTCHA v3 con un
 > Chromium headless (Playwright) que carga una página real de shalom.com.pe —
 > el token v3 está atado a ese dominio. Para activarlo:
