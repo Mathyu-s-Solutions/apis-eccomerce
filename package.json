@@ -18,11 +18,11 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate",
-    "db:migrate": "prisma migrate deploy",
-    "db:status": "prisma migrate status",
-    "key:create": "node --env-file=.env scripts/api-keys.mjs create",
-    "key:list": "node --env-file=.env scripts/api-keys.mjs list",
-    "key:revoke": "node --env-file=.env scripts/api-keys.mjs revoke"
+    "db:migrate": "node --env-file=.env.prod node_modules/prisma/build/index.js migrate deploy",
+    "db:status": "node --env-file=.env.prod node_modules/prisma/build/index.js migrate status",
+    "key:create": "node --env-file=.env.prod scripts/api-keys.mjs create",
+    "key:list": "node --env-file=.env.prod scripts/api-keys.mjs list",
+    "key:revoke": "node --env-file=.env.prod scripts/api-keys.mjs revoke"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.1",

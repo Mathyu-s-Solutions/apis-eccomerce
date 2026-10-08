@@ -1,5 +1,4 @@
-import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
-import { CONFIG_TOKEN, type AppConfig } from '../config/configuration';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   type ApiKeyRecord,
@@ -8,7 +7,7 @@ import {
   currentPeriod,
   toUsage,
 } from './api-key.store';
-import { apiKeyPrefix, hashApiKey } from './api-key.hash';
+import { hashApiKey } from './api-key.hash';
 import { QuotaExceededError } from './quota-exceeded.error';
 
 /**
@@ -20,40 +19,12 @@ import { QuotaExceededError } from './quota-exceeded.error';
  * varias instancias de la API.
  */
 @Injectable()
-export class PrismaApiKeyStore extends ApiKeyStore implements OnModuleInit {
-  private readonly logger = new Logger(PrismaApiKeyStore.name);
-  // Nest llama a onModuleInit una vez por token de provider; esta instancia está
-  // registrada como PrismaApiKeyStore y como API_KEY_STORE, así que se protege.
-  private initialized = false;
-
-  constructor(
-    private readonly prisma: PrismaService,
-    @Inject(CONFIG_TOKEN) private readonly config: AppConfig,
-  ) {
+export class PrismaApiKeyStore extends ApiKeyStore {
+  // A propósito NO siembra DEV_API_KEY: una key de desarrollo guardada en la BD
+  // compartida quedaría válida en producción. Las keys reales se crean con
+  // `pnpm key:create`. DEV_API_KEY solo aplica al store en memoria.
+  constructor(private readonly prisma: PrismaService) {
     super();
-  }
-
-  async onModuleInit(): Promise<void> {
-    if (this.initialized || !this.config.auth.databaseUrl) return;
-    this.initialized = true;
-    await this.seedDevKey();
-  }
-
-  /** Siembra DEV_API_KEY (si existe) sin pisar cambios hechos en la BD. */
-  private async seedDevKey(): Promise<void> {
-    const { devApiKey, devApiKeyMonthlyLimit } = this.config.auth;
-    if (!devApiKey) return;
-    await this.prisma.apiKey.upsert({
-      where: { keyHash: hashApiKey(devApiKey) },
-      create: {
-        keyHash: hashApiKey(devApiKey),
-        prefix: apiKeyPrefix(devApiKey),
-        name: 'Desarrollo',
-        monthlyLimit: devApiKeyMonthlyLimit,
-      },
-      update: {},
-    });
-    this.logger.warn('DEV_API_KEY sembrada en la BD. Quítala del entorno en producción.');
   }
 
   async findByKey(rawKey: string): Promise<ApiKeyRecord | null> {
