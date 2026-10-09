@@ -64,12 +64,21 @@ Todas las rutas bajo `/v1` requieren la cabecera `x-api-key`.
 | Shalom | `GET /v1/shalom/agencies`, `/agencies/search`, `/locations/*` | ✅ (proxy web + descifrado AES) |
 | Shalom | `POST /v1/shalom/track/status` (por ose_id) | ✅ (endpoint abierto) |
 | Shalom | `POST /v1/shalom/track`, `/track/batch` (hasta 20, 1 por guía) | ✅ con `SHALOM_CAPTCHA_PROVIDER=playwright` (si no, 501) |
+| Shalom | `POST /v1/shalom/quote` (terrestre o aéreo, recargo a domicilio) | ✅ captcha `tarifa_mostrar`, una vez por ruta cada 6 h |
 | Webhooks | `/v1/webhooks`, `/v1/{shalom,olva}/tracking/subscriptions` | ✅ worker cada 10 min (Cloud Scheduler) |
 | Demo | `GET /v1/public/{shalom,olva}/agencies?q=` (sin key, 30/min por IP) | ✅ |
 | SUNAT | `/v1/sunat/*` | 🚧 stub (501), ver doc §3 |
 | Auth | `GET /v1/validate` | ✅ valida key y cuota |
 
 Límite por minuto: 1.000 requests por API key (y 3.000 por IP), aparte de la cuota mensual del plan.
+Los planes Básico de Shalom y Olva son **ilimitados** (sin cuota mensual): el uso razonable lo
+ponen estos límites. En Shalom, lo caro es el captcha, así que `/track`, `/quote` y la suscripción
+van a 60 por minuto por key y `/track/batch` a 6.
+
+**Captcha una vez por guía:** la primera consulta de una guía de Shalom resuelve el captcha y
+guarda su `ose_id` en `shalom_guides` (con un hash scrypt de guía + clave; la clave nunca se
+guarda). Las siguientes van directo a `rastrea/estados`, sin captcha. Además, el estado de una
+guía (Shalom y Olva) se guarda 60 s en memoria.
 Agencias, ubigeos y ubicaciones se guardan en memoria (6 h y 24 h): los endpoints gratuitos no le pegan a las webs de los couriers en cada request.
 
 ### Agencias y ubicaciones
@@ -79,6 +88,14 @@ Agencias, ubigeos y ubicaciones se guardan en memoria (6 h y 24 h): los endpoint
   (`distanceKm`); por defecto solo las que reciben envíos. `air` solo lo informa Shalom.
 - `GET /locations/departments` → `/departments/{dep}/provinces` → `/provinces/{prov}/districts`:
   `id` es el ubigeo del INEI (2, 4 y 6 dígitos), igual en Shalom y Olva; `15` o `1501` / `01` valen.
+
+### Cotización de Shalom
+
+`POST /v1/shalom/quote {"origin":"220","destination":"7","air":false,"homeDelivery":false}`:
+`origin` y `destination` son el `code` de las agencias. Devuelve `minimumCharge` (mínimo por
+carga), `packages` (sobre, XXS a L), `leadTime` y `distanceKm`; con `homeDelivery` suma
+`homeDelivery` (recargo a domicilio por tamaño, de `tarifa/reparto`, sin captcha). Se valida que
+el origen despache y el destino reciba (y acepte aéreo) antes de gastar un captcha.
 
 ### Webhooks y guías vigiladas
 

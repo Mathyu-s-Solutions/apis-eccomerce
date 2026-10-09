@@ -187,3 +187,16 @@ model WebhookDelivery {
   @@index([userId, createdAt])
   @@map("webhook_deliveries")
 }
+
+// Guía de Shalom ya encontrada: su ose_id, para rastrearla sin resolver otro
+// captcha. Nunca se guarda la clave (con ella se retira el paquete): solo un
+// hash lento (scrypt) de guía + clave.
+model ShalomGuide {
+  keyHash     String   @id @map("key_hash")
+  oseId       String   @map("ose_id")
+  transitTime String?  @map("transit_time")
+  createdAt   DateTime @default(now()) @map("created_at")
+  lastUsedAt  DateTime @default(now()) @map("last_used_at")
+
+  @@map("shalom_guides")
+}

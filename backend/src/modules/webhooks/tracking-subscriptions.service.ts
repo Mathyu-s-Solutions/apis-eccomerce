@@ -90,14 +90,14 @@ export class TrackingSubscriptionsService {
       }
     }
 
-    // Se valida la guía con el courier: en Shalom resuelve el captcha una vez y guardamos el ose_id (no la clave).
+    // Se valida la guía con el courier: en Shalom el ose_id (un captcha la primera vez, nunca la clave).
     let tracking: TrackingResult | null;
     let upstreamRef: string | null = null;
     if (courier === 'shalom') {
-      const found = await this.shalom.findGuide(guide);
+      const found = await this.shalom.resolveGuide(guide);
       if (!found) throw new NotFoundException('No se encontró la guía con esa clave en Shalom.');
       upstreamRef = found.oseId;
-      tracking = await this.shalom.statusByOseId(found.oseId, guide.orderNumber, found.search);
+      tracking = await this.shalom.statusOf(found, guide.orderNumber);
     } else {
       tracking = await this.olva.track(guide);
       if (!tracking) throw new NotFoundException('No se encontró la guía en Olva con ese año de emisión.');

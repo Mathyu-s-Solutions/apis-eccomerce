@@ -12,20 +12,19 @@ export interface Plan {
 }
 
 // Planes por API. El precio es de cada API; la cuota es del plan y la comparten
-// todas las keys del cliente para esa API. Los límites del plan "free" están
+// todas las keys del cliente para esa API. "Ilimitadas" = sin cuota mensual, con
+// el límite por minuto de la API (FAIR_USE). Los límites del plan "free" están
 // también en backend/src/auth/plan-quota.ts (FREE_MONTHLY_LIMIT): mantenerlos en sync.
 export const PLANS: Record<Product, Plan[]> = {
   shalom: [
     { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 20, features: ['20 consultas/mes para probar', 'Agencias sin costo', 'Soporte por correo'] },
-    { id: 'basico', name: 'Básico', pricedPen: 25, monthlyLimit: 5000, highlight: true, features: ['5,000 consultas/mes', 'Tracking, agencias y ubicaciones', 'Webhooks de estado', 'Soporte prioritario'] },
-    { id: 'pro', name: 'Pro', pricedPen: 149, monthlyLimit: 50000, features: ['50,000 consultas/mes', 'Todo lo del Básico', 'Rastreo en lote', 'SLA de disponibilidad'] },
-    { id: 'empresarial', name: 'Empresarial', pricedPen: 399, monthlyLimit: null, features: ['Consultas ilimitadas', 'Integración a medida', 'Soporte dedicado'] },
+    { id: 'basico', name: 'Básico', pricedPen: 25, monthlyLimit: null, highlight: true, features: ['Consultas ilimitadas (uso razonable)', 'Rastreo, lote, agencias y cotización', 'Webhooks de estado', 'Soporte prioritario'] },
+    { id: 'empresarial', name: 'Empresarial', pricedPen: 399, monthlyLimit: null, features: ['Todo lo del Básico', 'Integración a medida', 'Soporte dedicado y SLA'] },
   ],
   olva: [
     { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 20, features: ['20 consultas/mes para probar', 'Agencias sin costo', 'Soporte por correo'] },
-    { id: 'basico', name: 'Básico', pricedPen: 25, monthlyLimit: 5000, highlight: true, features: ['5,000 consultas/mes', 'Tracking, agencias y cotización', 'Webhooks de estado', 'Soporte prioritario'] },
-    { id: 'pro', name: 'Pro', pricedPen: 149, monthlyLimit: 50000, features: ['50,000 consultas/mes', 'Todo lo del Básico', 'Cotización por ubigeo', 'SLA de disponibilidad'] },
-    { id: 'empresarial', name: 'Empresarial', pricedPen: 399, monthlyLimit: null, features: ['Consultas ilimitadas', 'Integración a medida', 'Soporte dedicado'] },
+    { id: 'basico', name: 'Básico', pricedPen: 25, monthlyLimit: null, highlight: true, features: ['Consultas ilimitadas (uso razonable)', 'Rastreo, lote, agencias y cotización', 'Webhooks de estado', 'Soporte prioritario'] },
+    { id: 'empresarial', name: 'Empresarial', pricedPen: 399, monthlyLimit: null, features: ['Todo lo del Básico', 'Integración a medida', 'Soporte dedicado y SLA'] },
   ],
   sunat: [
     { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 10, features: ['10 comprobantes/mes para probar', 'Consulta RUC y DNI', 'Entorno de pruebas'] },
@@ -34,6 +33,17 @@ export const PLANS: Record<Product, Plan[]> = {
     { id: 'empresarial', name: 'Empresarial', pricedPen: 499, monthlyLimit: null, features: ['Comprobantes ilimitados', 'Integración a medida', 'Soporte dedicado'] },
   ],
 };
+
+/** Uso razonable de los planes ilimitados (los límites por minuto del backend). */
+export function fairUse(product: Product): string {
+  const base = 'Ilimitadas con uso razonable: hasta 1.000 consultas por minuto por key.';
+  return product === 'shalom' ? `${base} En Shalom, 60 rastreos o cotizaciones por minuto (cada guía nueva resuelve un captcha; las ya consultadas no).` : base;
+}
+
+/** "Consultas ilimitadas" / "Comprobantes ilimitados". */
+export function unlimitedLabel(product: Product): string {
+  return product === 'sunat' ? 'Comprobantes ilimitados' : 'Consultas ilimitadas';
+}
 
 export function isProduct(value: unknown): value is Product {
   return typeof value === 'string' && (PRODUCTS as readonly string[]).includes(value);

@@ -1,5 +1,5 @@
 import { Check, Sparkles } from 'lucide-react';
-import { PLANS, PRODUCT_NAME, bundleListPrice, type Bundle, type Product } from '@/lib/plans';
+import { PLANS, PRODUCT_NAME, bundleListPrice, fairUse, unlimitedLabel, type Bundle, type Product } from '@/lib/plans';
 import { billingHref, panelHref } from '@/lib/urls';
 import { cn, formatNumber, formatSoles } from '@/lib/utils';
 import { Card, Badge } from '@/components/ui/primitives';
@@ -10,9 +10,11 @@ const UNIT: Record<Product, string> = { shalom: 'consultas', olva: 'consultas', 
 /** Planes de una API: el precio es de esa API y la cuota la comparten todas tus keys. */
 export function PlanGrid({ product }: { product: Product }) {
   const unit = UNIT[product];
+  const plans = PLANS[product];
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-      {PLANS[product].map((plan) => (
+    <>
+    <div className={cn('grid gap-6 sm:grid-cols-2', plans.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4')}>
+      {plans.map((plan) => (
         <Card key={plan.id} className={cn('relative flex flex-col p-6', plan.highlight && 'ring-2 ring-[var(--accent)]')}>
           {plan.highlight && (
             <div className="absolute -top-3 left-6">
@@ -25,7 +27,7 @@ export function PlanGrid({ product }: { product: Product }) {
             {plan.pricedPen > 0 && <span className="text-sm text-[var(--muted)]">/mes</span>}
           </div>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            {plan.monthlyLimit === null ? `${unit[0].toUpperCase()}${unit.slice(1)} ilimitados` : `${formatNumber(plan.monthlyLimit)} ${unit}/mes`}
+            {plan.monthlyLimit === null ? unlimitedLabel(product) : `${formatNumber(plan.monthlyLimit)} ${unit}/mes`}
           </p>
           <ul className="mt-5 flex-1 space-y-2.5 text-sm">
             {plan.features.map((f) => (
@@ -51,6 +53,10 @@ export function PlanGrid({ product }: { product: Product }) {
         </Card>
       ))}
     </div>
+    {plans.some((p) => p.pricedPen > 0 && p.monthlyLimit === null) && (
+      <p className="mt-4 text-xs text-[var(--muted)]">{fairUse(product)}</p>
+    )}
+    </>
   );
 }
 

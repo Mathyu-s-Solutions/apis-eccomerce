@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import type { Brand, BrandId } from '@/lib/brands';
-import { BUNDLES, PLANS, bundleListPrice, PRODUCT_NAME } from '@/lib/plans';
+import { BUNDLES, PLANS, bundleListPrice, fairUse, PRODUCT_NAME, unlimitedLabel } from '@/lib/plans';
 import { billingHref, panelHref } from '@/lib/urls';
 import { cn, formatNumber } from '@/lib/utils';
 import { FeatureIcon } from '@/components/marketing/icon';
@@ -175,7 +175,7 @@ export function Pricing({ brand, title }: { brand: Brand; title: string }) {
           <SectionHeading brand={brand} eyebrow="Precios en soles" title={title} />
         </Reveal>
         <Reveal>
-          <div className="grid gap-[18px] pt-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={cn('grid gap-[18px] pt-3 sm:grid-cols-2', PLANS[brand.id].length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4')}>
             {PLANS[brand.id].map((plan) => {
               const href = plan.pricedPen === 0 ? panelHref('/register') : billingHref({ product: brand.id, plan: plan.id });
               return (
@@ -195,7 +195,7 @@ export function Pricing({ brand, title }: { brand: Brand; title: string }) {
                     <span className="opacity-70"> /mes</span>
                   </div>
                   <p className="-mt-3 text-sm opacity-80">
-                    {plan.monthlyLimit === null ? `${unit[0].toUpperCase()}${unit.slice(1)} ilimitados` : `${formatNumber(plan.monthlyLimit)} ${unit}/mes`}
+                    {plan.monthlyLimit === null ? unlimitedLabel(brand.id) : `${formatNumber(plan.monthlyLimit)} ${unit}/mes`}
                   </p>
                   <ul className="flex flex-1 flex-col gap-2.5 text-[15px]">
                     {plan.features.map((f) => (
@@ -236,6 +236,7 @@ export function Pricing({ brand, title }: { brand: Brand; title: string }) {
         ))}
         <p className="text-[15px] text-[var(--muted)]">
           Pagas con Yape o Plin, subes tu comprobante y activamos tu plan al validarlo. Con la misma cuenta usas las demás APIs.
+          <span className="mt-1 block text-[13px]">{fairUse(brand.id)}</span>
         </p>
       </div>
     </section>

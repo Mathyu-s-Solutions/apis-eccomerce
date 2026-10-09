@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
+import { Throttle } from '@nestjs/throttler';
 import { ZodValidationPipe } from '../../common/zod/zod-validation.pipe';
 import {
   RawQuerySchema,
@@ -37,6 +38,8 @@ import { ForProduct } from '../../auth/product.decorator';
 import { ShalomService } from './shalom.service';
 import {
   SHALOM_BATCH_MAX,
+  ShalomQuoteSchema,
+  type ShalomQuoteDto,
   ShalomStatusSchema,
   type ShalomStatusDto,
   ShalomTrackBatchSchema,
@@ -142,6 +145,8 @@ export class ShalomController {
   @Post('track')
   @HttpCode(HttpStatus.OK)
   @Cost(1)
+  // Uso razonable: una guía nueva resuelve un captcha (las ya consultadas no).
+  @Throttle({ key: { limit: 60, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Rastreo por guía + clave (requiere captcha configurado)',
   })
@@ -159,6 +164,7 @@ export class ShalomController {
 
   @Post('track/batch')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ key: { limit: 6, ttl: 60_000 } })
   // Cada guía resuelve su propio captcha: una consulta por guía.
   @Cost((req) => {
     const orders = (req.body as { orders?: unknown[] } | undefined)?.orders;
@@ -176,5 +182,34 @@ export class ShalomController {
   ) {
     const results = await this.shalom.trackBatch(dto.orders);
     return results.map((r) => r && withRaw(r, query.raw));
+  }
+
+  @Post('quote')
+  @HttpCode(HttpStatus.OK)
+  @Cost(1)
+  @Throttle({ key: { limit: 60, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Cotiza un envío de Shalom entre dos agencias (terrestre o aéreo)',
+    description:
+      'origin y destination son el `code` de GET /agencies. Devuelve el mínimo por carga, el precio por tamaño de caja (sobre, XXS a L) y el tiempo de llegada. `homeDelivery: true` suma el recargo por entregar a domicilio.',
+  })
+  @ApiQuery(RAW_QUERY)
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['origin', 'destination'],
+      properties: {
+        origin: { type: 'string', example: '220' },
+        destination: { type: 'string', example: '7' },
+        air: { type: 'boolean', example: false },
+        homeDelivery: { type: 'boolean', example: false },
+      },
+    },
+  })
+  async quote(
+    @Body(new ZodValidationPipe(ShalomQuoteSchema)) dto: ShalomQuoteDto,
+    @Query(new ZodValidationPipe(RawQuerySchema)) query: RawQueryDto,
+  ) {
+    return withRaw(await this.shalom.quote(dto), query.raw);
   }
 }

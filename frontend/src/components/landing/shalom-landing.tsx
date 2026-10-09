@@ -26,7 +26,7 @@ export function ShalomLanding({ brand, apiUrl }: { brand: Brand; apiUrl: string 
           <Stagger className="flex min-w-0 flex-[1_1_480px] flex-col gap-6">
             <span className="inline-flex items-center gap-2 self-start rounded-full border border-white/20 py-1.5 pl-2 pr-3.5 text-sm text-[var(--tint)]">
               <span className="whitespace-nowrap rounded-full bg-[var(--signature)] px-2.5 py-0.5 text-xs font-semibold text-white">API REST</span>
-              Rastreo, agencias y webhooks de Shalom
+              Rastreo, agencias, cotización y webhooks de Shalom
             </span>
             <h1 className={cn('text-[clamp(40px,5.2vw,66px)] leading-[1.04]', DISPLAY.shalom)}>
               {brand.heroTitle} <span className="text-[var(--signature)]">en una sola API</span>

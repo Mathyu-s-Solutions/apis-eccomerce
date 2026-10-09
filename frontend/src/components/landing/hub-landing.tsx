@@ -15,9 +15,9 @@ const fromPrice = (id: BrandId) => Math.min(...PLANS[id].filter((p) => p.pricedP
 
 /** Así se ve el panel: cada API con su plan y su consumo (datos de ejemplo). */
 function PanelPreview() {
-  const rows: { id: BrandId; plan: string; used: number; limit: number }[] = [
-    { id: 'shalom', plan: 'Básico', used: 1240, limit: 5000 },
-    { id: 'olva', plan: 'Básico', used: 830, limit: 5000 },
+  const rows: { id: BrandId; plan: string; used: number; limit: number | null }[] = [
+    { id: 'shalom', plan: 'Básico', used: 1240, limit: null },
+    { id: 'olva', plan: 'Básico', used: 830, limit: null },
     { id: 'sunat', plan: 'Prueba', used: 3, limit: 10 },
   ];
   return (
@@ -37,10 +37,10 @@ function PanelPreview() {
               <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-xs font-medium text-[var(--accent)]">{r.plan}</span>
             </div>
             <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[var(--surface)]">
-              <div className="h-full rounded-full" style={{ width: `${Math.max(4, (r.used / r.limit) * 100)}%`, background: BRANDS[r.id].theme.signature }} />
+              <div className="h-full rounded-full" style={{ width: `${r.limit ? Math.max(4, (r.used / r.limit) * 100) : 100}%`, background: BRANDS[r.id].theme.signature, opacity: r.limit ? 1 : 0.35 }} />
             </div>
             <p className="mt-1.5 text-xs text-[var(--muted)]">
-              {r.used.toLocaleString('es-PE')} de {r.limit.toLocaleString('es-PE')} consultas
+              {r.used.toLocaleString('es-PE')} {r.limit ? `de ${r.limit.toLocaleString('es-PE')} comprobantes` : 'consultas · ilimitado'}
             </p>
           </div>
         ))}
@@ -173,10 +173,10 @@ export function HubLanding() {
           </Reveal>
           <Reveal>
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[15px] leading-relaxed">
-              <b>La cuota es de tu plan, no de cada key.</b>{' '}
+              <b>Con el Básico, consultas ilimitadas.</b>{' '}
               <span className="text-[var(--muted)]">
-                Si tienes el Básico de Olva (5,000 consultas al mes), todas tus keys de Olva suman contra esas 5,000.
-                Así puedes tener una key por tienda o por entorno sin pagar de más.
+                Pagas una vez por API y usas todas las keys que quieras (una por tienda o por entorno). En el plan de prueba,
+                las 20 consultas del mes las comparten todas tus keys de esa API.
               </span>
             </div>
           </Reveal>

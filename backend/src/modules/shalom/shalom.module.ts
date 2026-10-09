@@ -3,6 +3,7 @@ import { CONFIG_TOKEN, type AppConfig } from '../../config/configuration';
 import { ShalomController } from './shalom.controller';
 import { ShalomService } from './shalom.service';
 import { ShalomWebClient } from './shalom-web.client';
+import { ShalomGuideCache } from './shalom-guide-cache';
 import {
   CAPTCHA_PROVIDER,
   NoneCaptchaProvider,
@@ -14,6 +15,7 @@ import { PlaywrightCaptchaProvider } from './captcha/playwright-captcha.provider
   providers: [
     ShalomService,
     ShalomWebClient,
+    ShalomGuideCache,
     // Ambos se registran para que Nest gestione su ciclo de vida (p. ej. cerrar
     // el navegador en shutdown). Playwright no lanza Chromium hasta el 1er token.
     NoneCaptchaProvider,
