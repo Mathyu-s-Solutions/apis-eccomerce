@@ -6,9 +6,9 @@ import type { Product } from './product.decorator';
  * frontend/src/lib/plans.ts: mantener los dos en sync.
  */
 export const FREE_MONTHLY_LIMIT: Record<Product, number> = {
-  shalom: 100,
-  olva: 100,
-  sunat: 50,
+  shalom: 20,
+  olva: 20,
+  sunat: 10,
 };
 
 /** De dónde sale la cuota de una llamada. */

@@ -4,6 +4,7 @@ import type { Brand } from '@/lib/brands';
 import { agencyStats } from '@/lib/agency-stats';
 import { cn } from '@/lib/utils';
 import { panelHref } from '@/lib/urls';
+import { freePlan } from '@/lib/plans';
 import { AgencyMap } from './agency-map';
 import { CodeTabs } from './code-tabs';
 import { CountUp, Marquee, Reveal, Stagger } from './motion';
@@ -45,7 +46,7 @@ export function ShalomLanding({ brand, apiUrl }: { brand: Brand; apiUrl: string 
                 Ver documentación
               </Link>
             </div>
-            <p className="text-[15px] text-[#A9B1D3]">Empieza gratis con 100 consultas al mes. Paga con Yape o Plin cuando necesites más.</p>
+            <p className="text-[15px] text-[#A9B1D3]">Empieza gratis con {freePlan('shalom').monthlyLimit} consultas al mes para probar. Paga con Yape o Plin cuando necesites más.</p>
             <dl className="mt-2 grid max-w-xl grid-cols-3 gap-4 border-t border-white/15 pt-6">
               <Stat value={stats.total} label="agencias en el catálogo" />
               <Stat value={stats.departments} label="departamentos con cobertura" />
