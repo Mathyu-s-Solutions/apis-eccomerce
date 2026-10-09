@@ -2,7 +2,9 @@ export type BrandId = 'shalom' | 'olva' | 'sunat';
 
 export interface Endpoint {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  /** Relativo al prefijo de la API (/v1/olva), salvo `absolute` (p. ej. /v1/webhooks, de la cuenta). */
   path: string;
+  absolute?: boolean;
   summary: string;
   cost?: string;
 }
@@ -74,6 +76,21 @@ export interface Brand {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
+/** Igual en Shalom y Olva: el webhook es de la cuenta y las guías se vigilan por API. */
+const WEBHOOKS_DOCS: DocSection = {
+  title: 'Webhooks',
+  description:
+    'Vigilamos tus guías y te avisamos cuando cambian de estado. Cada aviso va firmado: x-mathyu-signature = t=<unix>,v1=HMAC-SHA256(secreto, "<t>.<cuerpo>").',
+  endpoints: [
+    { method: 'POST', path: '/tracking/subscriptions', summary: 'Vigila una guía (hasta que se entrega)', cost: '1 consulta' },
+    { method: 'GET', path: '/tracking/subscriptions', summary: 'Guías que vigilas', cost: 'gratis' },
+    { method: 'DELETE', path: '/tracking/subscriptions', summary: 'Deja de vigilar una guía (?orderNumber=)', cost: 'gratis' },
+    { method: 'PUT', path: '/v1/webhooks', absolute: true, summary: 'URL del webhook de tu cuenta (devuelve el secreto)', cost: 'gratis' },
+    { method: 'POST', path: '/v1/webhooks/test', absolute: true, summary: 'Manda un evento de prueba', cost: 'gratis' },
+    { method: 'GET', path: '/v1/webhooks/deliveries', absolute: true, summary: 'Historial de entregas y reintentos', cost: 'gratis' },
+  ],
+};
+
 function curl(prefix: string, method: string, path: string, body?: string): string {
   const url = `${API_URL}${prefix}${path}`;
   if (method === 'GET') {
@@ -92,7 +109,7 @@ export const BRANDS: Record<BrandId, Brand> = {
     tagline: 'Integra Shalom en tu ecommerce',
     heroTitle: 'Tu ecommerce, conectado a Shalom',
     heroSubtitle:
-      'Rastrea envíos, consulta agencias y cotiza tarifas de Shalom con una API REST simple, rápida y con tu propia cuota. Sin complicaciones.',
+      'Rastrea envíos, encuentra la agencia más cercana y recibe webhooks cuando cambia una guía de Shalom, con una API REST simple y tu propia cuota.',
     theme: {
       font: 'fira',
       foreground: '#222F5C',
@@ -117,9 +134,9 @@ export const BRANDS: Record<BrandId, Brand> = {
     apiPrefix: '/v1/shalom',
     features: [
       { icon: 'MapPin', title: 'Rastreo de envíos', description: 'Consulta el estado de una guía por número y clave, o por su id interno, con estados normalizados.' },
-      { icon: 'Building2', title: 'Agencias', description: 'Más de 550 agencias de Shalom con dirección, horarios y coordenadas, filtrables por departamento y provincia.' },
-      { icon: 'Calculator', title: 'Cotización', description: 'Calcula tarifas entre agencias antes de registrar el envío.' },
-      { icon: 'Webhook', title: 'Webhooks', description: 'Recibe un aviso cuando una guía cambia de estado, sin hacer polling.' },
+      { icon: 'Building2', title: 'Agencias', description: 'Más de 550 agencias de Shalom con dirección, horarios y coordenadas, filtrables por departamento, provincia y distrito.' },
+      { icon: 'MapPin', title: 'La agencia más cercana', description: 'Busca por cercanía a un punto (y con servicio aéreo), con la distancia en km. Departamentos, provincias y distritos con ubigeo INEI.' },
+      { icon: 'Webhook', title: 'Webhooks', description: 'Vigilamos tus guías y te avisamos con un webhook firmado cuando cambian de estado, sin hacer polling.' },
       { icon: 'Gauge', title: 'Un panel para todo', description: 'La cuota de tu plan, compartida por todas tus keys, y tus otras APIs en el mismo panel.' },
       { icon: 'ShieldCheck', title: 'Estable y monitoreado', description: 'Nos encargamos de los cambios en Shalom para que tu integración no se rompa.' },
     ],
@@ -129,16 +146,23 @@ export const BRANDS: Record<BrandId, Brand> = {
         description: 'Sigue un envío de Shalom.',
         endpoints: [
           { method: 'POST', path: '/track', summary: 'Rastrea por número de guía y clave', cost: '1 consulta' },
+          { method: 'POST', path: '/track/batch', summary: 'Rastrea hasta 20 guías', cost: '1 por guía' },
           { method: 'POST', path: '/track/status', summary: 'Estado por id interno (ose_id)', cost: 'gratis' },
         ],
       },
       {
-        title: 'Agencias',
-        description: 'Catálogo de agencias.',
+        title: 'Agencias y ubicaciones',
+        description: 'Catálogo de agencias y ubigeos del INEI.',
         endpoints: [
-          { method: 'GET', path: '/agencies', summary: 'Lista agencias (filtros: q, department, province)', cost: 'gratis' },
+          { method: 'GET', path: '/agencies', summary: 'Lista agencias (q, department, province, district)', cost: 'gratis' },
+          { method: 'GET', path: '/agencies/search', summary: 'Busca por cercanía (near=lat,lng, radiusKm) o servicio aéreo (air=1)', cost: 'gratis' },
+          { method: 'GET', path: '/locations/departments', summary: 'Departamentos', cost: 'gratis' },
+          { method: 'GET', path: '/locations/departments/{dep}/provinces', summary: 'Provincias de un departamento', cost: 'gratis' },
+          { method: 'GET', path: '/locations/departments/{dep}/provinces/{prov}/districts', summary: 'Distritos de una provincia', cost: 'gratis' },
+          { method: 'GET', path: '/v1/public/shalom/agencies', absolute: true, summary: 'Demo sin API key (hasta 20 agencias)', cost: 'gratis' },
         ],
       },
+      WEBHOOKS_DOCS,
     ],
     quickstart: [
       { label: 'Rastrear una guía', code: curl('/v1/shalom', 'POST', '/track', '{"orderNumber":"12345678","orderCode":"AB12"}') },
@@ -180,10 +204,10 @@ export const BRANDS: Record<BrandId, Brand> = {
     features: [
       { icon: 'MapPin', title: 'Rastreo de envíos', description: 'Consulta el estado de una guía por emisión y número, con historial de eventos normalizado.' },
       { icon: 'Layers', title: 'Rastreo en lote', description: 'Hasta 50 guías en una sola llamada.' },
-      { icon: 'Building2', title: 'Agencias y ubigeos', description: 'Todas las oficinas de Olva y el catálogo de ubigeos del Perú.' },
+      { icon: 'Building2', title: 'Agencias y ubigeos', description: 'Todas las oficinas de Olva, la más cercana a un punto y departamentos, provincias y distritos.' },
       { icon: 'Calculator', title: 'Cotización', description: 'Calcula el costo de un envío por ubigeo de origen y destino.' },
+      { icon: 'Webhook', title: 'Webhooks', description: 'Vigilamos tus guías y te avisamos con un webhook firmado cuando cambian de estado.' },
       { icon: 'Gauge', title: 'Un panel para todo', description: 'La cuota de tu plan, compartida por todas tus keys, y tus otras APIs en el mismo panel.' },
-      { icon: 'ShieldCheck', title: 'Estable y monitoreado', description: 'Vigilamos los cambios de Olva para que tu integración siga funcionando.' },
     ],
     docs: [
       {
@@ -195,11 +219,16 @@ export const BRANDS: Record<BrandId, Brand> = {
         ],
       },
       {
-        title: 'Catálogos',
-        description: 'Agencias y ubigeos.',
+        title: 'Agencias y ubicaciones',
+        description: 'Agencias y ubigeos del INEI.',
         endpoints: [
-          { method: 'GET', path: '/agencies', summary: 'Lista agencias (filtros: q, department, province)', cost: 'gratis' },
-          { method: 'GET', path: '/locations/ubigeos', summary: 'Catálogo de ubigeos', cost: 'gratis' },
+          { method: 'GET', path: '/agencies', summary: 'Lista agencias (q, department, province, district)', cost: 'gratis' },
+          { method: 'GET', path: '/agencies/search', summary: 'Busca por cercanía (near=lat,lng, radiusKm)', cost: 'gratis' },
+          { method: 'GET', path: '/locations/ubigeos', summary: 'Catálogo de ubigeos (lista plana)', cost: 'gratis' },
+          { method: 'GET', path: '/locations/departments', summary: 'Departamentos', cost: 'gratis' },
+          { method: 'GET', path: '/locations/departments/{dep}/provinces', summary: 'Provincias de un departamento', cost: 'gratis' },
+          { method: 'GET', path: '/locations/departments/{dep}/provinces/{prov}/districts', summary: 'Distritos de una provincia', cost: 'gratis' },
+          { method: 'GET', path: '/v1/public/olva/agencies', absolute: true, summary: 'Demo sin API key (hasta 20 agencias)', cost: 'gratis' },
         ],
       },
       {
@@ -209,6 +238,7 @@ export const BRANDS: Record<BrandId, Brand> = {
           { method: 'POST', path: '/quote', summary: 'Cotiza un envío por ubigeo', cost: '1 consulta' },
         ],
       },
+      WEBHOOKS_DOCS,
     ],
     quickstart: [
       { label: 'Cotizar Lima → Arequipa', code: curl('/v1/olva', 'POST', '/quote', '{"origin":"150101","destination":"040101","shipmentType":1,"weight":0.5}') },

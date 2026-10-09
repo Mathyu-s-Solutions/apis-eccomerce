@@ -58,14 +58,57 @@ Todas las rutas bajo `/v1` requieren la cabecera `x-api-key`.
 
 | Módulo | Endpoint | Estado |
 |---|---|---|
-| Olva | `POST /v1/olva/track`, `/track/batch` | ✅ funciona (tracking público) |
-| Olva | `GET /v1/olva/agencies`, `/locations/ubigeos` | ✅ |
+| Olva | `POST /v1/olva/track`, `/track/batch` (hasta 50, 1 consulta) | ✅ |
+| Olva | `GET /v1/olva/agencies`, `/agencies/search`, `/locations/*`, `/locations/ubigeos` | ✅ |
 | Olva | `POST /v1/olva/quote` | ✅ (cotización real) |
-| Shalom | `GET /v1/shalom/agencies` | ✅ (proxy web + descifrado AES) |
+| Shalom | `GET /v1/shalom/agencies`, `/agencies/search`, `/locations/*` | ✅ (proxy web + descifrado AES) |
 | Shalom | `POST /v1/shalom/track/status` (por ose_id) | ✅ (endpoint abierto) |
-| Shalom | `POST /v1/shalom/track` (guía + clave) | ✅ con `SHALOM_CAPTCHA_PROVIDER=playwright` (si no, 501) |
+| Shalom | `POST /v1/shalom/track`, `/track/batch` (hasta 20, 1 por guía) | ✅ con `SHALOM_CAPTCHA_PROVIDER=playwright` (si no, 501) |
+| Webhooks | `/v1/webhooks`, `/v1/{shalom,olva}/tracking/subscriptions` | ✅ worker cada 10 min (Cloud Scheduler) |
+| Demo | `GET /v1/public/{shalom,olva}/agencies?q=` (sin key, 30/min por IP) | ✅ |
 | SUNAT | `/v1/sunat/*` | 🚧 stub (501), ver doc §3 |
 | Auth | `GET /v1/validate` | ✅ valida key y cuota |
+
+Límite por minuto: 1.000 requests por API key (y 3.000 por IP), aparte de la cuota mensual del plan.
+Agencias, ubigeos y ubicaciones se guardan en memoria (6 h y 24 h): los endpoints gratuitos no le pegan a las webs de los couriers en cada request.
+
+### Agencias y ubicaciones
+
+- `GET /agencies?q=&department=&province=&district=` filtra por nombre (sin tildes).
+- `GET /agencies/search?near=lat,lng&radiusKm=&air=1&limit=` ordena por distancia
+  (`distanceKm`); por defecto solo las que reciben envíos. `air` solo lo informa Shalom.
+- `GET /locations/departments` → `/departments/{dep}/provinces` → `/provinces/{prov}/districts`:
+  `id` es el ubigeo del INEI (2, 4 y 6 dígitos), igual en Shalom y Olva; `15` o `1501` / `01` valen.
+
+### Webhooks y guías vigiladas
+
+1. `PUT /v1/webhooks {"url":"https://…"}`: el webhook es de la cuenta (una key con
+   dueño). La primera vez, o con `"rotateSecret": true`, devuelve el secreto `whsec_…`
+   completo: no se vuelve a mostrar. Solo https a hosts públicos (se bloquean IPs
+   privadas y de metadatos al guardar y al enviar).
+2. `POST /v1/{shalom,olva}/tracking/subscriptions {"orderNumber","orderCode"}` (1 consulta):
+   valida la guía y la vigila hasta que se entrega o devuelve (máx. 60 días). Shalom
+   resuelve el captcha una sola vez: se guarda el `ose_id`, **no la clave**. Plan gratis:
+   5 guías a la vez por API.
+3. El worker (`POST /v1/internal/cron/tick` con `x-cron-secret`, Cloud Scheduler cada
+   10 min) revisa cada guía según su estado (30 min a 2 h) y, si cambió, manda
+   `tracking.updated` con el seguimiento normalizado (sin datos personales).
+4. Reintentos: 1 min, 5 min, 30 min, 2 h y 12 h; después queda `dead`.
+   `GET /v1/webhooks/deliveries` muestra el historial y
+   `POST /v1/webhooks/deliveries/{id}/redeliver` lo reenvía. `POST /v1/webhooks/test` prueba la URL.
+
+Verificar la firma en el receptor (Node):
+
+```js
+import { createHmac, timingSafeEqual } from 'node:crypto';
+// rawBody: el cuerpo tal como llegó (sin parsear); header: x-mathyu-signature
+function verify(rawBody, header, secret) {
+  const { t, v1 } = Object.fromEntries(header.split(',').map((p) => p.split('=')));
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false; // más de 5 min: reenvío
+  const expected = createHmac('sha256', secret).update(`${t}.${rawBody}`).digest('hex');
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
+}
+```
 
 ### API keys, planes y cuota
 

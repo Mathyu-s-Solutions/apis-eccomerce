@@ -12,6 +12,9 @@ export interface AppConfig {
     timeoutMs: number;
     retries: number;
   };
+  cron: {
+    secret?: string;
+  };
   auth: {
     databaseUrl?: string;
     devApiKey?: string;
@@ -45,6 +48,9 @@ export function buildConfig(env: Env): AppConfig {
     http: {
       timeoutMs: env.HTTP_TIMEOUT_MS,
       retries: env.HTTP_RETRIES,
+    },
+    cron: {
+      secret: env.CRON_SECRET,
     },
     auth: {
       databaseUrl: env.DATABASE_URL,

@@ -49,6 +49,7 @@ export function mapShalomAgency(a: Record<string, any>): Agency {
     longitude: a.longitud ? Number(a.longitud) : undefined,
     schedule: shalomSchedule(a),
     receivesShipments: Number(a.destino) === 1,
+    airService: Number(a.ter_aereo) === 1,
     raw: a,
   };
 }

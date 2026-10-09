@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Param,
   Post,
   Query,
 } from '@nestjs/common';
@@ -22,12 +23,18 @@ import {
   type RawQueryDto,
   withRaw,
 } from '../../common/courier/raw-query';
+import {
+  AgenciesQuerySchema,
+  type AgenciesQueryDto,
+  AgenciesSearchSchema,
+  type AgenciesSearchDto,
+  searchAgencies,
+} from '../../common/courier/agency-search';
+import { orNotFound } from '../../common/courier/locations';
 import { Cost } from '../../auth/cost.decorator';
 import { ForProduct } from '../../auth/product.decorator';
 import { OlvaService } from './olva.service';
 import {
-  OlvaAgenciesQuerySchema,
-  type OlvaAgenciesQueryDto,
   OlvaQuoteSchema,
   type OlvaQuoteDto,
   OlvaTrackBatchSchema,
@@ -93,21 +100,59 @@ export class OlvaController {
 
   @Get('agencies')
   @Cost(0)
-  @ApiOperation({ summary: 'Lista agencias/tiendas de Olva (cacheable)' })
+  @ApiOperation({
+    summary: 'Lista agencias/tiendas de Olva (cacheable)',
+    description: 'Filtros por nombre, sin tildes: q, department, province, district.',
+  })
   @ApiQuery(RAW_QUERY)
   async agencies(
-    @Query(new ZodValidationPipe(OlvaAgenciesQuerySchema))
-    query: OlvaAgenciesQueryDto,
+    @Query(new ZodValidationPipe(AgenciesQuerySchema)) query: AgenciesQueryDto,
   ) {
     const list = await this.olva.agencies(query);
     return list.map((a) => withRaw(a, query.raw));
   }
 
+  @Get('agencies/search')
+  @Cost(0)
+  @ApiOperation({
+    summary: 'Busca agencias de Olva por ubicación o cercanía',
+    description:
+      '`near=lat,lng` ordena por distancia (`distanceKm`) y `radiusKm` limita el radio. `limit` hasta 200 (20 por defecto). Olva no informa servicio aéreo.',
+  })
+  @ApiQuery(RAW_QUERY)
+  async search(
+    @Query(new ZodValidationPipe(AgenciesSearchSchema)) query: AgenciesSearchDto,
+  ) {
+    const list = searchAgencies(await this.olva.allAgencies(), query);
+    return list.map((a) => withRaw(a, query.raw));
+  }
+
   @Get('locations/ubigeos')
   @Cost(0)
-  @ApiOperation({ summary: 'Catálogo de ubigeos de Olva' })
+  @ApiOperation({ summary: 'Catálogo de ubigeos de Olva (lista plana)' })
   ubigeos() {
     return this.olva.ubigeos();
+  }
+
+  @Get('locations/departments')
+  @Cost(0)
+  @ApiOperation({ summary: 'Departamentos (id = ubigeo INEI de 2 dígitos)' })
+  departments() {
+    return this.olva.departments();
+  }
+
+  @Get('locations/departments/:department/provinces')
+  @Cost(0)
+  @ApiOperation({ summary: 'Provincias de un departamento (id de 4 dígitos)' })
+  async provinces(@Param('department') department: string) {
+    return orNotFound(await this.olva.provinces(department), 'No existe ese departamento.');
+  }
+
+  @Get('locations/departments/:department/provinces/:province/districts')
+  @Cost(0)
+  @ApiOperation({ summary: 'Distritos de una provincia (id = ubigeo de 6 dígitos)' })
+  async districts(@Param('department') department: string, @Param('province') province: string) {
+    return orNotFound(await this.olva.districts(department, province), 'No existe esa provincia en ese departamento.');
   }
 
   @Post('quote')

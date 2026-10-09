@@ -24,6 +24,9 @@ model User {
   payments      Payment[]
   subscriptions Subscription[]
   planUsage     PlanUsage[]
+  webhook       Webhook?
+  tracking      TrackingSubscription[]
+  deliveries    WebhookDelivery[]
 
   @@map("users")
 }
@@ -105,4 +108,60 @@ model PlanUsage {
 
   @@id([userId, product, period])
   @@map("plan_usage")
+}
+
+model Webhook {
+  userId    String   @id @map("user_id")
+  url       String
+  secret    String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("webhooks")
+}
+
+model TrackingSubscription {
+  id            String            @id @default(cuid())
+  userId        String            @map("user_id")
+  product       String
+  orderNumber   String            @map("order_number")
+  orderCode     String?           @map("order_code")
+  upstreamRef   String?           @map("upstream_ref")
+  status        String?
+  fingerprint   String?
+  active        Boolean           @default(true)
+  nextCheckAt   DateTime          @default(now()) @map("next_check_at")
+  lastCheckedAt DateTime?         @map("last_checked_at")
+  failures      Int               @default(0)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries    WebhookDelivery[]
+
+  @@unique([userId, product, orderNumber])
+  @@index([active, nextCheckAt])
+  @@map("tracking_subscriptions")
+}
+
+model WebhookDelivery {
+  id             String                @id @default(cuid())
+  userId         String                @map("user_id")
+  subscriptionId String?               @map("subscription_id")
+  event          String
+  payload        Json
+  status         String                @default("pending")
+  attempts       Int                   @default(0)
+  nextAttemptAt  DateTime              @default(now()) @map("next_attempt_at")
+  lastStatus     Int?                  @map("last_status")
+  lastError      String?               @map("last_error")
+  deliveredAt    DateTime?             @map("delivered_at")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription   TrackingSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, createdAt])
+  @@map("webhook_deliveries")
 }

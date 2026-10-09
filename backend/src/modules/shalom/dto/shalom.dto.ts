@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { RawQuerySchema } from '../../../common/courier/raw-query';
 
 export const ShalomTrackSchema = z.object({
   orderNumber: z
@@ -20,9 +19,9 @@ export const ShalomStatusSchema = z.object({
 });
 export type ShalomStatusDto = z.infer<typeof ShalomStatusSchema>;
 
-export const ShalomAgenciesQuerySchema = RawQuerySchema.extend({
-  q: z.string().trim().optional(),
-  department: z.string().trim().optional(),
-  province: z.string().trim().optional(),
+/** Cada guía resuelve un captcha: hasta 20 por llamada. */
+export const SHALOM_BATCH_MAX = 20;
+export const ShalomTrackBatchSchema = z.object({
+  orders: z.array(ShalomTrackSchema).min(1).max(SHALOM_BATCH_MAX),
 });
-export type ShalomAgenciesQueryDto = z.infer<typeof ShalomAgenciesQuerySchema>;
+export type ShalomTrackBatchDto = z.infer<typeof ShalomTrackBatchSchema>;

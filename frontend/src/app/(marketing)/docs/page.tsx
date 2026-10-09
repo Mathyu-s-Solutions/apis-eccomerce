@@ -77,7 +77,7 @@ export default async function DocsPage() {
                     <span className={`inline-flex w-16 justify-center rounded-md px-2 py-1 text-xs font-bold ${methodTone[e.method]}`}>
                       {e.method}
                     </span>
-                    <code className="flex-1 text-sm">{brand.apiPrefix}{e.path}</code>
+                    <code className="min-w-0 flex-1 break-all text-sm">{e.absolute ? e.path : `${brand.apiPrefix}${e.path}`}</code>
                     <span className="hidden text-sm text-[var(--muted)] sm:block">{e.summary}</span>
                     {e.cost && <Badge tone={e.cost === 'gratis' ? 'success' : 'accent'}>{e.cost}</Badge>}
                   </div>
