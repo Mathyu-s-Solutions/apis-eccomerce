@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ZodValidationPipe } from '../../common/zod/zod-validation.pipe';
 import { Cost } from '../../auth/cost.decorator';
 import { CurrentKey } from '../../auth/current-key.decorator';
@@ -31,6 +32,7 @@ export class ShalomSubscriptionsController {
   @Post()
   @HttpCode(HttpStatus.OK)
   @Cost(1)
+  @Throttle({ key: { limit: 60, ttl: 60_000 } })
   @ApiOperation(SUBSCRIBE)
   subscribe(@CurrentKey() key: ApiKeyRecord, @Body(new ZodValidationPipe(ShalomTrackSchema)) dto: ShalomTrackDto) {
     return this.subs.subscribe(key, 'shalom', dto);

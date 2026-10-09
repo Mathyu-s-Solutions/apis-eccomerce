@@ -40,6 +40,8 @@ export interface Agency {
   receivesShipments: boolean;
   /** Acepta envíos aéreos (solo Shalom lo informa). */
   airService?: boolean;
+  /** Se puede despachar desde aquí (solo Shalom lo informa: algunas solo reciben). */
+  sendsShipments?: boolean;
   raw?: unknown;
 }
 

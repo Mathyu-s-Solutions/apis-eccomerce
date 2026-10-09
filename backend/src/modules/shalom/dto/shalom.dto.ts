@@ -19,6 +19,15 @@ export const ShalomStatusSchema = z.object({
 });
 export type ShalomStatusDto = z.infer<typeof ShalomStatusSchema>;
 
+/** Cotización entre dos agencias (su `code` de GET /agencies). */
+export const ShalomQuoteSchema = z.object({
+  origin: z.string().trim().regex(/^\d{1,6}$/, 'origin: el code de la agencia de origen'),
+  destination: z.string().trim().regex(/^\d{1,6}$/, 'destination: el code de la agencia de destino'),
+  air: z.boolean().optional(),
+  homeDelivery: z.boolean().optional(),
+});
+export type ShalomQuoteDto = z.infer<typeof ShalomQuoteSchema>;
+
 /** Cada guía resuelve un captcha: hasta 20 por llamada. */
 export const SHALOM_BATCH_MAX = 20;
 export const ShalomTrackBatchSchema = z.object({

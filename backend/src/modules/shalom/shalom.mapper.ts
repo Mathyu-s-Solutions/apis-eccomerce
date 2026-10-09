@@ -50,6 +50,7 @@ export function mapShalomAgency(a: Record<string, any>): Agency {
     schedule: shalomSchedule(a),
     receivesShipments: Number(a.destino) === 1,
     airService: Number(a.ter_aereo) === 1,
+    sendsShipments: Number(a.origen) === 1,
     raw: a,
   };
 }

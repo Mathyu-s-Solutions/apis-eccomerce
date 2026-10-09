@@ -19,14 +19,15 @@ export class OlvaService implements CourierAdapter {
   // Catálogos: cambian poco y los piden los endpoints gratuitos.
   private readonly storesCache = new TtlCache<Agency[]>(6 * 60 * 60 * 1000);
   private readonly ubigeosCache = new TtlCache<{ rows: unknown[]; tree: PlaceTree }>(24 * 60 * 60 * 1000);
+  // Un minuto: el que consulta seguido la misma guía no le pega a Olva cada vez.
+  private readonly trackCache = new TtlCache<Record<string, any> | null>(60_000);
 
   constructor(private readonly upstream: OlvaUpstream) {}
 
   /** `null` = Olva no tiene esa guía (con ese año de emisión). */
   async track(query: TrackQuery): Promise<TrackingResult | null> {
-    const raw = await this.upstream.getTrackingInformation(
-      query.orderNumber,
-      query.orderCode,
+    const raw = await this.trackCache.get(`${query.orderNumber}:${query.orderCode ?? ''}`, () =>
+      this.upstream.getTrackingInformation(query.orderNumber, query.orderCode),
     );
     return raw ? mapTracking(query.orderNumber, raw) : null;
   }

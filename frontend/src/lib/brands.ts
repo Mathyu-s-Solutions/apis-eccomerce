@@ -109,7 +109,7 @@ export const BRANDS: Record<BrandId, Brand> = {
     tagline: 'Integra Shalom en tu ecommerce',
     heroTitle: 'Tu ecommerce, conectado a Shalom',
     heroSubtitle:
-      'Rastrea envíos, encuentra la agencia más cercana y recibe webhooks cuando cambia una guía de Shalom, con una API REST simple y tu propia cuota.',
+      'Rastrea envíos, cotiza tarifas terrestres y aéreas, encuentra la agencia más cercana y recibe webhooks cuando cambia una guía de Shalom. Consultas ilimitadas desde S/ 25.',
     theme: {
       font: 'fira',
       foreground: '#222F5C',
@@ -134,8 +134,8 @@ export const BRANDS: Record<BrandId, Brand> = {
     apiPrefix: '/v1/shalom',
     features: [
       { icon: 'MapPin', title: 'Rastreo de envíos', description: 'Consulta el estado de una guía por número y clave, o por su id interno, con estados normalizados.' },
-      { icon: 'Building2', title: 'Agencias', description: 'Más de 550 agencias de Shalom con dirección, horarios y coordenadas, filtrables por departamento, provincia y distrito.' },
-      { icon: 'MapPin', title: 'La agencia más cercana', description: 'Busca por cercanía a un punto (y con servicio aéreo), con la distancia en km. Departamentos, provincias y distritos con ubigeo INEI.' },
+      { icon: 'Building2', title: 'Agencias', description: 'Más de 550 agencias con horarios y coordenadas: la más cercana a un punto (y con servicio aéreo), y departamentos, provincias y distritos.' },
+      { icon: 'Calculator', title: 'Cotización', description: 'Tarifa entre dos agencias, terrestre o aérea: mínimo, precio por tamaño de caja, tiempo de llegada y recargo a domicilio.' },
       { icon: 'Webhook', title: 'Webhooks', description: 'Vigilamos tus guías y te avisamos con un webhook firmado cuando cambian de estado, sin hacer polling.' },
       { icon: 'Gauge', title: 'Un panel para todo', description: 'La cuota de tu plan, compartida por todas tus keys, y tus otras APIs en el mismo panel.' },
       { icon: 'ShieldCheck', title: 'Estable y monitoreado', description: 'Nos encargamos de los cambios en Shalom para que tu integración no se rompa.' },
@@ -162,11 +162,19 @@ export const BRANDS: Record<BrandId, Brand> = {
           { method: 'GET', path: '/v1/public/shalom/agencies', absolute: true, summary: 'Demo sin API key (hasta 20 agencias)', cost: 'gratis' },
         ],
       },
+      {
+        title: 'Cotización',
+        description: 'Tarifas entre agencias.',
+        endpoints: [
+          { method: 'POST', path: '/quote', summary: 'Cotiza entre dos agencias (air: aéreo, homeDelivery: a domicilio)', cost: '1 consulta' },
+        ],
+      },
       WEBHOOKS_DOCS,
     ],
     quickstart: [
       { label: 'Rastrear una guía', code: curl('/v1/shalom', 'POST', '/track', '{"orderNumber":"12345678","orderCode":"AB12"}') },
       { label: 'Buscar agencias en Arequipa', code: curl('/v1/shalom', 'GET', '/agencies?department=AREQUIPA') },
+      { label: 'Cotizar Lima → Arequipa (aéreo)', code: curl('/v1/shalom', 'POST', '/quote', '{"origin":"220","destination":"7","air":true}') },
     ],
   },
   olva: {

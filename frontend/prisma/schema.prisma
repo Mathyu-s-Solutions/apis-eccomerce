@@ -165,3 +165,13 @@ model WebhookDelivery {
   @@index([userId, createdAt])
   @@map("webhook_deliveries")
 }
+
+model ShalomGuide {
+  keyHash     String   @id @map("key_hash")
+  oseId       String   @map("ose_id")
+  transitTime String?  @map("transit_time")
+  createdAt   DateTime @default(now()) @map("created_at")
+  lastUsedAt  DateTime @default(now()) @map("last_used_at")
+
+  @@map("shalom_guides")
+}
