@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Loader2, Smartphone, Upload } from 'lucide-react';
+import { Download, Loader2, Smartphone, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, Input, Label, Select, Alert } from '@/components/ui/primitives';
 import { formatSoles } from '@/lib/utils';
+
+const YAPE_QR = '/pay/yape-qr.png';
 
 /** Algo que se puede pagar: `plan:<api>:<plan>` o `bundle:<pack>`. */
 export interface PaymentChoice {
@@ -101,10 +104,23 @@ export function PaymentForm({ choices, initial, yape, plin, payName }: Props) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <div className="flex items-center gap-2 text-sm font-medium"><Smartphone size={16} /> {method === 'yape' ? 'Yapea' : 'Plinea'} a este número</div>
-          <p className="mt-2 text-2xl font-bold tracking-wide">{number}</p>
-          <p className="text-sm text-[var(--muted)]">{payName} · {choice ? formatSoles(choice.amountPen) : ''}</p>
+        <div className="flex flex-col gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center">
+          {method === 'yape' && (
+            // QR estático: quien paga escribe el monto. Sin optimizar para que no se recomprima.
+            <Image src={YAPE_QR} alt="QR de Yape" width={224} height={218} unoptimized className="w-44 shrink-0 rounded-lg" />
+          )}
+          <div>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Smartphone size={16} /> {method === 'yape' ? 'Escanea el QR o yapea' : 'Plinea'} a este número
+            </div>
+            <p className="mt-2 text-2xl font-bold tracking-wide">{number}</p>
+            <p className="text-sm text-[var(--muted)]">{payName} · {choice ? formatSoles(choice.amountPen) : ''}</p>
+            {method === 'yape' && (
+              <a href={YAPE_QR} download="yape-mathyu.png" className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent)] hover:underline">
+                <Download size={14} /> Descargar QR
+              </a>
+            )}
+          </div>
         </div>
 
         <div>
