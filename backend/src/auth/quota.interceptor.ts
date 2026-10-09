@@ -9,7 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { catchError, from, type Observable, switchMap, throwError } from 'rxjs';
 import { API_KEY_STORE, type ApiKeyRecord, type ApiKeyStore } from './api-key.store';
-import { BILLING_COST_KEY } from './cost.decorator';
+import { BILLING_COST_KEY, costOf, type CostFn } from './cost.decorator';
 import { REQUEST_KEY_PROP } from './current-key.decorator';
 import { PRODUCT_KEY, type Product } from './product.decorator';
 
@@ -31,11 +31,10 @@ export class QuotaInterceptor implements NestInterceptor {
   ) {}
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const cost =
-      this.reflector.getAllAndOverride<number>(BILLING_COST_KEY, [
-        ctx.getHandler(),
-        ctx.getClass(),
-      ]) ?? 0;
+    const units = this.reflector.getAllAndOverride<number | CostFn | undefined>(BILLING_COST_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
 
     const product = this.reflector.getAllAndOverride<Product | undefined>(PRODUCT_KEY, [
       ctx.getHandler(),
@@ -44,6 +43,7 @@ export class QuotaInterceptor implements NestInterceptor {
 
     const req = ctx.switchToHttp().getRequest();
     const record: ApiKeyRecord | undefined = req[REQUEST_KEY_PROP];
+    const cost = costOf(units, req);
 
     if (cost <= 0 || !record) return next.handle();
 

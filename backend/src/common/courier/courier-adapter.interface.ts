@@ -38,7 +38,18 @@ export interface Agency {
   schedule: WeekSchedule | null;
   /** `false` = la agencia solo despacha: no se puede elegir como destino. */
   receivesShipments: boolean;
+  /** Acepta envíos aéreos (solo Shalom lo informa). */
+  airService?: boolean;
   raw?: unknown;
+}
+
+/**
+ * Departamento, provincia o distrito. `id` es el ubigeo del INEI: 2 dígitos el
+ * departamento, 4 la provincia y 6 el distrito (iguales en Shalom y Olva).
+ */
+export interface Place {
+  id: string;
+  name: string;
 }
 
 /**
@@ -50,5 +61,10 @@ export interface CourierAdapter {
   readonly carrier: 'shalom' | 'olva';
   /** `null` = el courier no tiene esa guía. */
   track(query: TrackQuery): Promise<TrackingResult | null>;
-  agencies(filter?: { q?: string; department?: string; province?: string }): Promise<Agency[]>;
+  agencies(filter?: { q?: string; department?: string; province?: string; district?: string }): Promise<Agency[]>;
+  departments(): Promise<Place[]>;
+  /** `null` = no existe ese departamento. */
+  provinces(department: string): Promise<Place[] | null>;
+  /** `null` = no existe esa provincia en ese departamento. */
+  districts(department: string, province: string): Promise<Place[] | null>;
 }

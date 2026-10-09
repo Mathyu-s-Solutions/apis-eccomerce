@@ -108,11 +108,11 @@ jobs:
             --concurrency=20 \
             --min-instances=0 \
             --max-instances=2 \
-            --timeout=60 \
+            --timeout=300 \
             --port=8080 \
             --allow-unauthenticated \
-            --set-env-vars="NODE_ENV=production,LOG_LEVEL=info,SHALOM_CAPTCHA_PROVIDER=playwright" \
-            --set-secrets="DATABASE_URL=database-url:latest" \
+            --set-env-vars="NODE_ENV=production,LOG_LEVEL=info,SHALOM_CAPTCHA_PROVIDER=playwright,SHALOM_CAPTCHA_POOL_SIZE=2" \
+            --set-secrets="DATABASE_URL=database-url:latest,CRON_SECRET=cron-secret:latest" \
             --quiet
 
       - name: Smoke test

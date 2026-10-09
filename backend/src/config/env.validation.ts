@@ -22,6 +22,8 @@ export const envSchema = z.object({
   DIRECT_DATABASE_URL: optionalUrl,
 
   DEV_API_KEY: z.string().optional(),
+  // Secreto del worker (Cloud Scheduler → POST /v1/internal/cron/tick). Sin él, el worker no corre.
+  CRON_SECRET: z.string().min(24).optional(),
   DEV_API_KEY_MONTHLY_LIMIT: z.coerce.number().int().positive().default(100000),
   API_KEYS: z.string().optional(),
 

@@ -13,6 +13,9 @@ import { HealthModule } from './health/health.module';
 import { OlvaModule } from './modules/olva/olva.module';
 import { ShalomModule } from './modules/shalom/shalom.module';
 import { SunatModule } from './modules/sunat/sunat.module';
+import { PublicModule } from './modules/public/public.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { apiKeyTracker } from './auth/throttle';
 
 const CLOUD_SEVERITY: Record<string, string> = {
   trace: 'DEBUG',
@@ -48,7 +51,12 @@ const CLOUD_SEVERITY: Record<string, string> = {
       },
     }),
     ThrottlerModule.forRoot({
-      throttlers: [{ ttl: 60_000, limit: 120 }], // 120 req/min por IP por defecto
+      throttlers: [
+        // Por API key (la cuota mensual del plan es aparte): 1.000 por minuto.
+        { name: 'key', ttl: 60_000, limit: 1000, getTracker: apiKeyTracker },
+        // Tope por IP: con keys inventadas cada una sería un límite nuevo.
+        { name: 'ip', ttl: 60_000, limit: 3000 },
+      ],
     }),
     HttpModule,
     PrismaModule,
@@ -57,6 +65,8 @@ const CLOUD_SEVERITY: Record<string, string> = {
     OlvaModule,
     ShalomModule,
     SunatModule,
+    PublicModule,
+    WebhooksModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

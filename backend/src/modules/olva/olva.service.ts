@@ -2,9 +2,13 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   Agency,
   CourierAdapter,
+  Place,
   TrackQuery,
 } from '../../common/courier/courier-adapter.interface';
 import type { TrackingResult } from '../../common/courier/tracking.model';
+import { TtlCache } from '../../common/cache/ttl-cache';
+import { filterAgencies } from '../../common/courier/agency-search';
+import { PlaceTree } from '../../common/courier/locations';
 import { OlvaUpstream } from './olva.upstream';
 import { mapStore, mapTracking } from './olva.mapper';
 import type { OlvaQuoteDto } from './dto/olva.dto';
@@ -12,6 +16,9 @@ import type { OlvaQuoteDto } from './dto/olva.dto';
 @Injectable()
 export class OlvaService implements CourierAdapter {
   readonly carrier = 'olva' as const;
+  // Catálogos: cambian poco y los piden los endpoints gratuitos.
+  private readonly storesCache = new TtlCache<Agency[]>(6 * 60 * 60 * 1000);
+  private readonly ubigeosCache = new TtlCache<{ rows: unknown[]; tree: PlaceTree }>(24 * 60 * 60 * 1000);
 
   constructor(private readonly upstream: OlvaUpstream) {}
 
@@ -30,33 +37,48 @@ export class OlvaService implements CourierAdapter {
     return Promise.all(queries.map((q) => this.track(q)));
   }
 
-  async agencies(filter?: {
-    q?: string;
-    department?: string;
-    province?: string;
-  }): Promise<Agency[]> {
-    const stores = await this.upstream.getStores();
-    let result = stores.map(mapStore);
+  /** Todas las agencias (con caché de 6 h). */
+  allAgencies(): Promise<Agency[]> {
+    return this.storesCache.get('all', async () => (await this.upstream.getStores()).map(mapStore), (l) => l.length > 0);
+  }
 
-    if (filter?.department) {
-      const d = norm(filter.department);
-      result = result.filter((a) => norm(a.department).includes(d));
-    }
-    if (filter?.province) {
-      const p = norm(filter.province);
-      result = result.filter((a) => norm(a.province).includes(p));
-    }
-    if (filter?.q) {
-      const q = norm(filter.q);
-      result = result.filter((a) =>
-        norm(`${a.name} ${a.address} ${a.district} ${a.province} ${a.department}`).includes(q),
-      );
-    }
-    return result;
+  async agencies(filter: { q?: string; department?: string; province?: string; district?: string } = {}): Promise<Agency[]> {
+    return filterAgencies(await this.allAgencies(), filter);
+  }
+
+  private catalog() {
+    return this.ubigeosCache.get(
+      'all',
+      async () => {
+        const rows = await this.upstream.getUbigeos();
+        const tree = new PlaceTree(
+          (rows as Array<Record<string, unknown>>).map((r) => ({
+            ubigeo: String(r.ubigeo_code ?? ''),
+            department: String(r.department ?? ''),
+            province: String(r.province ?? ''),
+            district: String(r.district ?? ''),
+          })),
+        );
+        return { rows, tree };
+      },
+      (c) => c.rows.length > 0,
+    );
   }
 
   async ubigeos(): Promise<unknown[]> {
-    return this.upstream.getUbigeos();
+    return (await this.catalog()).rows;
+  }
+
+  async departments(): Promise<Place[]> {
+    return (await this.catalog()).tree.departments();
+  }
+
+  async provinces(department: string): Promise<Place[] | null> {
+    return (await this.catalog()).tree.provinces(department);
+  }
+
+  async districts(department: string, province: string): Promise<Place[] | null> {
+    return (await this.catalog()).tree.districts(department, province);
   }
 
   async quote(dto: OlvaQuoteDto): Promise<{
@@ -101,11 +123,4 @@ export class OlvaService implements CourierAdapter {
       raw: res,
     };
   }
-}
-
-function norm(s: string | undefined): string {
-  return (s ?? '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '');
 }

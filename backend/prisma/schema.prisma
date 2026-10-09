@@ -29,6 +29,9 @@ model User {
   payments      Payment[]
   subscriptions Subscription[]
   planUsage     PlanUsage[]
+  webhook       Webhook?
+  tracking      TrackingSubscription[]
+  deliveries    WebhookDelivery[]
 
   @@map("users")
 }
@@ -120,4 +123,67 @@ model PlanUsage {
 
   @@id([userId, product, period])
   @@map("plan_usage")
+}
+
+// Webhook de una cuenta: adónde avisamos cuando cambia una guía que sigue.
+model Webhook {
+  userId    String   @id @map("user_id")
+  url       String
+  // whsec_…: firma cada entrega (HMAC-SHA256). Solo se muestra al crearla o rotarla.
+  secret    String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("webhooks")
+}
+
+// Guía que el worker vigila para avisar por webhook cuando cambia de estado.
+model TrackingSubscription {
+  id            String            @id @default(cuid())
+  userId        String            @map("user_id")
+  product       String // shalom | olva
+  orderNumber   String            @map("order_number")
+  // Olva: año de emisión. Shalom: no se guarda (con la clave se retira el paquete).
+  orderCode     String?           @map("order_code")
+  // Shalom: ose_id (se rastrea sin captcha).
+  upstreamRef   String?           @map("upstream_ref")
+  status        String?
+  // Estado + último evento: si cambia, hay aviso.
+  fingerprint   String?
+  active        Boolean           @default(true)
+  nextCheckAt   DateTime          @default(now()) @map("next_check_at")
+  lastCheckedAt DateTime?         @map("last_checked_at")
+  failures      Int               @default(0)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries    WebhookDelivery[]
+
+  @@unique([userId, product, orderNumber])
+  @@index([active, nextCheckAt])
+  @@map("tracking_subscriptions")
+}
+
+// Cada aviso a un webhook (y sus reintentos).
+model WebhookDelivery {
+  id             String                @id @default(cuid())
+  userId         String                @map("user_id")
+  subscriptionId String?               @map("subscription_id")
+  event          String // tracking.updated | webhook.test
+  payload        Json
+  status         String                @default("pending") // pending | delivered | dead
+  attempts       Int                   @default(0)
+  nextAttemptAt  DateTime              @default(now()) @map("next_attempt_at")
+  lastStatus     Int?                  @map("last_status") // HTTP de la última respuesta
+  lastError      String?               @map("last_error")
+  deliveredAt    DateTime?             @map("delivered_at")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription   TrackingSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, createdAt])
+  @@map("webhook_deliveries")
 }
