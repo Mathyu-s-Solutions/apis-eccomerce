@@ -3,6 +3,7 @@ import type { AppConfig } from '../src/config/configuration';
 import { InMemoryApiKeyStore } from '../src/auth/in-memory-api-key.store';
 import { apiKeyPrefix, generateApiKey, hashApiKey } from '../src/auth/api-key.hash';
 import { QuotaExceededError } from '../src/auth/quota-exceeded.error';
+import { FREE_MONTHLY_LIMIT } from '../src/auth/plan-quota';
 
 function makeStore(auth: Partial<AppConfig['auth']>): InMemoryApiKeyStore {
   const config = {
@@ -86,13 +87,13 @@ describe('cuota por plan (keys con dueño)', () => {
   it('cada API tiene su plan; vencido o sin plan, rige el gratis', async () => {
     const store = makeStore({ apiKeysJson: seed });
     const todas = (await store.findByKey('todas'))!;
-    // Olva venció ayer: plan gratis (100).
-    expect(await store.consume(todas, 1, 'olva')).toMatchObject({ plan: 'free', limit: 100, used: 1 });
-    // SUNAT sin plan: gratis (50).
-    expect(await store.usage(todas, 'sunat')).toMatchObject({ plan: 'free', limit: 50, used: 0 });
+    // Olva venció ayer: plan gratis.
+    expect(await store.consume(todas, 1, 'olva')).toMatchObject({ plan: 'free', limit: FREE_MONTHLY_LIMIT.olva, used: 1 });
+    // SUNAT sin plan: gratis.
+    expect(await store.usage(todas, 'sunat')).toMatchObject({ plan: 'free', limit: FREE_MONTHLY_LIMIT.sunat, used: 0 });
     // La key shalom-2 no trae planes propios en la semilla: sin plan = gratis.
     const otra = (await store.findByKey('shalom-2'))!;
-    expect(await store.usage(otra, 'shalom')).toMatchObject({ plan: 'free', limit: 100 });
+    expect(await store.usage(otra, 'shalom')).toMatchObject({ plan: 'free', limit: FREE_MONTHLY_LIMIT.shalom });
   });
 
   it('una key sin dueño sigue usando su propio límite', async () => {

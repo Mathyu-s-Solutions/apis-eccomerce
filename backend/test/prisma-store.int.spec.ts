@@ -4,6 +4,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { PrismaApiKeyStore } from '../src/auth/prisma-api-key.store';
 import { hashApiKey } from '../src/auth/api-key.hash';
 import { QuotaExceededError } from '../src/auth/quota-exceeded.error';
+import { FREE_MONTHLY_LIMIT } from '../src/auth/plan-quota';
 
 /**
  * Store de Postgres contra una BD real con las migraciones aplicadas. Solo corre
@@ -71,7 +72,7 @@ describe.skipIf(!url)('PrismaApiKeyStore (Postgres)', () => {
 
   it('plan vencido = gratis; key sin dueño = su propio límite', async () => {
     const b = (await store.findByKey(`${tag}-b`))!;
-    expect(await store.consume(b, 1, 'olva')).toMatchObject({ plan: 'free', limit: 100, used: 1 });
+    expect(await store.consume(b, 1, 'olva')).toMatchObject({ plan: 'free', limit: FREE_MONTHLY_LIMIT.olva, used: 1 });
     const c = (await store.findByKey(`${tag}-c`))!;
     await store.consume(c, 1, 'olva');
     await expect(store.consume(c, 1, 'olva')).rejects.toBeInstanceOf(QuotaExceededError);
