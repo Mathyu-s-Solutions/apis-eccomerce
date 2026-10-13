@@ -216,8 +216,11 @@ function verify(rawBody, header, secret) {
 - Una key **sin dueño** (creada a mano sin `--email`) usa su propio límite.
 - `GET /v1/validate` devuelve el plan y el consumo de la API de la key (o de cada
   API en una key de todas).
-- Planes a mano: `pnpm plan:list` y `pnpm plan:set -- --email E --product P --plan X --limit N [--months N | --forever]`
-  (o desde el admin del portal). Los pagos aprobados en el portal los activan solos.
+- Planes a mano: `pnpm plan:list` y `pnpm plan:set -- --email E --product P --plan X --limit N [--months N | --until AAAA-MM-DD | --forever]`
+  (o desde el admin del portal, que también asigna packs). Los pagos aprobados en el portal los activan solos.
+- **Renovación en día fijo:** un plan vence al final de un día de Lima y cada pago lo
+  pasa al mismo día del mes siguiente, aunque se pague tarde (`frontend/src/lib/renewal.ts`).
+  Con `--until 2026-10-25` el cliente queda renovando cada 25.
 - Test contra Postgres real: `TEST_DATABASE_URL=… pnpm test` (corre
   `test/prisma-store.int.spec.ts`; sin la variable se salta).
 

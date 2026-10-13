@@ -53,7 +53,7 @@ export default async function BillingPage({
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Pagos y planes</h1>
         <p className="mt-1 text-[var(--muted)]">
-          Cada API tiene su plan y su precio. Paga con Yape o Plin: validamos tu comprobante y el plan queda activo por un mes.
+          Cada API tiene su plan y su precio. Paga con Yape o Plin: validamos tu comprobante y el plan queda activo hasta el mismo día del mes siguiente.
         </p>
       </div>
 

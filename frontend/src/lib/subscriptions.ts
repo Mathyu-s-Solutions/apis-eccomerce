@@ -2,6 +2,7 @@ import 'server-only';
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { currentPeriod } from './period';
+import { renewedExpiry } from './renewal';
 import {
   freePlan,
   getBundle,
@@ -75,15 +76,10 @@ export function paymentLabel(payment: { product: string; plan: string }): string
   return `${product} · ${plan?.name ?? payment.plan}`;
 }
 
-function addMonths(from: Date, months: number): Date {
-  const d = new Date(from);
-  d.setUTCMonth(d.getUTCMonth() + months);
-  return d;
-}
-
 /**
- * Activa los planes de un pago aprobado. Cada uno vale un mes: si es el mismo plan
- * y sigue vigente, se suma al vencimiento actual (renovación); si es otro, empieza hoy.
+ * Activa los planes de un pago aprobado. Cada uno vale un mes y se renueva el
+ * mismo día del mes: si es el mismo plan, el vencimiento pasa al mes siguiente
+ * (aunque haya vencido); si es otro, empieza hoy. Ver renewal.ts.
  */
 export async function grantPlans(
   tx: Prisma.TransactionClient,
@@ -94,9 +90,7 @@ export async function grantPlans(
   for (const item of items) {
     const where = { userId_product: { userId, product: item.product } };
     const current = await tx.subscription.findUnique({ where });
-    const renew = current?.plan === item.plan && (!current.expiresAt || current.expiresAt > now);
-    // Un plan sin vencimiento (asignado a mano) se queda sin vencimiento.
-    const expiresAt = renew && !current.expiresAt ? null : addMonths(renew ? current!.expiresAt! : now, 1);
+    const expiresAt = renewedExpiry(current, item.plan, now);
     await tx.subscription.upsert({
       where,
       create: { userId, product: item.product, plan: item.plan, monthlyLimit: item.monthlyLimit, expiresAt },
