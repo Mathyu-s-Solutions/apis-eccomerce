@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { KeyRound, LayoutDashboard, CreditCard, ShieldCheck, LogOut, FileText } from 'lucide-react';
+import { KeyRound, LayoutDashboard, CreditCard, ShieldCheck, LogOut, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { startNavigationProgress } from '@/components/site/navigation-progress';
 
 const NAV = [
   { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard, exact: true },
@@ -15,8 +17,11 @@ const NAV = [
 export function Sidebar({ isAdmin, email }: { isAdmin: boolean; email: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [leaving, setLeaving] = useState(false);
 
   async function logout() {
+    setLeaving(true);
+    startNavigationProgress();
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/');
     router.refresh();
@@ -48,9 +53,10 @@ export function Sidebar({ isAdmin, email }: { isAdmin: boolean; email: string })
       })}
       <button
         onClick={logout}
-        className="ml-auto flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)] md:ml-0 md:mt-auto"
+        disabled={leaving}
+        className="ml-auto flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)] disabled:opacity-60 md:ml-0 md:mt-auto"
       >
-        <LogOut size={17} />
+        {leaving ? <Loader2 size={17} className="animate-spin" /> : <LogOut size={17} />}
         Salir
       </button>
     </aside>

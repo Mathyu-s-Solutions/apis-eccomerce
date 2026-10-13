@@ -1,14 +1,22 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { getSite } from '@/lib/brand-server';
 import { BRAND_IDS, BRANDS } from '@/lib/brands';
-import { panelHref, siteHref } from '@/lib/urls';
+import { pageMetadata } from '@/lib/seo';
+import { panelHref } from '@/lib/urls';
 import { Card, Badge } from '@/components/ui/primitives';
 import { CodeBlock } from '@/components/ui/code-block';
 import { ButtonLink } from '@/components/ui/button';
+import { SiteLink } from '@/components/site/site-link';
 
-export const metadata: Metadata = { title: 'Documentación' };
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSite();
+  const description =
+    site.id === 'hub'
+      ? 'Documentación de Shalom API, Olva API y SUNAT API: autenticación con x-api-key, endpoints, ejemplos y costo de cada consulta.'
+      : `Documentación de ${site.name}: autenticación, endpoints, ejemplos con curl y costo de cada consulta.`;
+  return pageMetadata(site, { title: 'Documentación', description, path: '/docs' });
+}
 
 const methodTone: Record<string, string> = {
   GET: 'bg-green-100 text-green-700',
@@ -109,7 +117,7 @@ function DocsIndex() {
       </p>
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         {BRAND_IDS.map((id) => (
-          <Link key={id} href={siteHref(id, '/docs')} className="group">
+          <SiteLink key={id} site={id} path="/docs" className="group">
             <Card className="h-full p-6 transition group-hover:-translate-y-0.5 group-hover:shadow-md">
               <span className="block h-1.5 w-10 rounded-full" style={{ background: BRANDS[id].theme.signature }} />
               <h2 className="mt-4 text-lg font-semibold">{BRANDS[id].name}</h2>
@@ -119,7 +127,7 @@ function DocsIndex() {
                 Ver documentación <ArrowRight size={14} />
               </span>
             </Card>
-          </Link>
+          </SiteLink>
         ))}
       </div>
     </div>

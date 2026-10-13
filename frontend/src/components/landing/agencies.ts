@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 import { projectLatLng } from '@/lib/peru-map';
 
 export type CourierId = 'shalom' | 'olva';
@@ -55,10 +55,12 @@ export function loadAgencies(brand: CourierId): Promise<AgencySnapshot> {
   return p;
 }
 
-export function useAgencies(brand: CourierId): { data: AgencySnapshot | null; failed: boolean } {
+/** Catálogo de agencias; con `enabled` en false todavía no lo descarga. */
+export function useAgencies(brand: CourierId, enabled = true): { data: AgencySnapshot | null; failed: boolean } {
   const [state, setState] = useState<{ data: AgencySnapshot | null; failed: boolean }>({ data: null, failed: false });
 
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     loadAgencies(brand).then(
       (data) => alive && setState({ data, failed: false }),
@@ -67,7 +69,32 @@ export function useAgencies(brand: CourierId): { data: AgencySnapshot | null; fa
     return () => {
       alive = false;
     };
-  }, [brand]);
+  }, [brand, enabled]);
 
   return state;
+}
+
+/**
+ * true cuando el elemento queda a `margin` de entrar en pantalla (y ya no vuelve a false).
+ * Para descargar lo pesado de una sección recién cuando el usuario se acerca a ella.
+ */
+export function useNearViewport(ref: RefObject<Element | null>, margin = '600px'): boolean {
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || near) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        setNear(true);
+      },
+      { rootMargin: `${margin} 0px` },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, margin, near]);
+
+  return near;
 }

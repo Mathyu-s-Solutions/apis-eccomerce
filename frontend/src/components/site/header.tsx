@@ -4,8 +4,9 @@ import { BRAND_IDS, BRANDS, type Site } from '@/lib/brands';
 import { ButtonLink } from '@/components/ui/button';
 import { getCurrentUser } from '@/lib/current-user';
 import { isSiteFromHost } from '@/lib/brand-server';
-import { panelHref, siteHref } from '@/lib/urls';
+import { panelHref } from '@/lib/urls';
 import { BrandSwitcher } from './brand-switcher';
+import { SiteLink } from '@/components/site/site-link';
 
 const navLink =
   'rounded-lg px-3 py-2 font-medium text-[var(--on-header)] transition-colors hover:bg-black/6';
@@ -28,7 +29,7 @@ export async function Header({ site }: { site: Site }) {
             {hub ? 'Una cuenta para todas las APIs · Yape o Plin' : (
               <>
                 Una cuenta para todas las APIs ·{' '}
-                <Link href={siteHref('hub')} className="underline-offset-2 hover:underline">Mathyu&apos;s APIs</Link>
+                <SiteLink site="hub" className="underline-offset-2 hover:underline">Mathyu&apos;s APIs</SiteLink>
               </>
             )}
           </span>
@@ -50,7 +51,7 @@ export async function Header({ site }: { site: Site }) {
             {hub ? (
               <>
                 {BRAND_IDS.map((id) => (
-                  <Link key={id} href={siteHref(id)} className={navLink}>{BRANDS[id].product}</Link>
+                  <SiteLink key={id} site={id} className={navLink}>{BRANDS[id].product}</SiteLink>
                 ))}
                 <Link href="/pricing" className={navLink}>Precios</Link>
               </>

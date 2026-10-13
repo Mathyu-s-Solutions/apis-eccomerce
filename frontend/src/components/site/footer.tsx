@@ -1,10 +1,13 @@
 import Link from 'next/link';
 import { BRAND_IDS, BRANDS, type Site } from '@/lib/brands';
-import { panelHref, siteHref } from '@/lib/urls';
+import { contactEmail } from '@/lib/legal';
+import { panelHref } from '@/lib/urls';
+import { SiteLink } from '@/components/site/site-link';
 
 const link = 'text-[var(--on-dark-muted)] transition-colors hover:text-white';
 
 export function Footer({ site }: { site: Site }) {
+  const email = contactEmail();
   return (
     <footer className="bg-[var(--darker)] text-[var(--on-dark-muted)]">
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-14">
@@ -13,14 +16,14 @@ export function Footer({ site }: { site: Site }) {
             <p className="text-xl font-extrabold text-white">{site.name}</p>
             <p className="mt-2 text-[15px] leading-relaxed">{site.tagline}. Un producto de Mathyu&apos;s Solutions.</p>
           </div>
-          <div className="grid grid-cols-2 gap-10 text-[15px] sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-10 text-[15px] sm:auto-cols-max sm:grid-flow-col sm:grid-cols-none">
             <div>
               <p className="mb-3 font-semibold text-white">APIs</p>
               <ul className="space-y-2">
                 {BRAND_IDS.map((id) => (
-                  <li key={id}><Link href={siteHref(id)} className={link}>{BRANDS[id].name}</Link></li>
+                  <li key={id}><SiteLink site={id} className={link}>{BRANDS[id].name}</SiteLink></li>
                 ))}
-                <li><Link href={siteHref('hub', '/pricing')} className={link}>Precios y packs</Link></li>
+                <li><SiteLink site="hub" path="/pricing" className={link}>Precios y packs</SiteLink></li>
               </ul>
             </div>
             {site.id !== 'hub' && (
@@ -39,6 +42,14 @@ export function Footer({ site }: { site: Site }) {
                 <li><Link href={panelHref('/login')} className={link}>Ingresar</Link></li>
                 <li><Link href={panelHref('/register')} className={link}>Crear cuenta</Link></li>
                 <li><Link href={panelHref('/dashboard')} className={link}>Mi panel</Link></li>
+              </ul>
+            </div>
+            <div>
+              <p className="mb-3 font-semibold text-white">Legal</p>
+              <ul className="space-y-2">
+                <li><Link href="/terminos" className={link}>Términos y condiciones</Link></li>
+                <li><Link href="/privacidad" className={link}>Política de privacidad</Link></li>
+                <li><a href={`mailto:${email}`} className={link}>Contacto</a></li>
               </ul>
             </div>
           </div>
