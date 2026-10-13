@@ -123,9 +123,16 @@ Aquí no hace falta ingeniería inversa: SUNAT publica los servicios oficiales. 
 | Reporte de compras/ventas (RCE/RVIE) | SIRE: `https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/...` | OAuth2 password grant con SOL | ✅ 401 sin token |
 | Consulta RUC | Padrón reducido: `https://www2.sunat.gob.pe/padron_reducido_ruc.zip` (~393 MB, diario). Se importa a una BD propia | ninguna | ✅ actualizado el 2026-10-07 |
 | Consulta DNI | **No hay fuente oficial gratuita.** RENIEC solo vía PIDE o convenio pagado | — | — |
-| Tipo de cambio SBS | Scraping de sbs.gob.pe | — | sin probar |
+| Tipo de cambio SBS | API de estadísticas del BCRP (series diarias) | ninguna | ✅ dólar y euro |
 
 - Librería de referencia: **Greenter** (PHP, activa, ~370★) cubre UBL, firma y SOAP. En Node se puede armar con `xml-crypto` + `node-forge` + un cliente SOAP.
+
+**Actualización 2026-10-12 (implementado en `backend/src/modules/sunat`):**
+
+- **Beta SOAP:** acepta cualquier RUC con el usuario `MODDATOS` / `moddatos` y un certificado autofirmado, y valida de verdad (firma y reglas). Corta las ráfagas con un `401` en HTML (~1 request por segundo): se reintenta. Los rechazos llegan como SOAP Fault con el código de SUNAT.
+- **Guías (GRE):** no hay beta oficial. Se usa el entorno público `https://gre-test.nubefact.com/v1` (el de la documentación de Greenter: client id `test-85e5b0ae-…`, usuario `MODDATOS`), que valida esquema y reglas. El token exige `Content-Type: application/x-www-form-urlencoded` exacto (sin `; charset`). En transporte público la fecha de entrega al transportista va en `cac:LoadingTransportEvent/cbc:OccurrenceDate` (si falta: error 3617). En la guía de transportista, el remitente va en `cac:Despatch/cac:DespatchParty`, quien subcontrata en `cac:Consignment/cac:LogisticsOperatorParty` y el tercero que paga el flete en `cac:OriginatorCustomerParty`.
+- **Consulta RUC:** `e-consultaruc.sunat.gob.pe` está tras un desafío de Cloudflare. **No se evade:** se usa el padrón reducido (18,5 millones de filas, sin ordenar, ISO-8859-1), que no trae nombre comercial ni actividades económicas.
+- **Tipo de cambio:** la SBS (Incapsula) y SUNAT (WAF) bloquean las consultas automáticas. Se usa la API del BCRP: series `PD04639PD`/`PD04640PD` (SBS compra/venta, dólar) y `PD04647PD`/`PD04648PD` (euro). Sin un `User-Agent` de navegador su PHP pega una traza de error después del JSON, y a las consultas muy seguidas responde HTML: se guarda cada fecha en BD y se reintenta.
 - Si vamos a emitir **en nombre de terceros**, verificar con un contador si hay que inscribirse como PSE ante SUNAT. Ser OSE es otra figura, con homologación.
 
 ---

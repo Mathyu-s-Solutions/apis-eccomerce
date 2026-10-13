@@ -67,7 +67,12 @@ Todas las rutas bajo `/v1` requieren la cabecera `x-api-key`.
 | Shalom | `POST /v1/shalom/quote` (terrestre o aéreo, recargo a domicilio) | ✅ captcha `tarifa_mostrar`, una vez por ruta cada 6 h |
 | Webhooks | `/v1/webhooks`, `/v1/{shalom,olva}/tracking/subscriptions` | ✅ worker cada 10 min (Cloud Scheduler) |
 | Demo | `GET /v1/public/{shalom,olva}/agencies?q=` (sin key, 30/min por IP) | ✅ |
-| SUNAT | `/v1/sunat/*` | 🚧 stub (501), ver doc §3 |
+| SUNAT | `POST /v1/sunat/documents` (factura, boleta, nota de crédito y débito) | ✅ XML UBL 2.1 firmado, `sendBill`, CDR y PDF |
+| SUNAT | `POST /v1/sunat/voided`, `/daily-summary`, `/status`, `GET /documents` | ✅ baja, resumen diario y estado (reintenta los pendientes) |
+| SUNAT | `POST /v1/sunat/dispatches` (guía de remitente y de transportista) | ✅ API REST de SUNAT (token, ticket, CDR) |
+| SUNAT | `GET/POST/DELETE /v1/sunat/companies` | ✅ empresas emisoras con credenciales cifradas |
+| SUNAT | `GET /v1/sunat/ruc/:ruc`, `/dni/:dni`, `/exchange-rate`, `/catalogs` | ✅ padrón reducido (`PADRON_URL`) y BCRP |
+| SUNAT | `GET /v1/sunat/files/:token/:archivo` (sin key) | ✅ XML firmado, CDR y PDF (A4 y ticket) |
 | Auth | `GET /v1/validate` | ✅ valida key y cuota |
 
 Límite por minuto: 1.000 requests por API key (y 3.000 por IP), aparte de la cuota mensual del plan.
@@ -80,6 +85,61 @@ guarda su `ose_id` en `shalom_guides` (con un hash scrypt de guía + clave; la c
 guarda). Las siguientes van directo a `rastrea/estados`, sin captcha. Además, el estado de una
 guía (Shalom y Olva) se guarda 60 s en memoria.
 Agencias, ubigeos y ubicaciones se guardan en memoria (6 h y 24 h): los endpoints gratuitos no le pegan a las webs de los couriers en cada request.
+
+### SUNAT: facturación electrónica
+
+El JSON de entrada y la respuesta (`success`, `message`, `payload`) son los de
+apisunat.pe, para que migrar sea cambiar la URL y la key (se acepta `x-api-key`
+o `Authorization: Bearer`). Lo que hacemos de más: correlativo automático si no
+mandas `numero`, `GET /documents` y ticket de 80 mm.
+
+1. **Empresa emisora** (`POST /v1/sunat/companies`): RUC, razón social y dirección
+   (con el `ubigeo` se completan departamento, provincia y distrito). Una cuenta
+   puede tener varias; con más de una, la request indica cuál con la cabecera `x-ruc`.
+2. **Beta primero:** una empresa nueva queda en `ambiente: "beta"` y emite de
+   inmediato contra SUNAT beta, con el usuario de pruebas de SUNAT y un
+   certificado autofirmado. En beta **no se consume cuota**.
+3. **Producción:** se cargan `sol_usuario` + `sol_clave` (usuario secundario SOL)
+   y `certificado` (.pfx/.p12 en base64 o PEM) + `certificado_clave`, y se pasa a
+   `ambiente: "produccion"`. Las guías, además, usan `api_client_id` y
+   `api_client_secret` (credenciales de API de SUNAT). Todo se guarda cifrado con
+   `SUNAT_SECRETS_KEY` (AES-256-GCM) y nunca se devuelve.
+4. **Emisión:** se calcula (decimales exactos, IGV por ítem), se firma (XMLDSig
+   RSA-SHA256) y se guarda como `PENDIENTE` *antes* de enviarlo. La respuesta de
+   SUNAT lo deja en `ACEPTADO` o `RECHAZADO` (un rechazado no existe para SUNAT:
+   el número se puede volver a usar y no gasta cuota). Si SUNAT no responde,
+   queda `PENDIENTE` y el worker lo reintenta (en producción primero pide el CDR
+   por si SUNAT ya lo tenía).
+5. **Anular:** facturas con `/voided` (comunicación de baja), boletas con
+   `/daily-summary` (o `/voided`, que las deriva). Al aceptar SUNAT, pasan a `ANULADO`.
+
+**Verificado contra SUNAT:** los 30 ejemplos de la documentación de apisunat.pe
+(crédito, detracción, anticipos, exportación, gratuitas, descuentos, retención,
+notas…) salen aceptados y sin observaciones en beta, igual que las bajas, los
+resúmenes y las 8 variantes de guía. Se repite con `SUNAT_BETA=1 pnpm test`
+(`test/sunat-beta.int.spec.ts`; va a la red, por eso no corre en el CI).
+
+**Consulta RUC y DNI:** no se raspa la web de SUNAT (está tras un desafío
+anti-bots). Se usa el [padrón reducido](https://www2.sunat.gob.pe/padron_reducido_ruc.zip)
+que SUNAT publica cada día: `scripts/padron-build.mjs` lo convierte (18 millones
+de RUC, 1,6 GB) en un índice por bloques de ~370 MB y la API lo lee por rangos
+desde `PADRON_URL` (`gs://bucket/prefijo` o una carpeta): el directorio de bloques
+vive en memoria (~700 KB) y cada consulta trae un bloque de ~10 KB. El padrón no
+trae nombre comercial ni actividades económicas, y de las personas naturales
+SUNAT no publica el domicilio. El DNI se busca como RUC `10 + DNI + verificador`:
+solo aparece quien tiene RUC.
+
+**Tipo de cambio:** el que publica la SBS (dólar y euro), tomado de la API del
+BCRP y guardado en `sunat_exchange_rates`. En fines de semana y feriados devuelve
+el del último día hábil.
+
+**Cuota:** los comprobantes de producción cuestan 1 (bajas y resúmenes también);
+`/status`, `/documents`, `/catalogs` y `/exchange-rate` son gratis; `/ruc` y
+`/dni` van incluidos en los planes de pago y cuestan 1 en el plan gratis.
+
+**Pendiente frente a apisunat.pe:** reportes SIRE (compras y ventas), consulta
+de validez y detalle de comprobantes de terceros, recibos por honorarios y el
+tipo de cambio de otras monedas.
 
 ### Agencias y ubicaciones
 
@@ -191,7 +251,8 @@ Los PRs solo corren [ci.yml](.github/workflows/ci.yml).
 | Proyecto | `mathyu-apis`, región `southamerica-east1` (misma ciudad que Neon `sa-east-1`) |
 | Cloud Run | servicio `mathyu-apis`, 1 vCPU / 1 GiB, facturación por request, 0–2 instancias |
 | Imágenes | Artifact Registry `apis`; conserva las 3 últimas y `latest`, borra las de +7 días (~350 MB por imagen, capas compartidas; límite gratis 0,5 GB) |
-| Secretos | Secret Manager `database-url` y `direct-database-url` (réplica única) |
+| Secretos | Secret Manager `database-url`, `direct-database-url`, `cron-secret` y `sunat-secrets-key` (réplica única) |
+| Padrón RUC | bucket `mathyu-apis-padron` (us-east1, capa gratis); [padron-ruc.yml](../.github/workflows/padron-ruc.yml) lo regenera cada día si SUNAT publicó uno nuevo |
 | Auth CI→GCP | Workload Identity Federation, sin llaves JSON; solo `refs/heads/main` de este repo |
 | Costos | Presupuesto de 1 USD con alertas al 50/90/100 % (avisa, no corta) |
 
@@ -216,6 +277,9 @@ despliegue. En producción **no** se define `DEV_API_KEY`.
 - `pnpm typecheck` — chequeo de tipos
 - `pnpm db:migrate` / `pnpm db:status` — migraciones Prisma
 - `pnpm key:create|list|revoke` — gestión de API keys
+- `node scripts/padron-build.mjs <padron.txt> <salida>` — índice del padrón RUC
+- `SUNAT_BETA=1 pnpm test` — además, envíos reales a SUNAT beta
+- `TEST_DATABASE_URL=… pnpm test` — además, tests de integración con Postgres
 
 ## Diseño (resumen)
 
@@ -224,9 +288,9 @@ Cliente ──x-api-key──> Gateway (auth, cuota, rate-limit, swagger)
                            │
          ┌─────────────────┼──────────────────┐
      OlvaModule        ShalomModule        SunatModule
-   (upstream WP +    (proxy web AES +     (UBL+firma+SOAP,
-    tracking +        captcha seam)         por implementar)
-    cotización)
+   (upstream WP +    (proxy web AES +     (UBL 2.1 + firma,
+    tracking +        captcha seam)        SOAP y REST de SUNAT,
+    cotización)                            padrón RUC por rangos)
 ```
 
 Cada courier implementa `CourierAdapter` (`src/common/courier/`), lo que permite
