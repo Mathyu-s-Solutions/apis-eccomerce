@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiHeader, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { FastifyRequest } from 'fastify';
 import type { SunatCompany } from '../../../generated/prisma';
 import { API_KEY_STORE, type ApiKeyRecord, type ApiKeyStore } from '../../auth/api-key.store';
@@ -55,6 +56,9 @@ const GUIA_EXAMPLE = {
   vehiculos: [{ vehiculo: 'principal', numero_de_placa: 'F6Y931' }],
 };
 
+/** Cada envío es una llamada a SUNAT: 120 por minuto por key. */
+const SENDS_PER_MINUTE = { key: { limit: 120, ttl: 60_000 } };
+
 const isDespatch = (body: unknown): boolean => typeof (body as { documento?: unknown } | null)?.documento === 'string' && String((body as { documento: string }).documento).startsWith('guia_remision');
 
 /**
@@ -83,6 +87,7 @@ export class SunatController {
 
   @Post('documents')
   @HttpCode(HttpStatus.OK)
+  @Throttle(SENDS_PER_MINUTE)
   @Cost(productionCost)
   @ApiOperation({
     summary: 'Emite una factura, boleta, nota de crédito o nota de débito',
@@ -101,6 +106,7 @@ export class SunatController {
 
   @Post('dispatches')
   @HttpCode(HttpStatus.OK)
+  @Throttle(SENDS_PER_MINUTE)
   @Cost(productionCost)
   @ApiOperation({
     summary: 'Emite una guía de remisión electrónica (remitente o transportista)',
@@ -114,6 +120,7 @@ export class SunatController {
 
   @Post('voided')
   @HttpCode(HttpStatus.OK)
+  @Throttle(SENDS_PER_MINUTE)
   @Cost(productionCost)
   @ApiOperation({
     summary: 'Comunica la baja de una factura o de su nota',
@@ -126,6 +133,7 @@ export class SunatController {
 
   @Post('daily-summary')
   @HttpCode(HttpStatus.OK)
+  @Throttle(SENDS_PER_MINUTE)
   @Cost(productionCost)
   @ApiOperation({
     summary: 'Resumen diario de boletas: anularlas o informarlas en bloque',
