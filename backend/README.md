@@ -72,6 +72,9 @@ Todas las rutas bajo `/v1` requieren la cabecera `x-api-key`.
 | SUNAT | `POST /v1/sunat/dispatches` (guía de remitente y de transportista) | ✅ API REST de SUNAT (token, ticket, CDR) |
 | SUNAT | `GET/POST/DELETE /v1/sunat/companies` | ✅ empresas emisoras con credenciales cifradas |
 | SUNAT | `GET /v1/sunat/ruc/:ruc`, `/dni/:dni`, `/exchange-rate`, `/catalogs` | ✅ padrón reducido (`PADRON_URL`) y BCRP |
+| SUNAT | `POST /v1/sunat/cpe/validez` | ✅ consulta integrada oficial (credenciales de API de la empresa) |
+| SUNAT | `GET /v1/sunat/rce`, `/rvie` (`?period=AAAAMM`) | ✅ propuestas del SIRE (credenciales de API + usuario SOL); sin probar con una cuenta real |
+| Portal | `/v1/internal/portal/sunat/*` (sin Swagger) | ✅ panel de empresas del portal (`PORTAL_API_SECRET`) |
 | SUNAT | `GET /v1/sunat/files/:token/:archivo` (sin key) | ✅ XML firmado, CDR y PDF (A4 y ticket) |
 | Auth | `GET /v1/validate` | ✅ valida key y cuota |
 
@@ -137,9 +140,23 @@ el del último día hábil.
 `/status`, `/documents`, `/catalogs` y `/exchange-rate` son gratis; `/ruc` y
 `/dni` van incluidos en los planes de pago y cuestan 1 en el plan gratis.
 
-**Pendiente frente a apisunat.pe:** reportes SIRE (compras y ventas), consulta
-de validez y detalle de comprobantes de terceros, recibos por honorarios y el
-tipo de cambio de otras monedas.
+**Validez y SIRE:** `/cpe/validez` usa la [consulta integrada](https://cpe.sunat.gob.pe/sites/default/files/inline-files/Manual-de-Consulta-Integrada-de-Comprobante-de-Pago-por-ServicioWEB_v2_0.pdf)
+de SUNAT (token `clientesextranet`, `client_credentials`). `/rce` y `/rvie` leen la
+propuesta del SIRE por sus endpoints JSON paginados (`.../rce/propuesta/web/propuesta/{periodo}/busqueda`
+y `.../rvie/propuesta/web/propuesta/{periodo}/comprobantes`, máximo 100 por página;
+422 = sin propuesta) y la guardan 10 minutos para filtrar y paginar. Los nombres
+de campo salen de clientes de código abierto que los usan con cuentas reales; no
+hay forma de probarlos sin las credenciales de un contribuyente.
+
+**Panel del portal:** el portal no toca las credenciales: llama a
+`/v1/internal/portal/sunat/*` con `PORTAL_API_SECRET` y el usuario de la sesión,
+y la API cifra todo con `SUNAT_SECRETS_KEY`.
+
+**Lo que no tiene API oficial (y apisunat.pe ofrece igual):** el detalle por ítem
+de comprobantes de terceros y la descarga de sus XML, y los recibos por honorarios
+recibidos. Solo están en la web de SOL (habría que automatizar el portal con la
+clave SOL del cliente): quedan fuera por ahora. De la "plataforma de confirmación
+de RHE y FE" SUNAT solo publica la carga de proveedores habituales.
 
 ### Agencias y ubicaciones
 
@@ -251,7 +268,7 @@ Los PRs solo corren [ci.yml](.github/workflows/ci.yml).
 | Proyecto | `mathyu-apis`, región `southamerica-east1` (misma ciudad que Neon `sa-east-1`) |
 | Cloud Run | servicio `mathyu-apis`, 1 vCPU / 1 GiB, facturación por request, 0–2 instancias |
 | Imágenes | Artifact Registry `apis`; conserva las 3 últimas y `latest`, borra las de +7 días (~350 MB por imagen, capas compartidas; límite gratis 0,5 GB) |
-| Secretos | Secret Manager `database-url`, `direct-database-url`, `cron-secret` y `sunat-secrets-key` (réplica única) |
+| Secretos | Secret Manager `database-url`, `direct-database-url`, `cron-secret`, `sunat-secrets-key` y `portal-api-secret` (réplica única) |
 | Padrón RUC | bucket `mathyu-apis-padron` (us-east1, capa gratis); [padron-ruc.yml](../.github/workflows/padron-ruc.yml) lo regenera cada día si SUNAT publicó uno nuevo |
 | Auth CI→GCP | Workload Identity Federation, sin llaves JSON; solo `refs/heads/main` de este repo |
 | Costos | Presupuesto de 1 USD con alertas al 50/90/100 % (avisa, no corta) |

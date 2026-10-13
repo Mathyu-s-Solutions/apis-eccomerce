@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { KeyRound, LayoutDashboard, CreditCard, ShieldCheck, LogOut } from 'lucide-react';
+import { KeyRound, LayoutDashboard, CreditCard, ShieldCheck, LogOut, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV = [
   { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/keys', label: 'API keys', icon: KeyRound },
+  { href: '/dashboard/sunat', label: 'Facturación SUNAT', icon: FileText },
   { href: '/dashboard/billing', label: 'Pagos y planes', icon: CreditCard },
 ];
 

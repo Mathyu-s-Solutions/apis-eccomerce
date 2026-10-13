@@ -62,6 +62,8 @@ export const envSchema = z.object({
   // Índice del padrón reducido del RUC (lo genera scripts/padron-build.mjs):
   // gs://bucket/prefijo en producción, o una carpeta local. Sin ella no hay consulta RUC/DNI.
   PADRON_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  // Secreto con el que el portal (frontend/) llama a /v1/internal/portal/*. Sin él, esas rutas no existen.
+  PORTAL_API_SECRET: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;

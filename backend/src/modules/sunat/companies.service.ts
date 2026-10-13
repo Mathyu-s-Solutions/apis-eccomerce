@@ -185,6 +185,16 @@ export class CompaniesService {
     };
   }
 
+  /** Solo las credenciales de API (la consulta de validez no pide usuario SOL). */
+  clientCredentials(company: SunatCompany): { clientId: string; clientSecret: string } {
+    if (!company.apiClientId || !company.apiClientSecret) {
+      throw new SunatInputError(
+        `Esta consulta usa las credenciales de API de SUNAT de ${company.ruc}: registra api_client_id y api_client_secret (SUNAT Operaciones en Línea → Empresas → Credenciales de API SUNAT).`,
+      );
+    }
+    return { clientId: company.apiClientId, clientSecret: this.secrets.open(company.apiClientSecret) };
+  }
+
   /** Lo que se devuelve de una empresa: nunca las credenciales. */
   view(company: SunatCompany) {
     const info = company.certificateInfo as unknown as CertificateInfo | null;
@@ -219,8 +229,8 @@ export class CompaniesService {
 /** Qué le falta a una empresa para emitir comprobantes reales. */
 export function missingForProduction(company: Pick<SunatCompany, 'solUser' | 'solPassword' | 'certificate'>): string[] {
   const missing: string[] = [];
-  if (!company.solUser) missing.push('sol_usuario (usuario secundario SOL)');
-  if (!company.solPassword) missing.push('sol_clave');
-  if (!company.certificate) missing.push('certificado (certificado digital .pfx/.p12)');
+  if (!company.solUser) missing.push('usuario secundario SOL (sol_usuario)');
+  if (!company.solPassword) missing.push('clave SOL (sol_clave)');
+  if (!company.certificate) missing.push('certificado digital .pfx/.p12 (certificado)');
   return missing;
 }

@@ -262,7 +262,7 @@ export const BRANDS: Record<BrandId, Brand> = {
     tagline: 'Facturación electrónica y consultas SUNAT',
     heroTitle: 'Emite comprobantes y consulta SUNAT por API',
     heroSubtitle:
-      'Factura y boleta electrónica, notas, guías de remisión y consulta de RUC/DNI. Una API REST sobre los servicios oficiales de SUNAT.',
+      'Factura, boleta, notas, guías de remisión, bajas y consultas (RUC, DNI, validez, SIRE). Una API REST sobre los servicios oficiales de SUNAT, con el mismo JSON que apisunat.pe.',
     theme: {
       font: 'roboto',
       foreground: '#26292E',
@@ -286,31 +286,81 @@ export const BRANDS: Record<BrandId, Brand> = {
     },
     apiPrefix: '/v1/sunat',
     features: [
-      { icon: 'FileText', title: 'Comprobantes electrónicos', description: 'Factura, boleta, notas de crédito y débito firmadas y enviadas a SUNAT.' },
-      { icon: 'Search', title: 'Consulta RUC y DNI', description: 'Datos de empresas y personas al instante para completar tus comprobantes.' },
-      { icon: 'Truck', title: 'Guías de remisión', description: 'Emite guías de remisión remitente y transportista.' },
-      { icon: 'FileCheck2', title: 'Estado y CDR', description: 'Consulta el estado del comprobante y descarga el XML firmado y el CDR.' },
-      { icon: 'Gauge', title: 'Un panel para todo', description: 'La cuota de tu plan, compartida por todas tus keys, y tus otras APIs en el mismo panel.' },
-      { icon: 'ShieldCheck', title: 'Sobre servicios oficiales', description: 'Construida sobre los web services oficiales de SUNAT.' },
+      { icon: 'FileText', title: 'Comprobantes electrónicos', description: 'Factura, boleta, notas de crédito y débito: XML UBL 2.1 firmado, enviado a SUNAT y con su CDR. Crédito, detracción, anticipos, exportación, gratuitas y descuentos.' },
+      { icon: 'Truck', title: 'Guías de remisión', description: 'Guía de remitente (transporte público o privado) y de transportista, por la API REST de SUNAT.' },
+      { icon: 'FileCheck2', title: 'XML, CDR y PDF', description: 'Enlaces al XML firmado, la constancia de SUNAT y el PDF en A4 o ticket de 80 mm, con QR.' },
+      { icon: 'Search', title: 'Consultas', description: 'RUC y DNI desde el padrón de SUNAT, validez de cualquier comprobante, tipo de cambio SBS y reportes SIRE de compras y ventas.' },
+      { icon: 'Gauge', title: 'Pruebas sin costo', description: 'Tu empresa empieza en beta: emite contra SUNAT beta sin certificado ni cuota. Pasas a producción cuando subes tu certificado.' },
+      { icon: 'ShieldCheck', title: 'Compatible con apisunat.pe', description: 'El mismo JSON de entrada y de respuesta: para migrar cambias la URL y la key.' },
     ],
     docs: [
       {
-        title: 'Comprobantes',
-        description: 'Emisión y estado.',
+        title: 'Empresas emisoras',
+        description: 'Tu RUC y tus credenciales de SUNAT (cifradas, nunca se devuelven). También desde el panel.',
         endpoints: [
-          { method: 'POST', path: '/documents', summary: 'Emite factura o boleta', cost: '1 comprobante' },
-          { method: 'POST', path: '/status', summary: 'Consulta el estado de un comprobante', cost: 'gratis' },
+          { method: 'POST', path: '/companies', summary: 'Registra o cambia una empresa (beta o producción)', cost: 'gratis' },
+          { method: 'GET', path: '/companies', summary: 'Tus empresas y qué les falta para producción', cost: 'gratis' },
+          { method: 'DELETE', path: '/companies/{ruc}', summary: 'Borra una empresa sin comprobantes reales', cost: 'gratis' },
         ],
       },
       {
-        title: 'Consultas',
-        description: 'Padrón y validación.',
+        title: 'Comprobantes',
+        description: 'Con más de una empresa, indica cuál con la cabecera x-ruc. En beta no se cobra.',
         endpoints: [
-          { method: 'GET', path: '/ruc/{ruc}', summary: 'Consulta datos por RUC', cost: 'gratis' },
+          { method: 'POST', path: '/documents', summary: 'Emite factura, boleta, nota de crédito o de débito', cost: '1 comprobante' },
+          { method: 'POST', path: '/voided', summary: 'Comunica la baja de una factura o nota', cost: '1 comprobante' },
+          { method: 'POST', path: '/daily-summary', summary: 'Resumen diario: anula o informa boletas', cost: '1 comprobante' },
+          { method: 'POST', path: '/status', summary: 'Estado, XML, CDR y PDF de un comprobante', cost: 'gratis' },
+          { method: 'GET', path: '/documents', summary: 'Comprobantes emitidos (filtros y paginación)', cost: 'gratis' },
+        ],
+      },
+      {
+        title: 'Guías de remisión',
+        description: 'En producción usan las credenciales de API de SUNAT de tu empresa.',
+        endpoints: [{ method: 'POST', path: '/dispatches', summary: 'Guía de remitente o de transportista', cost: '1 comprobante' }],
+      },
+      {
+        title: 'Consultas',
+        description: 'Incluidas en los planes de pago; en el plan gratis cuentan como una.',
+        endpoints: [
+          { method: 'GET', path: '/ruc/{ruc}', summary: 'Razón social, estado, condición y domicilio fiscal', cost: '1 consulta' },
+          { method: 'GET', path: '/dni/{dni}', summary: 'Nombre de una persona con RUC', cost: '1 consulta' },
+          { method: 'POST', path: '/cpe/validez', summary: 'Validez de un comprobante de cualquier emisor', cost: '1 consulta' },
+          { method: 'GET', path: '/rce', summary: 'SIRE: compras del periodo (?period=AAAAMM)', cost: '1 consulta' },
+          { method: 'GET', path: '/rvie', summary: 'SIRE: ventas del periodo (?period=AAAAMM)', cost: '1 consulta' },
+          { method: 'GET', path: '/exchange-rate', summary: 'Tipo de cambio SBS (?date=AAAA-MM-DD)', cost: 'gratis' },
+          { method: 'GET', path: '/catalogs', summary: 'Catálogos de SUNAT que usa la API', cost: 'gratis' },
         ],
       },
     ],
     quickstart: [
+      {
+        label: '1. Registra tu empresa (queda en beta: ya puedes emitir)',
+        code: curl('/v1/sunat', 'POST', '/companies', '{"ruc":"20123456789","razon_social":"MI EMPRESA S.A.C.","direccion":"AV. LOS OLIVOS 123","ubigeo":"150101"}'),
+      },
+      {
+        label: '2. Emite una boleta',
+        code: curl(
+          '/v1/sunat',
+          'POST',
+          '/documents',
+          '{"documento":"boleta","serie":"B001","cliente_tipo_de_documento":"1","cliente_numero_de_documento":"75413811","cliente_denominacion":"NOMBRE DEL CLIENTE","items":[{"descripcion":"Polo","cantidad":"2","valor_unitario":"42.372881"}],"total":"100.00"}',
+        ),
+      },
+      {
+        label: 'La respuesta trae el estado de SUNAT y los enlaces',
+        code: `{
+  "success": true,
+  "message": "El comprobante fue enviado y aceptado por SUNAT.",
+  "payload": {
+    "estado": "ACEPTADO",
+    "hash": "pFKddbDnm4oRDxNNyTT3VXLXzkOOHkZVIVgr8RV2JVY=",
+    "xml": "${API_URL}/v1/sunat/files/…/20123456789-03-B001-1.xml",
+    "cdr": "${API_URL}/v1/sunat/files/…/R-20123456789-03-B001-1.xml",
+    "pdf": { "ticket": "…-ticket.pdf", "a4": "…/20123456789-03-B001-1.pdf" }
+  }
+}`,
+      },
       { label: 'Consultar un RUC', code: curl('/v1/sunat', 'GET', '/ruc/20100066603') },
     ],
   },

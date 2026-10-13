@@ -5,20 +5,17 @@ import { cn } from '@/lib/utils';
 
 // Catálogo 01 (tipo de comprobante) y 06 (tipo de documento de identidad) de SUNAT.
 const TYPES = [
-  { code: '01', label: 'Factura', serie: 'F001', title: 'FACTURA ELECTRÓNICA', client: { tipoDoc: '6', name: 'RUC', placeholder: '[RUC DEL CLIENTE]' } },
-  { code: '03', label: 'Boleta', serie: 'B001', title: 'BOLETA DE VENTA ELECTRÓNICA', client: { tipoDoc: '1', name: 'DNI', placeholder: '[DNI DEL CLIENTE]' } },
-  { code: '07', label: 'Nota de crédito', serie: 'FC01', title: 'NOTA DE CRÉDITO ELECTRÓNICA', client: { tipoDoc: '6', name: 'RUC', placeholder: '[RUC DEL CLIENTE]' } },
-  { code: '08', label: 'Nota de débito', serie: 'FD01', title: 'NOTA DE DÉBITO ELECTRÓNICA', client: { tipoDoc: '6', name: 'RUC', placeholder: '[RUC DEL CLIENTE]' } },
+  { code: '01', doc: 'factura', label: 'Factura', serie: 'F001', title: 'FACTURA ELECTRÓNICA', client: { tipoDoc: '6', name: 'RUC', placeholder: '20123456789', denominacion: 'EMPRESA CLIENTE S.A.C.' } },
+  { code: '03', doc: 'boleta', label: 'Boleta', serie: 'B001', title: 'BOLETA DE VENTA ELECTRÓNICA', client: { tipoDoc: '1', name: 'DNI', placeholder: '75413811', denominacion: 'NOMBRE DEL CLIENTE' } },
+  { code: '07', doc: 'nota_credito', label: 'Nota de crédito', serie: 'FC01', title: 'NOTA DE CRÉDITO ELECTRÓNICA', client: { tipoDoc: '6', name: 'RUC', placeholder: '20123456789', denominacion: 'EMPRESA CLIENTE S.A.C.' } },
+  { code: '08', doc: 'nota_debito', label: 'Nota de débito', serie: 'FD01', title: 'NOTA DE DÉBITO ELECTRÓNICA', client: { tipoDoc: '6', name: 'RUC', placeholder: '20123456789', denominacion: 'EMPRESA CLIENTE S.A.C.' } },
 ];
 const IGV = 0.18;
 
 const money = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/**
- * Vista previa del comprobante y de la petición. El endpoint de emisión aún está en desarrollo:
- * el cuerpo es ilustrativo y puede cambiar.
- */
+/** Arma el comprobante y muestra la petición tal como la recibe POST /v1/sunat/documents. */
 export function DocumentBuilder() {
   const [code, setCode] = useState('01');
   const [amount, setAmount] = useState('100.00');
@@ -27,15 +24,23 @@ export function DocumentBuilder() {
   const sub = Math.max(0, Number(amount) || 0);
   const igv = round2(sub * IGV);
   const total = round2(sub + igv);
+  const note = t.code === '07' ? 'nota_credito' : t.code === '08' ? 'nota_debito' : null;
   const doc = {
-    tipo: t.code,
+    documento: t.doc,
     serie: t.serie,
     moneda: 'PEN',
-    cliente: { tipoDoc: t.client.tipoDoc, numDoc: t.client.placeholder },
-    items: [{ descripcion: '[PRODUCTO]', cantidad: 1, valorUnitario: round2(sub) }],
-    igv,
-    total,
-    ...(t.code === '07' || t.code === '08' ? { documentoAfectado: 'F001-[N°]' } : {}),
+    cliente_tipo_de_documento: t.client.tipoDoc,
+    cliente_numero_de_documento: t.client.placeholder,
+    cliente_denominacion: t.client.denominacion,
+    ...(note
+      ? {
+          [`${note}_codigo_tipo`]: t.code === '07' ? '01' : '02',
+          [`${note}_motivo`]: t.code === '07' ? 'Anulación de la operación' : 'Aumento en el valor',
+          documento_afectado: { documento: 'factura', serie: 'F001', numero: 1 },
+        }
+      : {}),
+    items: [{ unidad_de_medida: 'NIU', descripcion: 'PRODUCTO', cantidad: '1', valor_unitario: sub.toFixed(2), porcentaje_igv: '18', codigo_tipo_afectacion_igv: '10' }],
+    total: total.toFixed(2),
   };
 
   return (
@@ -100,9 +105,10 @@ export function DocumentBuilder() {
           <div className="flex flex-col gap-1 border-t border-dashed border-[#C9D2DF] pt-3">
             <span className="text-[#5D6470]">Cliente · {t.client.name}</span>
             <span className="font-mono">{t.client.placeholder}</span>
+            <span>{t.client.denominacion}</span>
           </div>
           <div className="flex justify-between border-t border-dashed border-[#C9D2DF] pt-3">
-            <span>1 × [PRODUCTO]</span>
+            <span>1 × PRODUCTO</span>
             <span className="font-mono">{money(sub)}</span>
           </div>
           <dl className="flex flex-col gap-1 border-t border-dashed border-[#C9D2DF] pt-3">

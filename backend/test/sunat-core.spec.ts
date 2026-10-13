@@ -1,4 +1,5 @@
 import { gzipSync } from 'node:zlib';
+import forge from 'node-forge';
 import { SignedXml } from 'xml-crypto';
 import { describe, expect, it } from 'vitest';
 import { amountInWords } from '../src/modules/sunat/core/amount-in-words';
@@ -291,6 +292,16 @@ describe('firma digital', () => {
     };
     expect(verifies(signed.xml)).toBe(true);
     expect(verifies(signed.xml.replace('276.12', '999.99'))).toBe(false);
+  });
+
+  it('lee .pfx/.p12 con cifrado moderno (AES) y antiguo (3DES)', () => {
+    const cert = testCertificate();
+    for (const algorithm of ['aes256', '3des'] as const) {
+      const p12 = forge.pkcs12.toPkcs12Asn1(forge.pki.privateKeyFromPem(cert.privateKeyPem), [forge.pki.certificateFromPem(cert.certificatePem)], 'clave-123', { algorithm });
+      const pfx = Buffer.from(forge.asn1.toDer(p12).getBytes(), 'binary');
+      expect(certificateBody(parseCertificate(pfx, 'clave-123').certificatePem)).toBe(certificateBody(cert.certificatePem));
+      expect(() => parseCertificate(pfx, 'otra')).toThrow(/clave es incorrecta/);
+    }
   });
 
   it('lee certificados PEM y valida que la llave corresponda', () => {

@@ -15,6 +15,9 @@ export interface AppConfig {
   cron: {
     secret?: string;
   };
+  portal: {
+    secret?: string;
+  };
   auth: {
     databaseUrl?: string;
     devApiKey?: string;
@@ -57,6 +60,9 @@ export function buildConfig(env: Env): AppConfig {
     },
     cron: {
       secret: env.CRON_SECRET,
+    },
+    portal: {
+      secret: env.PORTAL_API_SECRET,
     },
     auth: {
       databaseUrl: env.DATABASE_URL,
