@@ -303,6 +303,7 @@ export const TRANSFER_REASONS: Record<string, string> = {
   '14': 'Venta sujeta a confirmación del comprador',
   '17': 'Traslado de bienes para transformación',
   '18': 'Traslado emisor itinerante CP',
+  '19': 'Traslado a zona primaria',
 };
 
 /** Catálogo 18: modalidad de transporte (GRE). */

@@ -9,6 +9,7 @@ import { PdfService } from './pdf/pdf.service';
 import { SecretBox } from './secret-box';
 import { SunatController } from './sunat.controller';
 import { BillServiceClient } from './transport/bill-service';
+import { GreApiClient } from './transport/gre-api';
 
 @Module({
   controllers: [SunatController, CompaniesController, FilesController],
@@ -19,6 +20,7 @@ import { BillServiceClient } from './transport/bill-service';
     DocumentsService,
     PdfService,
     { provide: BillServiceClient, inject: [CONFIG_TOKEN], useFactory: (config: AppConfig) => new BillServiceClient({ timeoutMs: config.sunat.timeoutMs }) },
+    { provide: GreApiClient, inject: [CONFIG_TOKEN], useFactory: (config: AppConfig) => new GreApiClient({ timeoutMs: config.sunat.timeoutMs }) },
   ],
   exports: [DocumentsService],
 })

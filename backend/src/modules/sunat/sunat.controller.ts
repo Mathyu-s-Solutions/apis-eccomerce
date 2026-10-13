@@ -10,6 +10,7 @@ import { CONFIG_TOKEN, type AppConfig } from '../../config/configuration';
 import { baseUrl } from './base-url';
 import { Company, CompanyGuard, productionCost } from './company.guard';
 import { DocumentsService } from './documents.service';
+import { type DespatchDto, DespatchSchema } from './dto/despatch.dto';
 import { type SaleDocumentDto, SaleDocumentSchema } from './dto/document.dto';
 import { type DailySummaryDto, DailySummarySchema, type DocumentsQueryDto, DocumentsQuerySchema, type StatusDto, StatusSchema, type VoidedDto, VoidedSchema } from './dto/operations.dto';
 import { SunatValidationPipe } from './sunat-validation.pipe';
@@ -30,6 +31,31 @@ const FACTURA_EXAMPLE = {
   items: [{ unidad_de_medida: 'NIU', descripcion: 'Nombre del producto', cantidad: '2', valor_unitario: '254.237288', porcentaje_igv: '18', codigo_tipo_afectacion_igv: '10', nombre_tributo: 'IGV' }],
   total: '600.00',
 };
+
+const GUIA_EXAMPLE = {
+  documento: 'guia_remision_remitente',
+  serie: 'T001',
+  numero: 1,
+  fecha_de_emision: '2026-10-12',
+  motivo_de_traslado: '01',
+  modalidad_de_transporte: '02',
+  fecha_inicio_de_traslado: '2026-10-12',
+  destinatario_tipo_de_documento: '6',
+  destinatario_numero_de_documento: '20609286696',
+  destinatario_denominacion: 'EMPRESA SOCIEDAD ANONIMA CERRADA',
+  punto_de_partida_ubigeo: '150132',
+  punto_de_partida_direccion: 'AV. LURIGANCHO NRO. 626 - SAN JUAN DE LURIGANCHO',
+  punto_de_llegada_ubigeo: '150122',
+  punto_de_llegada_direccion: 'Cal. General Mendiburu Nro. 855',
+  peso_bruto_total: '1.9',
+  peso_bruto_unidad_de_medida: 'KGM',
+  numero_de_bultos: 1,
+  items: [{ codigo_interno: 'P002', descripcion: 'DISCO DE MOLEDORA 18', unidad_de_medida: 'NIU', cantidad: 1 }],
+  conductores: [{ conductor: 'principal', tipo_de_documento: '1', numero_de_documento: '47101979', nombres: 'JUAN VINICIO', apellidos: 'GONZALES MACEDO', numero_licencia_conducir: 'Q43101919' }],
+  vehiculos: [{ vehiculo: 'principal', numero_de_placa: 'F6Y931' }],
+};
+
+const isDespatch = (body: unknown): boolean => typeof (body as { documento?: unknown } | null)?.documento === 'string' && String((body as { documento: string }).documento).startsWith('guia_remision');
 
 /**
  * Facturación electrónica. El JSON es el de apisunat.pe: quien venga de ahí
@@ -65,9 +91,25 @@ export class SunatController {
       'Sin `numero` usa el siguiente correlativo de la serie. En `beta` no consume cuota.',
   })
   @ApiBody({ schema: { type: 'object', example: FACTURA_EXAMPLE } })
-  async emit(@Company() company: SunatCompany, @CurrentKey() key: ApiKeyRecord, @Req() req: FastifyRequest, @Body(new SunatValidationPipe(SaleDocumentSchema)) dto: SaleDocumentDto) {
+  async emit(@Company() company: SunatCompany, @CurrentKey() key: ApiKeyRecord, @Req() req: FastifyRequest, @Body() body: unknown) {
+    // Las guías también entran por aquí: el esquema sale del campo `documento`.
+    if (isDespatch(body)) return this.dispatch(company, key, req, new SunatValidationPipe(DespatchSchema).transform(body) as DespatchDto);
+    const dto = new SunatValidationPipe(SaleDocumentSchema).transform(body) as SaleDocumentDto;
     const doc = await this.documents.emit(company, dto, { hold: dto.enviar_en_resumen });
     return this.respond(doc, company, key, req);
+  }
+
+  @Post('dispatches')
+  @HttpCode(HttpStatus.OK)
+  @Cost(productionCost)
+  @ApiOperation({
+    summary: 'Emite una guía de remisión electrónica (remitente o transportista)',
+    description:
+      '`documento`: `guia_remision_remitente` (serie T…) o `guia_remision_transportista` (serie V…). En producción usa las credenciales de API de SUNAT de la empresa (`api_client_id` y `api_client_secret`).',
+  })
+  @ApiBody({ schema: { type: 'object', example: GUIA_EXAMPLE } })
+  async dispatch(@Company() company: SunatCompany, @CurrentKey() key: ApiKeyRecord, @Req() req: FastifyRequest, @Body(new SunatValidationPipe(DespatchSchema)) dto: DespatchDto) {
+    return this.respond(await this.documents.emitDespatch(company, dto), company, key, req);
   }
 
   @Post('voided')

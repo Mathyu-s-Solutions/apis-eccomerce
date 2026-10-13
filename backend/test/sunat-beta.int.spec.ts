@@ -202,3 +202,93 @@ describe.skipIf(!enabled)('SUNAT beta: resumen diario y comunicación de baja', 
     expect(cdr?.accepted).toBe(true);
   }, 90_000);
 });
+
+describe.skipIf(!enabled)('GRE (entorno de pruebas): guías de remisión', () => {
+  const RUC = process.env.GRE_RUC ?? ISSUER.ruc;
+  const issuer = { ...ISSUER, ruc: RUC };
+  const base = {
+    fecha_de_emision: today(),
+    hora_de_emision: '10:22:00',
+    peso_bruto_total: '1.9',
+    peso_bruto_unidad_de_medida: 'KGM',
+    numero_de_bultos: 1,
+    punto_de_partida_ubigeo: '150132',
+    punto_de_partida_direccion: 'AV. LURIGANCHO NRO. 626 SAN JUAN DE LURIGANCHO',
+    punto_de_llegada_ubigeo: '150122',
+    punto_de_llegada_direccion: 'Cal. General Mendiburu Nro. 855',
+    documentos_relacionados: [{ documento: 'factura', serie: 'F001', numero: '3108', ruc_emisor: RUC }],
+  };
+  const drivers = [{ conductor: 'principal', tipo_de_documento: '1', numero_de_documento: '47101979', nombres: 'JUAN VINICIO', apellidos: 'GONZALES MACEDO', numero_licencia_conducir: 'Q43101919' }];
+  const sender = {
+    documento: 'guia_remision_remitente',
+    serie: 'T001',
+    motivo_de_traslado: '01',
+    destinatario_tipo_de_documento: '6',
+    destinatario_numero_de_documento: '20609286696',
+    destinatario_denominacion: 'EMPRESA SOCIEDAD ANONIMA CERRADA',
+    destinatario_direccion: 'Cal. General Mendiburu Nro. 855',
+    items: [{ codigo_interno: 'P002', descripcion: 'DISCO DE MOLEDORA 18', unidad_de_medida: 'NIU', cantidad: 1 }],
+    ...base,
+  };
+  const carrier = {
+    documento: 'guia_remision_transportista',
+    serie: 'V001',
+    fecha_inicio_de_traslado: today(),
+    numero_de_registro_mtc: '1519036CNG',
+    destinatario: { tipo_de_documento: '6', numero_de_documento: '20609286696', denominacion: 'EMPRESA SOCIEDAD ANONIMA CERRADA', direccion: 'Cal. General Mendiburu Nro. 855' },
+    remitente: { tipo_de_documento: '6', numero_de_documento: '20512528458', denominacion: 'Shalom Empresarial S.A.C.' },
+    conductores: [...drivers, { ...drivers[0], conductor: 'secundario', numero_de_documento: '47101980', numero_licencia_conducir: 'Q43101920' }],
+    vehiculos: [
+      { vehiculo: 'principal', numero_de_placa: 'F6Y931', tarjeta_unica_de_cirulacion: '1548854CNG' },
+      { vehiculo: 'secundario', numero_de_placa: 'F6Y932', tarjeta_unica_de_cirulacion: '1548855CNG' },
+    ],
+    ...base,
+    documentos_relacionados: [
+      { documento: 'guia_remision', serie: 'T001', numero: '3108', ruc_emisor: '20512528458' },
+      { documento: 'factura', serie: 'F001', numero: '3108', ruc_emisor: '20512528458' },
+    ],
+  };
+
+  const CASES: Array<[string, Record<string, unknown>]> = [
+    ['remitente, transporte privado', { ...sender, modalidad_de_transporte: '02', fecha_inicio_de_traslado: today(), observaciones: 'El pago se realizará contra entrega', conductores: drivers, vehiculos: [{ vehiculo: 'principal', numero_de_placa: 'F6Y931' }] }],
+    ['remitente, transporte público', { ...sender, modalidad_de_transporte: '01', fecha_entrega_a_transportista: today(), transportista: { ruc: '20512528458', denominacion: 'Shalom Empresarial S.A.C.', numero_registro_MTC: '123', numero_autorizacion: '123', codigo_entidad_autorizadora: '06' } }],
+    ['remitente, vehículo M1/L', { ...sender, modalidad_de_transporte: '02', fecha_inicio_de_traslado: today(), indicador_vehiculo_m1_l: true }],
+    ['transportista simple', carrier],
+    ['transportista con flete del remitente', { ...carrier, pagador_flete: 'remitente' }],
+    ['transportista con productos', { ...carrier, items: sender.items }],
+    ['transportista con subcontratista', { ...carrier, pagador_flete: 'subcontratador', subcontratista: { ruc: '20615199088', denominacion: 'Lucode Tech S.A.C.' } }],
+    ['transportista con tercero', { ...carrier, pagador_flete: 'tercero', tercero: { tipo_de_documento: '1', numero_de_documento: '85413815', denominacion: 'JIMENEZ GONSALEZ MATEO' } }],
+  ];
+
+  let n = number();
+  for (const [name, input] of CASES) {
+    it.skipIf(!!only && !name.includes(only))(name, async () => {
+      const { CarrierDespatchSchema, SenderDespatchSchema } = await import('../src/modules/sunat/dto/despatch.dto');
+      const { despatchXml } = await import('../src/modules/sunat/ubl/despatch-xml');
+      const { GRE_BETA, GreApiClient } = await import('../src/modules/sunat/transport/gre-api');
+      const dto = (input.documento === 'guia_remision_remitente' ? SenderDespatchSchema : CarrierDespatchSchema).parse(input);
+      const num = (n += 1);
+      const xml = signXml(despatchXml(dto, issuer, { number: num, issueDate: today(), issueTime: '10:22:00' }), testCertificate()).xml;
+      if (process.env.SUNAT_DUMP) console.log(xml);
+      const fname = `${RUC}-${dto.documento === 'guia_remision_remitente' ? '09' : '31'}-${dto.serie}-${num}`;
+      const client = new GreApiClient();
+      const cred = { clientId: GRE_BETA.clientId, clientSecret: GRE_BETA.clientSecret, sol: { ruc: RUC, user: GRE_BETA.user, password: GRE_BETA.password } };
+      let out: string;
+      try {
+        const ticket = await client.send('beta', cred, fname, zipFile(`${fname}.xml`, xml));
+        let status = await client.status('beta', cred, ticket);
+        for (let i = 0; i < 8 && status.code === '98'; i++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          status = await client.status('beta', cred, ticket);
+        }
+        const cdr = status.cdr ? parseCdrZip(status.cdr) : null;
+        out = `status ${status.code} ${status.error ? `ERROR ${status.error.code}: ${status.error.message}` : ''} ${cdr ? `CDR ${cdr.code}: ${cdr.description} ${cdr.notes.join(' | ')}` : ''}`;
+      } catch (e) {
+        if (!(e instanceof SunatFault)) throw e;
+        out = `FAULT ${e.code}: ${e.message}`;
+      }
+      console.log(`>> ${name}\n    ${out}`);
+      expect(out).toMatch(/^status 0 +CDR 0:/);
+    }, 90_000);
+  }
+});

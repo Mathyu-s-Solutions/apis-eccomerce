@@ -21,7 +21,7 @@ export class FilesController {
   @Get(':token/:name')
   @ApiOperation({
     summary: 'XML firmado, CDR o PDF de un comprobante',
-    description: '`<archivo>.xml` (XML firmado), `R-<archivo>.xml` (CDR de SUNAT), `<archivo>.pdf` (A4) o `<archivo>-ticket.pdf` (ticket de 80 mm). Los enlaces vienen en la respuesta de cada comprobante.',
+    description: '`<archivo>.xml` (XML firmado), `R-<archivo>.xml` (CDR de SUNAT), `<archivo>.pdf` (A4) o `<archivo>-ticket.pdf` (ticket de 80 mm; las guías solo tienen A4). Los enlaces vienen en la respuesta de cada comprobante.',
   })
   async file(@Param('token') token: string, @Param('name') name: string, @Res() res: FastifyReply) {
     if (!/^[\w-]{20,40}$/.test(token)) throw new NotFoundException('El archivo no existe.');
@@ -36,9 +36,10 @@ export class FilesController {
       if (!cdr) throw new NotFoundException('SUNAT todavía no devolvió la constancia (CDR) de este comprobante.');
       return send('application/xml; charset=utf-8', cdr);
     }
-    const printable = doc.type !== 'RC' && doc.type !== 'RA';
-    if (printable && name === `${base}.pdf`) return send('application/pdf', await this.pdf.render(doc, 'a4'));
-    if (printable && name === `${base}-ticket.pdf`) return send('application/pdf', await this.pdf.render(doc, 'ticket'));
+    const batch = doc.type === 'RC' || doc.type === 'RA';
+    const despatch = doc.type === '09' || doc.type === '31';
+    if (!batch && name === `${base}.pdf`) return send('application/pdf', await this.pdf.render(doc, 'a4'));
+    if (!batch && !despatch && name === `${base}-ticket.pdf`) return send('application/pdf', await this.pdf.render(doc, 'ticket'));
     throw new NotFoundException('El archivo no existe.');
   }
 }

@@ -7,13 +7,16 @@ import { DOCUMENT_CODES, DOCUMENT_NAMES } from './core/catalogs';
 import { fmt } from './core/decimal';
 import { limaNow } from './core/time';
 import { type SaleDocumentDto, SaleDocumentSchema } from './dto/document.dto';
+import type { DespatchDto } from './dto/despatch.dto';
 import type { DailySummaryDto, DocumentsQueryDto, StatusDto, VoidedDto } from './dto/operations.dto';
 import { SunatInputError } from './errors';
 import { signXml } from './signing/xml-signer';
 import { BillServiceClient, SunatFault, SunatUnavailable } from './transport/bill-service';
 import { type Cdr, parseCdrZip } from './transport/cdr';
+import { GRE_BETA, GreApiClient, type GreCredentials } from './transport/gre-api';
 import { bytes, unzipXml, zipFile } from './transport/zip';
 import { buildSaleDocument } from './ubl/compute';
+import { despatchXml } from './ubl/despatch-xml';
 import { saleDocumentXml } from './ubl/invoice-xml';
 import type { SaleDocument } from './ubl/model';
 import { type SummaryAction, summaryXml, voidedXml } from './ubl/summary-xml';
@@ -47,6 +50,7 @@ function nextCheck(attempts: number): Date | null {
 }
 
 const pascal = (text: string) => text.charAt(0) + text.slice(1).toLowerCase();
+const normalizeTime = (time?: string | null) => (time ? (time.length === 5 ? `${time}:00` : time) : null);
 
 /** Nombre de archivo que exige SUNAT: RUC-TIPO-SERIE-NUMERO (o RUC-RC-FECHA-N). */
 export function fileName(doc: Pick<SunatDocument, 'type' | 'series' | 'number'>, ruc: string): string {
@@ -61,6 +65,7 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     private readonly companies: CompaniesService,
     private readonly sunat: BillServiceClient,
+    private readonly gre: GreApiClient,
   ) {}
 
   // ---------------------------------------------------------------- emisión
@@ -71,31 +76,87 @@ export class DocumentsService {
     const type = DOCUMENT_CODES[dto.documento];
     const issuer = this.companies.issuer(company);
     const now = limaNow();
-    const label = `${dto.documento.replace('_', ' de ')} ${dto.serie}`;
 
-    let record: SunatDocument | undefined;
-    for (let attempt = 0; attempt < 5 && !record; attempt++) {
-      const number = dto.numero ?? (await this.nextNumber(company.id, sender.environment, type, dto.serie));
+    const record = await this.reserve(company, sender, type, dto.serie, dto.numero, `${dto.documento.replace('_', ' de ')} ${dto.serie}`, (number) => {
       const doc = buildSaleDocument(dto, issuer, { number, today: now.date, now: now.time });
-      const key = { companyId: company.id, environment: sender.environment, type, series: doc.series, number };
-      const existing = await this.prisma.sunatDocument.findUnique({ where: { companyId_environment_type_series_number: key } });
-      // Un número rechazado por SUNAT no quedó registrado: se puede volver a usar.
-      if (existing && existing.status !== 'RECHAZADO') {
-        if (dto.numero === undefined) continue;
-        throw new BadRequestException(`ERROR: ${label}-${number} fue emitido anteriormente.`);
-      }
-
-      const signed = signXml(saleDocumentXml(doc), sender.certificate);
-      const data = {
+      return {
+        xml: saleDocumentXml(doc),
         issueDate: doc.issueDate,
-        status: 'PENDIENTE',
         customerDoc: doc.customer.docNumber,
         customerName: doc.customer.name,
         currency: doc.currency,
         total: fmt(doc.totals.payable),
+        input: { ...dto, numero: number, fecha_de_emision: doc.issueDate, hora_de_emision: doc.issueTime },
+      };
+    });
+
+    // Boletas que el cliente prefiere informar luego, juntas, en un resumen diario.
+    if (opts.hold) return record;
+    return this.transmit({ ...record, company }, sender);
+  }
+
+  /** Emite una guía de remisión (remitente o transportista) por la API REST de SUNAT. */
+  async emitDespatch(company: SunatCompany, dto: DespatchDto): Promise<SunatDocument> {
+    const sender = this.companies.sender(company);
+    this.greCredentials(company, sender.environment); // falla aquí si faltan, antes de reservar el número
+    const type = DOCUMENT_CODES[dto.documento];
+    const issuer = this.companies.issuer(company);
+    const now = limaNow();
+    const recipient =
+      dto.documento === 'guia_remision_transportista'
+        ? { doc: dto.destinatario.numero_de_documento, name: dto.destinatario.denominacion }
+        : { doc: dto.destinatario_numero_de_documento, name: dto.destinatario_denominacion };
+
+    const record = await this.reserve(company, sender, type, dto.serie, dto.numero, `guía de remisión ${dto.serie}`, (number) => {
+      const meta = { number, issueDate: dto.fecha_de_emision ?? now.date, issueTime: normalizeTime(dto.hora_de_emision) ?? now.time };
+      return {
+        xml: despatchXml(dto, issuer, meta),
+        issueDate: meta.issueDate,
+        customerDoc: recipient.doc,
+        customerName: recipient.name,
+        currency: null,
+        total: null,
+        input: { ...dto, numero: number, fecha_de_emision: meta.issueDate, hora_de_emision: meta.issueTime },
+      };
+    });
+    return this.sendDespatch({ ...record, company }, sender);
+  }
+
+  /**
+   * Reserva el correlativo y guarda el documento firmado como PENDIENTE antes
+   * de enviarlo: si el envío se corta, no se pierde ni se repite el número.
+   */
+  private async reserve(
+    company: SunatCompany,
+    sender: Sender,
+    type: string,
+    series: string,
+    requested: number | undefined,
+    label: string,
+    build: (number: number) => { xml: string; issueDate: string; customerDoc: string; customerName: string; currency: string | null; total: string | null; input: Record<string, unknown> },
+  ): Promise<SunatDocument> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const number = requested ?? (await this.nextNumber(company.id, sender.environment, type, series));
+      const key = { companyId: company.id, environment: sender.environment, type, series, number };
+      const existing = await this.prisma.sunatDocument.findUnique({ where: { companyId_environment_type_series_number: key } });
+      // Un número rechazado por SUNAT no quedó registrado: se puede volver a usar.
+      if (existing && existing.status !== 'RECHAZADO') {
+        if (requested === undefined) continue;
+        throw new BadRequestException(`ERROR: ${label}-${number} fue emitido anteriormente.`);
+      }
+
+      const built = build(number);
+      const signed = signXml(built.xml, sender.certificate);
+      const data = {
+        issueDate: built.issueDate,
+        status: 'PENDIENTE',
+        customerDoc: built.customerDoc,
+        customerName: built.customerName,
+        currency: built.currency,
+        total: built.total,
         hash: signed.hash,
-        input: { ...dto, numero: number, fecha_de_emision: doc.issueDate, hora_de_emision: doc.issueTime } as unknown as Prisma.InputJsonValue,
-        xml: zipFile(`${fileName({ type, series: doc.series, number }, company.ruc)}.xml`, signed.xml),
+        input: built.input as Prisma.InputJsonValue,
+        xml: zipFile(`${fileName({ type, series, number }, company.ruc)}.xml`, signed.xml),
         cdr: null,
         sunatCode: null,
         sunatMessage: null,
@@ -106,23 +167,19 @@ export class DocumentsService {
         voidedById: null,
       } satisfies Prisma.SunatDocumentUncheckedUpdateInput;
       try {
-        record = existing
+        return existing
           ? await this.prisma.sunatDocument.update({ where: { id: existing.id }, data })
           : await this.prisma.sunatDocument.create({ data: { ...data, ...key, token: randomBytes(18).toString('base64url') } });
       } catch (e) {
         // Otra request tomó ese número a la vez.
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-          if (dto.numero !== undefined) throw new BadRequestException(`ERROR: ${label}-${number} fue emitido anteriormente.`);
+          if (requested !== undefined) throw new BadRequestException(`ERROR: ${label}-${number} fue emitido anteriormente.`);
           continue;
         }
         throw e;
       }
     }
-    if (!record) throw new BadRequestException(`No se pudo reservar un correlativo para ${label}: inténtalo de nuevo.`);
-
-    // Boletas que el cliente prefiere informar luego, juntas, en un resumen diario.
-    if (opts.hold) return record;
-    return this.transmit({ ...record, company }, sender);
+    throw new BadRequestException(`No se pudo reservar un correlativo para ${label}: inténtalo de nuevo.`);
   }
 
   /** Siguiente correlativo de una serie (los rechazados no cuentan). */
@@ -181,6 +238,59 @@ export class DocumentsService {
         attempts: { increment: 1 },
       },
     });
+  }
+
+  // ------------------------------------------------------------------ guías
+
+  /** En beta, las credenciales públicas del entorno de pruebas de guías; en producción, las de la empresa. */
+  private greCredentials(company: SunatCompany, environment: string): GreCredentials {
+    if (environment === 'beta') return { clientId: GRE_BETA.clientId, clientSecret: GRE_BETA.clientSecret, sol: { ruc: company.ruc, user: GRE_BETA.user, password: GRE_BETA.password } };
+    return this.companies.apiCredentials(company);
+  }
+
+  private async sendDespatch(doc: DocumentWithCompany, sender: Sender): Promise<SunatDocument> {
+    let ticket: string;
+    try {
+      ticket = await this.gre.send(sender.environment, this.greCredentials(doc.company, sender.environment), fileName(doc, doc.company.ruc), doc.xml);
+    } catch (e) {
+      return this.applyFailure(doc, e);
+    }
+    const saved = await this.prisma.sunatDocument.update({ where: { id: doc.id }, data: { ticket, nextCheckAt: nextCheck(0), attempts: { increment: 1 } } });
+    return this.checkDespatch({ ...saved, company: doc.company }, sender, TICKET_POLLS);
+  }
+
+  private async checkDespatch(doc: DocumentWithCompany, sender: Sender, polls = 1): Promise<SunatDocument> {
+    for (let i = 0; i < polls; i++) {
+      if (i > 0) await sleep(TICKET_POLL_MS);
+      let status;
+      try {
+        status = await this.gre.status(sender.environment, this.greCredentials(doc.company, sender.environment), doc.ticket!);
+      } catch (e) {
+        if (e instanceof SunatFault && !e.transient) return this.applyFailure(doc, e);
+        if (e instanceof SunatFault || e instanceof SunatUnavailable) break;
+        throw e;
+      }
+      if (status.code === '98') continue; // en proceso
+      let cdr: Cdr | null = null;
+      try {
+        cdr = status.cdr ? parseCdrZip(status.cdr) : null;
+      } catch {
+        cdr = null;
+      }
+      const accepted = status.code === '0' && (!cdr || cdr.accepted || Number(cdr.code) >= 4000);
+      return this.prisma.sunatDocument.update({
+        where: { id: doc.id },
+        data: {
+          status: accepted ? 'ACEPTADO' : 'RECHAZADO',
+          cdr: status.cdr ? bytes(status.cdr) : null,
+          sunatCode: status.error?.code || cdr?.code || status.code,
+          sunatMessage: status.error?.message || cdr?.description || null,
+          observations: cdr?.notes ?? [],
+          nextCheckAt: null,
+        },
+      });
+    }
+    return this.prisma.sunatDocument.update({ where: { id: doc.id }, data: { nextCheckAt: nextCheck(doc.attempts), attempts: { increment: 1 } } });
   }
 
   // ------------------------------------------------------- bajas y resúmenes
@@ -398,6 +508,7 @@ export class DocumentsService {
     }
     if (doc.ticket && (doc.type === 'RC' || doc.type === 'RA')) return this.checkTicket(doc, sender);
     if (doc.type === 'RC' || doc.type === 'RA') return this.sendBatch(doc, sender);
+    if (doc.type === '09' || doc.type === '31') return doc.ticket ? this.checkDespatch(doc, sender) : this.sendDespatch(doc, sender);
 
     // En producción SUNAT puede tener ya el comprobante (se cortó la respuesta): se pide su CDR.
     if (sender.environment === 'produccion') {
@@ -486,7 +597,10 @@ export class DocumentsService {
   view(doc: SunatDocument, ruc: string, baseUrl: string) {
     const name = fileName(doc, ruc);
     const files = `${baseUrl}/v1/sunat/files/${doc.token}`;
-    const printable = doc.type !== 'RC' && doc.type !== 'RA';
+    const batch = doc.type === 'RC' || doc.type === 'RA';
+    const despatch = doc.type === '09' || doc.type === '31';
+    // Una guía solo tiene formato A4; los resúmenes y bajas no se imprimen.
+    const pdf = batch ? null : { ...(despatch ? {} : { ticket: `${files}/${name}-ticket.pdf` }), a4: `${files}/${name}.pdf` };
     const observations = (doc.observations as string[] | null) ?? [];
     return {
       success: true,
@@ -496,7 +610,7 @@ export class DocumentsService {
         hash: doc.hash,
         xml: `${files}/${name}.xml`,
         cdr: doc.cdr ? `${files}/R-${name}.xml` : null,
-        ...(printable ? { pdf: { ticket: `${files}/${name}-ticket.pdf`, a4: `${files}/${name}.pdf` } } : {}),
+        ...(pdf ? { pdf } : {}),
         serie: doc.series,
         numero: doc.number,
         ambiente: doc.environment,
