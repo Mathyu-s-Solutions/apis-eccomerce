@@ -30,7 +30,8 @@ interface Loaded {
 }
 
 const INDEX_ENTRY = 20;
-const RELOAD_MS = 60 * 60_000;
+/** Cada cuánto se mira si `current.json` apunta a una versión nueva. */
+const RELOAD_MS = 10 * 60_000;
 const CACHED_BLOCKS = 256;
 
 /**
@@ -74,8 +75,9 @@ export class PadronReader {
     return loaded;
   }
 
-  private async ready(): Promise<Loaded> {
-    if (this.loaded && Date.now() - this.loaded.loadedAt < RELOAD_MS) return this.loaded;
+  private async ready(force = false): Promise<Loaded> {
+    if (!force && this.loaded && Date.now() - this.loaded.loadedAt < RELOAD_MS) return this.loaded;
+    if (force && this.loaded) this.loaded = { ...this.loaded, dir: `${this.loaded.dir}#stale` };
     this.loading ??= this.load().finally(() => {
       this.loading = undefined;
     });
@@ -94,7 +96,16 @@ export class PadronReader {
   }
 
   async find(ruc: string): Promise<PadronRecord | null> {
-    const idx = await this.ready();
+    try {
+      return await this.lookup(ruc, await this.ready());
+    } catch {
+      // Un bloque que no descomprime o que ya no existe: el índice en memoria es
+      // de otra versión de los archivos. Se recarga una vez y se reintenta.
+      return this.lookup(ruc, await this.ready(true));
+    }
+  }
+
+  private async lookup(ruc: string, idx: Loaded): Promise<PadronRecord | null> {
     const key = Number(ruc);
     // Último bloque cuyo primer RUC es <= el buscado.
     let lo = 0;

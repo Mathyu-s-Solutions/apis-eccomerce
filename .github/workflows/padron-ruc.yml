@@ -71,16 +71,23 @@ jobs:
           rm padron.zip
           version="$(TZ=America/Lima date +%F)"
           node backend/scripts/padron-build.mjs padron_reducido_ruc.txt out --version "$version"
-          echo "VERSION=$version" >> "$GITHUB_ENV"
+          # Cada publicación va a su propia carpeta: nunca se pisan los archivos
+          # que una instancia de la API ya está leyendo con su índice en memoria.
+          echo "FOLDER=$(date -u +%Y%m%dT%H%M%SZ)" >> "$GITHUB_ENV"
 
       - name: Publicar
         if: steps.check.outputs.changed == 'true'
         run: |
-          gcloud storage cp out/data.bin out/index.bin out/manifest.json "$DEST/$VERSION/"
+          gcloud storage cp out/data.bin out/index.bin out/manifest.json "$DEST/$FOLDER/"
           # El puntero se cambia al final: la API nunca lee una versión a medio subir.
-          printf '{"path": "%s", "etag": "%s"}\n' "$VERSION" "${{ steps.check.outputs.etag }}" > current.json
+          printf '{"path": "%s", "etag": "%s"}\n' "$FOLDER" "${{ steps.check.outputs.etag }}" > current.json
           gcloud storage cp --cache-control=no-store current.json "$DEST/current.json"
-          # Quedan las dos últimas versiones.
-          gcloud storage ls "$DEST/" | grep -E '/[0-9]{4}-[0-9]{2}-[0-9]{2}/$' | sort | head -n -2 | while read -r old; do
+          # Quedan las dos últimas publicaciones (la anterior la siguen leyendo
+          # las instancias hasta que recargan, a lo sumo 10 minutos).
+          gcloud storage ls "$DEST/" | grep -E '/[0-9]{8}T[0-9]{6}Z/$' | sort | head -n -2 | while read -r old; do
+            gcloud storage rm -r "$old"
+          done
+          # La carpeta con nombre de fecha es de la primera carga, a mano.
+          gcloud storage ls "$DEST/" | grep -E '/[0-9]{4}-[0-9]{2}-[0-9]{2}/$' | while read -r old; do
             gcloud storage rm -r "$old"
           done
