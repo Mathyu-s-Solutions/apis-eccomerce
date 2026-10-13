@@ -3,10 +3,13 @@
 //   pnpm plan:list
 //   pnpm plan:set -- --email cliente@x.com --product shalom --plan basico --limit 5000 --months 1
 //   pnpm plan:set -- --email cliente@x.com --product olva --plan basico --limit 5000 --forever
+//   pnpm plan:set -- --email cliente@x.com --product olva --plan basico --limit unlimited --until 2026-10-25
 //
 // El plan vale para todas las keys del cliente en esa API. --months suma desde
 // hoy (o desde el vencimiento actual, si el plan es el mismo y sigue vigente);
-// --forever lo deja sin vencimiento. Los límites de cada plan están en
+// --forever lo deja sin vencimiento; --until AAAA-MM-DD lo hace vencer al final de
+// ese día (hora de Lima), y los pagos lo renuevan ese mismo día de cada mes
+// (frontend/src/lib/renewal.ts). Los límites de cada plan están en
 // frontend/src/lib/plans.ts.
 import { PrismaClient } from '../generated/prisma/index.js';
 
@@ -18,6 +21,13 @@ function arg(name) {
   return i > -1 ? process.argv[i + 1] : undefined;
 }
 const flag = (name) => process.argv.includes(`--${name}`);
+
+// Igual que frontend/src/lib/renewal.ts: fin del día en Lima (UTC-5).
+const endOfLimaDay = (day) => {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) + 5 * 3_600_000);
+};
+const limaDate = (date) => new Date(date.getTime() - 5 * 3_600_000).toISOString().slice(0, 10);
 
 function addMonths(from, months) {
   const d = new Date(from);
@@ -40,8 +50,11 @@ try {
       throw new Error('--limit debe ser un entero positivo o "unlimited"');
     }
     const forever = flag('forever');
-    const months = Number(arg('months') ?? (forever ? 0 : 1));
-    if (!forever && (!Number.isInteger(months) || months <= 0)) throw new Error('--months debe ser un entero positivo');
+    const until = arg('until');
+    if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) throw new Error('--until debe tener el formato AAAA-MM-DD');
+    if (until && endOfLimaDay(until) <= new Date()) throw new Error('--until ya pasó');
+    const months = Number(arg('months') ?? (forever || until ? 0 : 1));
+    if (!forever && !until && (!Number.isInteger(months) || months <= 0)) throw new Error('--months debe ser un entero positivo');
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new Error(`No hay una cuenta del portal con el correo ${email}`);
@@ -49,7 +62,7 @@ try {
     const current = await prisma.subscription.findUnique({ where: { userId_product: { userId: user.id, product } } });
     const now = new Date();
     const base = current?.plan === plan && current.expiresAt && current.expiresAt > now ? current.expiresAt : now;
-    const expiresAt = forever ? null : addMonths(base, months);
+    const expiresAt = forever ? null : until ? endOfLimaDay(until) : addMonths(base, months);
 
     const row = await prisma.subscription.upsert({
       where: { userId_product: { userId: user.id, product } },
@@ -58,7 +71,7 @@ try {
     });
     console.log(
       `\n${email} · ${product}: plan ${row.plan}, ${row.monthlyLimit ?? 'ilimitadas'} consultas/mes, ` +
-        `${row.expiresAt ? `vence ${row.expiresAt.toISOString().slice(0, 10)}` : 'sin vencimiento'}\n`,
+        `${row.expiresAt ? `vence el ${limaDate(row.expiresAt)} (hora de Lima)` : 'sin vencimiento'}\n`,
     );
   } else if (cmd === 'list') {
     const rows = await prisma.subscription.findMany({
@@ -72,12 +85,12 @@ try {
         api: r.product,
         plan: r.plan,
         limite: r.monthlyLimit ?? '∞',
-        vence: r.expiresAt ? r.expiresAt.toISOString().slice(0, 10) : '—',
+        vence: r.expiresAt ? limaDate(r.expiresAt) : '—',
         vigente: !r.expiresAt || r.expiresAt > now,
       })),
     );
   } else {
-    console.log('Uso: node scripts/plans.mjs <set|list> [--email E --product P --plan X --limit N|unlimited --months N|--forever]');
+    console.log('Uso: node scripts/plans.mjs <set|list> [--email E --product P --plan X --limit N|unlimited --months N|--until AAAA-MM-DD|--forever]');
     process.exitCode = 1;
   }
 } catch (err) {

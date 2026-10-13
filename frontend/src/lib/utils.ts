@@ -23,6 +23,7 @@ export function formatDate(d: Date | string): string {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+    timeZone: 'America/Lima',
   }).format(new Date(d));
 }
 
@@ -32,5 +33,6 @@ export function formatDateTime(d: Date | string): string {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'America/Lima',
   }).format(new Date(d));
 }
