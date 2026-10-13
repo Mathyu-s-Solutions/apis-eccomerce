@@ -288,3 +288,18 @@ model SunatDocument {
   @@index([companyId, createdAt])
   @@map("sunat_documents")
 }
+
+// Tipo de cambio SBS vigente en cada fecha (dólar y euro). Se guarda para no
+// depender del BCRP en cada consulta: una fecha pasada ya no cambia.
+model SunatExchangeRate {
+  date       String // AAAA-MM-DD consultada
+  currency   String // USD | EUR
+  // Día de la cotización: el último hábil hasta `date`.
+  quotedDate String   @map("quoted_date")
+  purchase   Decimal? @db.Decimal(10, 4)
+  sale       Decimal? @db.Decimal(10, 4)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@id([date, currency])
+  @@map("sunat_exchange_rates")
+}

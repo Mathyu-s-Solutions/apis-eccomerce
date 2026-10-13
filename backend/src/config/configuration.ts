@@ -30,6 +30,7 @@ export interface AppConfig {
   sunat: {
     secretsKey?: string;
     timeoutMs: number;
+    padronUrl?: string;
   };
   shalom: {
     webBase: string;
@@ -72,6 +73,7 @@ export function buildConfig(env: Env): AppConfig {
     sunat: {
       secretsKey: env.SUNAT_SECRETS_KEY,
       timeoutMs: env.SUNAT_TIMEOUT_MS,
+      padronUrl: env.PADRON_URL,
     },
     shalom: {
       webBase: env.SHALOM_WEB_BASE,

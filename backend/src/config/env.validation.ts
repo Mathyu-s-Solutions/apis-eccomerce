@@ -59,6 +59,9 @@ export const envSchema = z.object({
   // Sin ella se usa el host de cada request.
   PUBLIC_API_URL: optionalUrl,
   SUNAT_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  // Índice del padrón reducido del RUC (lo genera scripts/padron-build.mjs):
+  // gs://bucket/prefijo en producción, o una carpeta local. Sin ella no hay consulta RUC/DNI.
+  PADRON_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;

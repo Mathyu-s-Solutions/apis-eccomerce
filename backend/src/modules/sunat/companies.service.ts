@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Prisma, type SunatCompany } from '../../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ubigeoNames } from './core/ubigeos';
 import type { CompanyDto } from './dto/company.dto';
 import { SunatInputError } from './errors';
 import { SecretBox } from './secret-box';
@@ -78,6 +79,14 @@ export class CompaniesService {
     set('urbanizacion', dto.urbanizacion);
     set('telefono', dto.telefono);
     set('email', dto.email);
+    // Con el ubigeo basta: el departamento, la provincia y el distrito salen de la tabla del INEI.
+    const place = ubigeoNames(dto.ubigeo);
+    if (dto.ubigeo && !place) throw new SunatInputError(`ubigeo ${dto.ubigeo} no existe en la tabla del INEI.`);
+    if (place) {
+      data.departamento = dto.departamento?.toUpperCase() || place.departamento;
+      data.provincia = dto.provincia?.toUpperCase() || place.provincia;
+      data.distrito = dto.distrito?.toUpperCase() || place.distrito;
+    }
     set('solUser', dto.sol_usuario);
     set('apiClientId', dto.api_client_id);
     if (dto.sol_clave !== undefined) data.solPassword = dto.sol_clave ? this.secrets.seal(dto.sol_clave) : null;
