@@ -43,6 +43,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     void res.status(status).send({
+      success: false,
       ...payload,
       timestamp: new Date().toISOString(),
       path: req.url,

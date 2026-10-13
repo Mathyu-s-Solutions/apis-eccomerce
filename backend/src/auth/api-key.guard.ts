@@ -61,11 +61,18 @@ export class ApiKeyGuard implements CanActivate {
     return true;
   }
 
+  /** La key va en `x-api-key`; también se acepta `Authorization: Bearer <key>`. */
   private extractKey(req: {
     headers: Record<string, string | string[] | undefined>;
   }): string | null {
-    const raw = req.headers[HEADER];
-    if (Array.isArray(raw)) return raw[0] ?? null;
-    return raw ?? null;
+    return extractApiKey(req.headers);
   }
+}
+
+export function extractApiKey(headers: Record<string, string | string[] | undefined> | undefined): string | null {
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const direct = first(headers?.[HEADER]);
+  if (direct) return direct;
+  const bearer = /^Bearer\s+(\S+)$/i.exec(first(headers?.authorization) ?? '');
+  return bearer?.[1] ?? null;
 }

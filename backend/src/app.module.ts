@@ -46,7 +46,7 @@ const CLOUD_SEVERITY: Record<string, string> = {
           : {
               transport: { target: 'pino-pretty', options: { singleLine: true } },
             }),
-        redact: ['req.headers["x-api-key"]', 'req.headers.cookie'],
+        redact: ['req.headers["x-api-key"]', 'req.headers.authorization', 'req.headers.cookie'],
         autoLogging: true,
       },
     }),

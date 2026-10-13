@@ -26,6 +26,11 @@ export interface AppConfig {
     trackingBase: string;
     trackingApiKey: string;
   };
+  publicUrl?: string;
+  sunat: {
+    secretsKey?: string;
+    timeoutMs: number;
+  };
   shalom: {
     webBase: string;
     recaptchaSiteKey: string;
@@ -62,6 +67,11 @@ export function buildConfig(env: Env): AppConfig {
       wpBase: env.OLVA_WP_BASE,
       trackingBase: env.OLVA_TRACKING_BASE,
       trackingApiKey: env.OLVA_TRACKING_APIKEY,
+    },
+    publicUrl: env.PUBLIC_API_URL?.replace(/\/+$/, ''),
+    sunat: {
+      secretsKey: env.SUNAT_SECRETS_KEY,
+      timeoutMs: env.SUNAT_TIMEOUT_MS,
     },
     shalom: {
       webBase: env.SHALOM_WEB_BASE,
