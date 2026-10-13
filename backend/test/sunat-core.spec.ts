@@ -395,6 +395,17 @@ describe('padrón del RUC', () => {
     };
   }
 
+  it('si los archivos cambian bajo un índice ya cargado, se recarga solo', async () => {
+    const v1 = tinyPadron([['20131312955|SUNAT|ACTIVO|HABIDO|150101|AV. GARCILASO'], ['20553300429|TECNIGAS|ACTIVO|HABIDO|150132|AV. LURIGANCHO']]);
+    const v2 = tinyPadron([['20100070970|SUPERMERCADOS|ACTIVO|HABIDO|150130|CAL. MORELLI', '20131312955|SUNAT NUEVA|ACTIVO|HABIDO|150101|AV. GARCILASO'], ['20553300429|TECNIGAS NUEVA|ACTIVO|HABIDO|150132|AV. LURIGANCHO']]);
+    let current: BlobSource = v1;
+    const reader = new PadronReader({ read: (name, range) => current.read(name, range) });
+    expect(await reader.find('20553300429')).toMatchObject({ nombre: 'TECNIGAS' });
+    current = v2; // se pisaron los archivos en la misma carpeta
+    expect(await reader.find('20131312955')).toMatchObject({ nombre: 'SUNAT NUEVA' });
+    expect(await reader.find('20100070970')).toMatchObject({ nombre: 'SUPERMERCADOS' });
+  });
+
   it('encuentra un RUC leyendo un solo bloque', async () => {
     const source = tinyPadron([
       ['10082365937|PFLUCKER MARTINEZ MARIA ISABEL|BAJA DE OFICIO|HABIDO||', '10452159428|GARCIA CHANCO CARLOS AUGUSTO|ACTIVO|HABIDO||'],
