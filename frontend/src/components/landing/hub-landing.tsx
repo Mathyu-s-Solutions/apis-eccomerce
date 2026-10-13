@@ -18,7 +18,7 @@ function PanelPreview() {
   const rows: { id: BrandId; plan: string; used: number; limit: number | null }[] = [
     { id: 'shalom', plan: 'Básico', used: 1240, limit: null },
     { id: 'olva', plan: 'Básico', used: 830, limit: null },
-    { id: 'sunat', plan: 'Prueba', used: 3, limit: 10 },
+    { id: 'sunat', plan: 'Prueba', used: 3, limit: 20 },
   ];
   return (
     <div className="w-full max-w-md rounded-2xl bg-white p-5 text-[var(--foreground)] shadow-[0_30px_80px_-30px_rgba(0,0,0,.6)]">

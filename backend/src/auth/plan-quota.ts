@@ -8,7 +8,7 @@ import type { Product } from './product.decorator';
 export const FREE_MONTHLY_LIMIT: Record<Product, number> = {
   shalom: 20,
   olva: 20,
-  sunat: 10,
+  sunat: 20,
 };
 
 /** De dónde sale la cuota de una llamada. */

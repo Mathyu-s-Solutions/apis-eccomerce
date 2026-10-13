@@ -27,10 +27,10 @@ export const PLANS: Record<Product, Plan[]> = {
     { id: 'empresarial', name: 'Empresarial', pricedPen: 399, monthlyLimit: null, features: ['Todo lo del Básico', 'Integración a medida', 'Soporte dedicado y SLA'] },
   ],
   sunat: [
-    { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 10, features: ['Pruebas ilimitadas en SUNAT beta', '10 comprobantes reales al mes', 'PDF, XML y CDR de cada comprobante'] },
-    { id: 'basico', name: 'Básico', pricedPen: 69, monthlyLimit: 2000, highlight: true, features: ['2,000 comprobantes/mes', 'Factura, boleta, notas, bajas y guías', 'Consultas RUC, DNI, validez y SIRE incluidas', 'Soporte prioritario'] },
-    { id: 'pro', name: 'Pro', pricedPen: 199, monthlyLimit: 20000, features: ['20,000 comprobantes/mes', 'Hasta 10 empresas (RUC) por cuenta', 'Todo lo del Básico', 'SLA de disponibilidad'] },
-    { id: 'empresarial', name: 'Empresarial', pricedPen: 499, monthlyLimit: null, features: ['Comprobantes ilimitados', 'Integración a medida', 'Soporte dedicado'] },
+    { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 20, features: ['Pruebas ilimitadas en SUNAT beta', '20 comprobantes reales al mes', 'PDF, XML y CDR de cada comprobante'] },
+    { id: 'basico', name: 'Básico', pricedPen: 25, monthlyLimit: 1000, highlight: true, features: ['1,000 comprobantes/mes', 'Factura, boleta, notas, bajas y guías', 'Consultas RUC y DNI incluidas', 'Varias empresas (RUC) sin costo extra'] },
+    { id: 'pro', name: 'Pro', pricedPen: 59, monthlyLimit: 5000, features: ['5,000 comprobantes/mes', 'Todo lo del Básico', 'Validez de comprobantes y SIRE incluidos', 'Soporte prioritario'] },
+    { id: 'empresarial', name: 'Empresarial', pricedPen: 149, monthlyLimit: 20000, features: ['20,000 comprobantes/mes', 'Integración a medida', 'Soporte dedicado y SLA'] },
   ],
 };
 
