@@ -28,7 +28,7 @@ export const PLANS: Record<Product, Plan[]> = {
   ],
   sunat: [
     { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 20, features: ['Pruebas ilimitadas en SUNAT beta', 'PDF, XML y CDR de cada comprobante', 'Soporte por correo'] },
-    { id: 'basico', name: 'Básico', pricedPen: 25, monthlyLimit: 1000, highlight: true, features: ['Factura, boleta, notas, bajas y guías', 'Consultas RUC y DNI incluidas', 'Varias empresas (RUC) sin costo extra'] },
+    { id: 'basico', name: 'Básico', pricedPen: 20, monthlyLimit: 1000, highlight: true, features: ['Factura, boleta, notas, bajas y guías', 'Consultas RUC y DNI incluidas', 'Varias empresas (RUC) sin costo extra'] },
     { id: 'pro', name: 'Pro', pricedPen: 59, monthlyLimit: 5000, features: ['Todo lo del Básico', 'Validez de comprobantes y SIRE incluidos', 'Soporte prioritario'] },
     { id: 'empresarial', name: 'Empresarial', pricedPen: 149, monthlyLimit: 20000, features: ['Todo lo del Pro', 'Integración a medida', 'Soporte dedicado y SLA'] },
   ],
