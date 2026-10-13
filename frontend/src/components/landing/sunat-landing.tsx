@@ -19,8 +19,8 @@ export function SunatLanding({ brand }: { brand: Brand }) {
           <Stagger className="flex min-w-0 flex-[1_1_480px] flex-col gap-6">
             <div className="flex flex-wrap gap-2">
               <span className="rounded-full bg-[var(--tint)] px-3.5 py-1.5 text-sm font-medium text-[var(--primary)]">Facturación electrónica · UBL 2.1</span>
-              <span className="inline-flex items-center gap-2 rounded-full bg-[#FDECEC] px-3.5 py-1.5 text-sm font-medium text-[#A80009]">
-                <span className="h-2 w-2 rounded-full bg-[#CF000B]" /> En desarrollo · acceso anticipado
+              <span className="inline-flex items-center gap-2 rounded-full bg-[#E8F5EC] px-3.5 py-1.5 text-sm font-medium text-[#1B7A3A]">
+                <span className="h-2 w-2 rounded-full bg-[#1B7A3A]" /> Pruebas en SUNAT beta sin costo
               </span>
             </div>
             <h1 className={cn('text-[clamp(42px,5.8vw,74px)] leading-[1.02]', DISPLAY.sunat)}>
@@ -42,9 +42,9 @@ export function SunatLanding({ brand }: { brand: Brand }) {
               </Link>
             </div>
             <dl className="mt-2 grid max-w-xl grid-cols-3 gap-4 border-t border-[#DEE3EA] pt-6">
-              <Stat value={50} label="comprobantes gratis al mes" />
+              <Stat value={6} label="comprobantes y guías" />
               <Stat value={18} suffix="%" label="IGV calculado por ti" />
-              <Stat value={4} label="tipos de comprobante" />
+              <Stat value={30} label="casos aceptados por SUNAT beta" />
             </dl>
           </Stagger>
 
@@ -81,10 +81,10 @@ export function SunatLanding({ brand }: { brand: Brand }) {
               brand={brand}
               eyebrow="Comprobantes electrónicos"
               title="Arma un comprobante y mira el resultado"
-              intro="Elige el tipo y el monto. Calculamos el IGV y te mostramos cómo se vería la petición."
+              intro="Elige el tipo y el monto. Calculamos el IGV y te mostramos la petición: es el mismo JSON de apisunat.pe."
               className="[&>span]:text-[#CF000B]"
             />
-            <span className="rounded-lg bg-[#FDECEC] px-3 py-2 text-sm font-medium text-[#A80009]">Vista previa · el formato final puede cambiar</span>
+            <span className="rounded-lg bg-[#E6F2F8] px-3 py-2 text-sm font-medium text-[var(--primary)]">Respuesta: estado, XML, CDR y PDF</span>
           </Reveal>
           <Reveal>
             <DocumentBuilder />
@@ -112,7 +112,7 @@ export function SunatLanding({ brand }: { brand: Brand }) {
       <Features brand={brand} title="Facturación sin XML a mano" />
       <Steps brand={brand} />
       <Pricing brand={brand} title="Paga por comprobante emitido" />
-      <CtaBand brand={brand} title="¿Listo para facturar desde tu código?" text="Crea tu cuenta gratis y obtén una API key para el entorno de pruebas." />
+      <CtaBand brand={brand} title="¿Listo para facturar desde tu código?" text="Crea tu cuenta gratis, registra tu empresa y emite en SUNAT beta hoy mismo. Pasas a producción cuando subes tu certificado." />
     </>
   );
 }
