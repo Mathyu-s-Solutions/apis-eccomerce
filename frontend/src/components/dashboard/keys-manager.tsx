@@ -28,6 +28,7 @@ export function KeysManager({ defaultProduct }: { defaultProduct: string }) {
   const [error, setError] = useState<string | null>(null);
   const [newKey, setNewKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [revoking, setRevoking] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch('/api/keys');
@@ -57,8 +58,13 @@ export function KeysManager({ defaultProduct }: { defaultProduct: string }) {
   }
 
   async function revoke(id: string) {
-    await fetch(`/api/keys/${id}`, { method: 'DELETE' });
-    await load();
+    setRevoking(id);
+    try {
+      await fetch(`/api/keys/${id}`, { method: 'DELETE' });
+      await load();
+    } finally {
+      setRevoking(null);
+    }
   }
 
   async function copyKey() {
@@ -137,9 +143,10 @@ export function KeysManager({ defaultProduct }: { defaultProduct: string }) {
                   {k.enabled && (
                     <button
                       onClick={() => revoke(k.id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                      disabled={revoking !== null}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
                     >
-                      <Trash2 size={15} /> Revocar
+                      {revoking === k.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} Revocar
                     </button>
                   )}
                 </div>

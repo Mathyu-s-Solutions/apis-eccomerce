@@ -2,11 +2,12 @@ import Link from 'next/link';
 import { ArrowRight, Check, CreditCard, KeyRound, UserRound } from 'lucide-react';
 import { BRAND_IDS, BRANDS, HUB, type BrandId } from '@/lib/brands';
 import { BUNDLES, PLANS } from '@/lib/plans';
-import { panelHref, siteHref } from '@/lib/urls';
+import { panelHref } from '@/lib/urls';
 import { cn, formatSoles } from '@/lib/utils';
 import { BundleOffer } from '@/components/marketing/plan-cards';
 import { Reveal, Stagger } from './motion';
 import { container } from './sections';
+import { SiteLink } from '@/components/site/site-link';
 
 const heading = 'text-[clamp(32px,4.2vw,52px)] font-extrabold leading-[1.05] tracking-[-0.03em]';
 
@@ -125,12 +126,12 @@ export function HubLanding() {
                       Prueba gratis · desde <b className="text-[var(--foreground)]">{formatSoles(fromPrice(id))}</b>/mes
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <Link href={siteHref(id)} className="inline-flex items-center gap-1.5 rounded-[10px] bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--on-primary)] hover:bg-[var(--primary-hover)]">
+                      <SiteLink site={id} className="inline-flex items-center gap-1.5 rounded-[10px] bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--on-primary)] hover:bg-[var(--primary-hover)]">
                         Ver {brand.product} <ArrowRight size={15} />
-                      </Link>
-                      <Link href={siteHref(id, '/docs')} className="inline-flex items-center rounded-[10px] border border-[var(--border)] px-4 py-2.5 text-sm font-semibold hover:bg-[var(--surface)]">
+                      </SiteLink>
+                      <SiteLink site={id} path="/docs" className="inline-flex items-center rounded-[10px] border border-[var(--border)] px-4 py-2.5 text-sm font-semibold hover:bg-[var(--surface)]">
                         Documentación
-                      </Link>
+                      </SiteLink>
                     </div>
                   </div>
                 );

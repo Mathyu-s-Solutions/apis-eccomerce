@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Building2, Clock, MapPin, Navigation, Phone, Search, X } from 'lucide-react';
 import { DEPARTMENTS, DEPARTMENT_LABEL, PERU_MAP } from '@/lib/peru-map';
 import { cn } from '@/lib/utils';
-import { normalize, useAgencies, type CourierId, type MapAgency } from './agencies';
+import { normalize, useAgencies, useNearViewport, type CourierId, type MapAgency } from './agencies';
 
 const LIST_LIMIT = 80;
 
@@ -65,7 +65,9 @@ interface Props {
 
 export function AgencyMap({ brand, tone, noun, apiPrefix }: Props) {
   const t = TONES[tone];
-  const { data, failed } = useAgencies(brand);
+  // El catálogo pesa 90-150 KB: se baja recién cuando el mapa se acerca a la pantalla.
+  const root = useRef<HTMLDivElement>(null);
+  const { data, failed } = useAgencies(brand, useNearViewport(root));
   const [query, setQuery] = useState('');
   const [dep, setDep] = useState('');
   const [selId, setSelId] = useState<string | null>(null);
@@ -106,7 +108,7 @@ export function AgencyMap({ brand, tone, noun, apiPrefix }: Props) {
     .join('&');
 
   return (
-    <div className="flex flex-col gap-5">
+    <div ref={root} className="flex flex-col gap-5">
       <div className="flex justify-end">
         <button
           type="button"

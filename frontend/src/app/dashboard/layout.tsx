@@ -1,15 +1,19 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Boxes } from 'lucide-react';
 import { getCurrentUser } from '@/lib/current-user';
 import { HUB } from '@/lib/brands';
-import { siteHref } from '@/lib/urls';
+import { NO_INDEX, siteIcons } from '@/lib/seo';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { PanelFrame } from '@/components/site/panel-frame';
+import { SiteLink } from '@/components/site/site-link';
 
-export const metadata: Metadata = { title: { default: `Mi panel · ${HUB.name}`, template: `%s · ${HUB.name}` } };
+export const metadata: Metadata = {
+  title: { default: `Mi panel · ${HUB.name}`, template: `%s · ${HUB.name}` },
+  icons: siteIcons('hub'),
+  robots: NO_INDEX,
+};
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
@@ -19,12 +23,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <PanelFrame>
       <header className="border-b border-[var(--border)]">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link href={siteHref('hub')} className="flex items-center gap-2 font-semibold">
+          <SiteLink site="hub" className="flex items-center gap-2 font-semibold">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg brand-mark">
               <Boxes size={18} />
             </span>
             {HUB.name}
-          </Link>
+          </SiteLink>
           <span className="text-sm text-[var(--muted)]">Panel de todas tus APIs</span>
         </div>
       </header>

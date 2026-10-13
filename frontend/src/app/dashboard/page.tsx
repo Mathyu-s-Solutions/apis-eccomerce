@@ -6,12 +6,12 @@ import { BRANDS } from '@/lib/brands';
 import { currentPeriod } from '@/lib/period';
 import { BUNDLES, PLANS, PRODUCT_NAME } from '@/lib/plans';
 import { getAccountPlans, type AccountPlan } from '@/lib/subscriptions';
-import { siteHref } from '@/lib/urls';
 import { formatDate } from '@/lib/utils';
 import { Alert, Badge, Card } from '@/components/ui/primitives';
 import { ButtonLink } from '@/components/ui/button';
 import { UsageBar } from '@/components/dashboard/usage-bar';
 import { BundleOffer } from '@/components/marketing/plan-cards';
+import { SiteLink } from '@/components/site/site-link';
 
 function planStatus(p: AccountPlan): string {
   if (p.lapsed) return 'Tu plan venció: rige el de prueba hasta que lo renueves.';
@@ -54,9 +54,9 @@ function ApiCard({ p, renewHref }: { p: AccountPlan; renewHref: string }) {
         <ButtonLink href={`/dashboard/keys?product=${p.product}`} size="sm" variant="outline">
           <KeyRound size={14} /> Keys
         </ButtonLink>
-        <Link href={siteHref(p.product, '/docs')} className="inline-flex items-center px-1 text-sm font-medium text-[var(--accent)]">
+        <SiteLink site={p.product} path="/docs" className="inline-flex items-center px-1 text-sm font-medium text-[var(--accent)]">
           Docs
-        </Link>
+        </SiteLink>
       </div>
     </Card>
   );

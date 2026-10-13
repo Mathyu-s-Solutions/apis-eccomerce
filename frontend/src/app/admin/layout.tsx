@@ -5,9 +5,14 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Boxes } from 'lucide-react';
 import { getCurrentUser } from '@/lib/current-user';
 import { HUB } from '@/lib/brands';
+import { NO_INDEX, siteIcons } from '@/lib/seo';
 import { PanelFrame } from '@/components/site/panel-frame';
 
-export const metadata: Metadata = { title: { default: HUB.name, template: `%s · ${HUB.name}` } };
+export const metadata: Metadata = {
+  title: { default: `Admin · ${HUB.name}`, template: `%s · ${HUB.name}` },
+  icons: siteIcons('hub'),
+  robots: NO_INDEX,
+};
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();

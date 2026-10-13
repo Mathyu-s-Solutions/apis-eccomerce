@@ -512,11 +512,19 @@ function Documents({ ruc, version }: { ruc: string; version: number }) {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ paginate: { page: number; total_pages: number; total_items: number }; items: Doc[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Mientras llega otra página se ve la anterior, atenuada.
+  const want = `${ruc}:${page}:${version}`;
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const loading = loaded !== want;
 
   useEffect(() => {
     let cancelled = false;
     api<{ paginate: { page: number; total_pages: number; total_items: number }; items: Doc[] }>(`companies/${ruc}/documents`.concat(`?per_page=15&page=${page}`))
-      .then((d) => !cancelled && setData(d))
+      .then((d) => {
+        if (cancelled) return;
+        setData(d);
+        setLoaded(`${ruc}:${page}:${version}`);
+      })
       .catch((e) => !cancelled && setError((e as Error).message));
     return () => {
       cancelled = true;
@@ -525,14 +533,20 @@ function Documents({ ruc, version }: { ruc: string; version: number }) {
 
   return (
     <Card className="p-6">
-      <h3 className="font-semibold">Comprobantes</h3>
+      <h3 className="flex items-center gap-2 font-semibold">
+        Comprobantes {data && loading && !error && <Loader2 size={15} className="animate-spin text-[var(--muted)]" aria-label="Cargando" />}
+      </h3>
       {error && <Alert tone="error">{error}</Alert>}
       {!data ? (
-        <p className="mt-3 text-sm text-[var(--muted)]">Cargando…</p>
+        !error && (
+          <p className="mt-3 flex items-center gap-2 text-sm text-[var(--muted)]">
+            <Loader2 size={15} className="animate-spin" /> Cargando…
+          </p>
+        )
       ) : data.items.length === 0 ? (
         <p className="mt-3 text-sm text-[var(--muted)]">Todavía no emites comprobantes con esta empresa (en este ambiente).</p>
       ) : (
-        <>
+        <div className={loading && !error ? 'opacity-60 transition-opacity' : 'transition-opacity'} aria-busy={loading}>
           <ul className="mt-4 divide-y divide-[var(--border)] sm:hidden">
             {data.items.map((d) => (
               <li key={`${d.documento}-${d.serie}-${d.numero}`} className="py-3 text-sm">
@@ -600,18 +614,18 @@ function Documents({ ruc, version }: { ruc: string; version: number }) {
           </div>
           {data.paginate.total_pages > 1 && (
             <div className="mt-4 flex items-center gap-3 text-sm">
-              <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              <Button size="sm" variant="outline" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>
                 Anterior
               </Button>
               <span className="text-[var(--muted)]">
                 Página {data.paginate.page} de {data.paginate.total_pages} · {data.paginate.total_items} en total
               </span>
-              <Button size="sm" variant="outline" disabled={page >= data.paginate.total_pages} onClick={() => setPage((p) => p + 1)}>
+              <Button size="sm" variant="outline" disabled={page >= data.paginate.total_pages || loading} onClick={() => setPage((p) => p + 1)}>
                 Siguiente
               </Button>
             </div>
           )}
-        </>
+        </div>
       )}
     </Card>
   );

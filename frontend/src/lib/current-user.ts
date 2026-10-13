@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { prisma } from './db';
 import { getSession } from './session';
 
@@ -21,8 +22,11 @@ export function isAdminEmail(email: string): boolean {
   return adminEmails().includes(email.toLowerCase());
 }
 
-/** Usuario autenticado (o null). El rol admin sale del DB o de ADMIN_EMAILS. */
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+/**
+ * Usuario autenticado (o null). El rol admin sale del DB o de ADMIN_EMAILS. Una sola
+ * consulta por request aunque lo pidan el layout, el header y la página.
+ */
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await getSession();
   if (!session?.userId) return null;
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
@@ -35,4 +39,4 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     role: isAdmin ? 'admin' : user.role,
     isAdmin,
   };
-}
+});

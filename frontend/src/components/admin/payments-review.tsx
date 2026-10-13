@@ -33,6 +33,7 @@ export function PaymentsReview() {
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
   const [items, setItems] = useState<AdminPayment[] | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Pago y acción en curso: `${id}:approve` o `${id}:reject`.
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -46,7 +47,7 @@ export function PaymentsReview() {
   useEffect(() => { load(); }, [load]);
 
   async function act(id: string, action: 'approve' | 'reject') {
-    setBusy(id);
+    setBusy(`${id}:${action}`);
     try {
       await fetch(`/api/admin/payments/${id}`, {
         method: 'POST',
@@ -116,11 +117,11 @@ export function PaymentsReview() {
                       onChange={(e) => setNotes((n) => ({ ...n, [p.id]: e.target.value }))}
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => act(p.id, 'approve')} disabled={busy === p.id}>
-                        <Check size={15} /> Aprobar
+                      <Button size="sm" onClick={() => act(p.id, 'approve')} disabled={busy !== null}>
+                        {busy === `${p.id}:approve` ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Aprobar
                       </Button>
-                      <Button size="sm" variant="danger" onClick={() => act(p.id, 'reject')} disabled={busy === p.id}>
-                        <X size={15} /> Rechazar
+                      <Button size="sm" variant="danger" onClick={() => act(p.id, 'reject')} disabled={busy !== null}>
+                        {busy === `${p.id}:reject` ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />} Rechazar
                       </Button>
                     </div>
                   </div>

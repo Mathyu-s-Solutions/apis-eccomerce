@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, Input, Label, Alert } from '@/components/ui/primitives';
 import { firebaseAuth } from '@/lib/firebase';
+import { startNavigationProgress } from '@/components/site/navigation-progress';
 
 type Pending = 'google' | 'email' | 'reset' | 'resend';
 
@@ -102,6 +103,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     await signOut(firebaseAuth());
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new SessionError(data.message ?? 'Algo salió mal');
+    startNavigationProgress();
     router.push('/dashboard');
     router.refresh();
   }
@@ -263,6 +265,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           {pending === 'email' ? 'Un momento…' : isRegister ? 'Crear cuenta' : 'Ingresar'}
         </Button>
       </form>
+
+      {/* Con Google, ingresar por primera vez también crea la cuenta. */}
+      <p className="mt-4 text-center text-xs leading-relaxed text-[var(--muted)]">
+        {isRegister ? 'Al crear tu cuenta' : 'Al continuar'} aceptas los{' '}
+        <Link href="/terminos" className="font-medium text-[var(--accent)] hover:underline">Términos y condiciones</Link> y la{' '}
+        <Link href="/privacidad" className="font-medium text-[var(--accent)] hover:underline">Política de privacidad</Link>.
+      </p>
 
       <p className="mt-5 text-center text-sm text-[var(--muted)]">
         {isRegister ? (
