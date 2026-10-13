@@ -51,6 +51,17 @@ export const envSchema = z.object({
   SHALOM_CAPTCHA_NAV_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   SHALOM_CAPTCHA_TOKEN_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
   SHALOM_CAPTCHA_PAGE_TTL_MS: z.coerce.number().int().positive().default(600000),
+
+  // Llave con la que se cifran en la BD las claves SOL y los certificados de los
+  // clientes (AES-256-GCM). Sin ella no se pueden guardar credenciales: solo beta.
+  SUNAT_SECRETS_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(32).optional()),
+  // URL pública de esta API, para los enlaces de descarga (XML, CDR, PDF).
+  // Sin ella se usa el host de cada request.
+  PUBLIC_API_URL: optionalUrl,
+  SUNAT_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  // Índice del padrón reducido del RUC (lo genera scripts/padron-build.mjs):
+  // gs://bucket/prefijo en producción, o una carpeta local. Sin ella no hay consulta RUC/DNI.
+  PADRON_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;

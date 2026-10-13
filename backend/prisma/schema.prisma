@@ -32,6 +32,7 @@ model User {
   webhook       Webhook?
   tracking      TrackingSubscription[]
   deliveries    WebhookDelivery[]
+  sunatCompanies SunatCompany[]
 
   @@map("users")
 }
@@ -199,4 +200,106 @@ model ShalomGuide {
   lastUsedAt  DateTime @default(now()) @map("last_used_at")
 
   @@map("shalom_guides")
+}
+
+// Empresa emisora de un cliente en la API de SUNAT: su RUC, sus datos para el
+// comprobante y las credenciales con las que se envía a SUNAT.
+model SunatCompany {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  ruc             String
+  razonSocial     String   @map("razon_social")
+  nombreComercial String?  @map("nombre_comercial")
+  direccion       String
+  ubigeo          String?
+  departamento    String?
+  provincia       String?
+  distrito        String?
+  urbanizacion    String?
+  telefono        String?
+  email           String?
+  // Logo para el PDF (PNG o JPG).
+  logo            Bytes?
+  logoMime        String?  @map("logo_mime")
+  // beta = pruebas contra SUNAT beta (sin validez); produccion = comprobantes reales.
+  environment     String   @default("beta")
+  solUser         String?  @map("sol_user")
+  // Cifrados con SUNAT_SECRETS_KEY (AES-256-GCM): nunca en claro.
+  solPassword     String?  @map("sol_password")
+  // Llave privada + certificado en PEM, cifrados.
+  certificate     String?
+  // Datos visibles del certificado: sujeto, emisor, vigencia.
+  certificateInfo Json?    @map("certificate_info")
+  // Credenciales de API de SUNAT (menú SOL): guías de remisión, SIRE, validez.
+  apiClientId     String?  @map("api_client_id")
+  apiClientSecret String?  @map("api_client_secret")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents       SunatDocument[]
+
+  @@unique([userId, ruc])
+  @@map("sunat_companies")
+}
+
+// Comprobante, guía, resumen o baja generado por una empresa. Guarda lo que se
+// envió (XML firmado) y lo que respondió SUNAT (CDR).
+model SunatDocument {
+  id           String    @id @default(cuid())
+  companyId    String    @map("company_id")
+  environment  String // beta | produccion
+  // Catálogo 01 (01, 03, 07, 08, 09, 31) o RC (resumen diario) / RA (baja).
+  type         String
+  series       String // F001 · RC-20261012
+  number       Int
+  issueDate    String    @map("issue_date") // AAAA-MM-DD
+  status       String // PENDIENTE | ACEPTADO | RECHAZADO | ANULADO
+  customerDoc  String?   @map("customer_doc")
+  customerName String?   @map("customer_name")
+  currency     String?
+  total        Decimal?  @db.Decimal(14, 2)
+  // DigestValue de la firma (el "valor resumen" del PDF).
+  hash         String?
+  // Token de las URL públicas de descarga (XML, CDR, PDF).
+  token        String    @unique
+  // El pedido del cliente ya validado: con él se rearma el PDF o un resumen.
+  input        Json
+  // ZIP con el XML firmado, tal como se envió.
+  xml          Bytes
+  // ZIP del CDR de SUNAT.
+  cdr          Bytes?
+  sunatCode    String?   @map("sunat_code")
+  sunatMessage String?   @map("sunat_message")
+  observations Json?
+  // Resúmenes, bajas y guías: SUNAT responde después, por ticket.
+  ticket       String?
+  attempts     Int       @default(0)
+  // Cuándo volver a preguntarle a SUNAT por un PENDIENTE.
+  nextCheckAt  DateTime? @map("next_check_at")
+  // Baja o resumen que lo anuló.
+  voidedById   String?   @map("voided_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  // Restrict: una empresa con comprobantes no se borra.
+  company      SunatCompany @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, environment, type, series, number])
+  @@index([status, nextCheckAt])
+  @@index([companyId, createdAt])
+  @@map("sunat_documents")
+}
+
+// Tipo de cambio SBS vigente en cada fecha (dólar y euro). Se guarda para no
+// depender del BCRP en cada consulta: una fecha pasada ya no cambia.
+model SunatExchangeRate {
+  date       String // AAAA-MM-DD consultada
+  currency   String // USD | EUR
+  // Día de la cotización: el último hábil hasta `date`.
+  quotedDate String   @map("quoted_date")
+  purchase   Decimal? @db.Decimal(10, 4)
+  sale       Decimal? @db.Decimal(10, 4)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@id([date, currency])
+  @@map("sunat_exchange_rates")
 }

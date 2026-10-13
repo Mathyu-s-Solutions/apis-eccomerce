@@ -2,8 +2,8 @@ import { SetMetadata } from '@nestjs/common';
 
 export const BILLING_COST_KEY = 'billing:cost';
 
-/** Unidades según la request (p. ej. una por guía de un lote). */
-export type CostFn = (req: { body?: unknown; query?: unknown }) => number;
+/** Unidades según la request (p. ej. una por guía de un lote, o 0 en un entorno de pruebas). */
+export type CostFn = (req: { body?: unknown; query?: unknown; [key: string]: unknown }) => number;
 
 /**
  * Unidades de cuota que consume un endpoint si responde con éxito.
@@ -12,8 +12,11 @@ export type CostFn = (req: { body?: unknown; query?: unknown }) => number;
  */
 export const Cost = (units: number | CostFn) => SetMetadata(BILLING_COST_KEY, units);
 
-/** Lo que cobra una request: el número fijo o el de la función (mínimo 1 si es función). */
+/** Lo que cobra una request: el número fijo o el de la función (1 si no devuelve un número). */
 export function costOf(units: number | CostFn | undefined, req: { body?: unknown; query?: unknown }): number {
-  if (typeof units === 'function') return Math.max(1, Math.floor(units(req)) || 1);
+  if (typeof units === 'function') {
+    const n = Math.floor(units(req));
+    return Number.isFinite(n) ? Math.max(0, n) : 1;
+  }
   return units ?? 0;
 }

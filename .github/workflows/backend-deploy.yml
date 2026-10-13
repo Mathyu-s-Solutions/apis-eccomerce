@@ -5,8 +5,9 @@ name: Backend Deploy
 # solo acepta tokens de este repo y de refs/heads/main.
 #
 # Variables del repo: GCP_PROJECT_ID, GCP_REGION, GCP_WIF_PROVIDER,
-#   GCP_DEPLOY_SA, GCP_RUN_SA, GCP_AR_REPO, CLOUD_RUN_SERVICE
-# Secretos (URLs de Neon) en Secret Manager, no en GitHub.
+#   GCP_DEPLOY_SA, GCP_RUN_SA, GCP_AR_REPO, CLOUD_RUN_SERVICE,
+#   GCP_PADRON_BUCKET (índice del padrón RUC), PUBLIC_API_URL (enlaces de descarga)
+# Secretos (URLs de Neon, cron, llave de cifrado de SUNAT) en Secret Manager, no en GitHub.
 
 on:
   push:
@@ -111,8 +112,8 @@ jobs:
             --timeout=300 \
             --port=8080 \
             --allow-unauthenticated \
-            --set-env-vars="NODE_ENV=production,LOG_LEVEL=info,SHALOM_CAPTCHA_PROVIDER=playwright,SHALOM_CAPTCHA_POOL_SIZE=2" \
-            --set-secrets="DATABASE_URL=database-url:latest,CRON_SECRET=cron-secret:latest" \
+            --set-env-vars="NODE_ENV=production,LOG_LEVEL=info,SHALOM_CAPTCHA_PROVIDER=playwright,SHALOM_CAPTCHA_POOL_SIZE=2,PADRON_URL=gs://${{ vars.GCP_PADRON_BUCKET }}/padron,PUBLIC_API_URL=${{ vars.PUBLIC_API_URL }}" \
+            --set-secrets="DATABASE_URL=database-url:latest,CRON_SECRET=cron-secret:latest,SUNAT_SECRETS_KEY=sunat-secrets-key:latest" \
             --quiet
 
       - name: Smoke test
