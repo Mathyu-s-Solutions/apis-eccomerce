@@ -16,10 +16,12 @@ const sum = (xs: Dec[]) => add(ZERO, ...xs);
 function buildLine(item: SaleDocumentDto['items'][number], index: number): Line {
   const affectation = AFFECTATIONS[item.codigo_tipo_afectacion_igv];
   const quantity = dec(item.cantidad);
-  const unitValue = dec(item.valor_unitario);
   const taxed = affectation.kind === 'gravado' || affectation.kind === 'ivap';
   const igvPercent = taxed ? dec(item.porcentaje_igv) : ZERO;
   const rate = div(igvPercent, HUNDRED);
+  // Sin valor_unitario, sale del precio_unitario (con IGV): precio / (1 + tasa), con los 10 decimales.
+  const price = item.valor_unitario === undefined && item.precio_unitario !== undefined ? dec(item.precio_unitario) : null;
+  const unitValue = price === null ? dec(item.valor_unitario ?? '0') : taxed ? div(price, add(dec(1), rate)) : price;
   const gross = mul(quantity, unitValue);
 
   const discounts: Allowance[] = [];
@@ -38,8 +40,16 @@ function buildLine(item: SaleDocumentDto['items'][number], index: number): Line 
 
   // El IGV sale de la base sin redondear: 2 × 254.237288 da 600.00 y no 599.99.
   const base = sub(gross, affecting);
-  const value = r2(base);
-  const igv = r2(mul(base, rate));
+  let value = r2(base);
+  let igv = r2(mul(base, rate));
+  // Con el precio (y sin descuentos), el ítem cuesta exacto precio × cantidad: el valor se redondea y el IGV es la
+  // diferencia. Redondeando los dos por separado, a veces la suma se pasa un céntimo del precio de la etiqueta.
+  // La diferencia con base × tasa queda dentro de la tolerancia de SUNAT (±1).
+  if (price !== null && taxed && !affectation.free && discounts.length === 0) {
+    const total = r2(mul(quantity, price));
+    value = r2(div(total, add(dec(1), rate)));
+    igv = sub(total, value);
+  }
   // Precio unitario: lo que paga el cliente por unidad (valor + IGV - descuentos que no afectan la base).
   const unitPrice = affectation.free
     ? unitValue
@@ -195,7 +205,7 @@ export function buildSaleDocument(dto: SaleDocumentDto, issuer: Issuer, opts: Bu
   if (dto.total != null) {
     const given = dec(dto.total);
     if (cmp(abs(sub(given, payable)), CENT) > 0) {
-      throw new SunatInputError(`El total enviado (${fmt(given)}) no coincide con el calculado (${fmt(payable)}). Revisa valor_unitario, cantidad y descuentos.`, {
+      throw new SunatInputError(`El total enviado (${fmt(given)}) no coincide con el calculado (${fmt(payable)}). Revisa valor_unitario (o precio_unitario), cantidad y descuentos.`, {
         total_calculado: fmt(payable),
         total_gravada: fmt(totals.gravadas),
         total_exonerada: fmt(totals.exoneradas),

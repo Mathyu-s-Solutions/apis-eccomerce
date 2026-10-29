@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, type SunatCompany, type SunatDocument } from '../../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 import { type Sender, CompaniesService } from './companies.service';
@@ -24,6 +24,13 @@ import { type SummaryAction, summaryXml, voidedXml } from './ubl/summary-xml';
 export type DocumentStatus = 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO' | 'ANULADO';
 
 type DocumentWithCompany = SunatDocument & { company: SunatCompany };
+
+/** Dos requests con la misma Idempotency-Key a la vez: la que pierde devuelve el comprobante de la otra. */
+class KeyTaken extends Error {
+  constructor(readonly doc: SunatDocument) {
+    super('idempotency_key_taken');
+  }
+}
 
 /** Comprobante al que apunta una baja o un resumen (se guarda en `input`). */
 interface AffectedRef {
@@ -70,29 +77,58 @@ export class DocumentsService {
 
   // ---------------------------------------------------------------- emisión
 
-  /** Emite una factura, boleta o nota: la calcula, la firma, la envía y guarda el CDR. */
-  async emit(company: SunatCompany, dto: SaleDocumentDto, opts: { hold?: boolean } = {}): Promise<SunatDocument> {
+  /**
+   * Emite una factura, boleta o nota: la calcula, la firma, la envía y guarda el CDR. Con `idempotencyKey`, si otra
+   * request con la misma clave se adelantó, devuelve ese comprobante (`replayed`) en lugar de emitir otro.
+   */
+  async emit(company: SunatCompany, dto: SaleDocumentDto, opts: { hold?: boolean; idempotencyKey?: string } = {}): Promise<SunatDocument & { replayed?: boolean }> {
     const sender = this.companies.sender(company);
     const type = DOCUMENT_CODES[dto.documento];
     const issuer = this.companies.issuer(company);
     const now = limaNow();
+    const idempotencyKey = opts.idempotencyKey ?? null;
+    // Un rechazado no quedó en SUNAT: su clave se libera para volver a emitir con los datos corregidos.
+    if (idempotencyKey) {
+      await this.prisma.sunatDocument.updateMany({ where: { companyId: company.id, environment: sender.environment, idempotencyKey, status: 'RECHAZADO' }, data: { idempotencyKey: null } });
+    }
 
-    const record = await this.reserve(company, sender, type, dto.serie, dto.numero, `${dto.documento.replace('_', ' de ')} ${dto.serie}`, (number) => {
-      const doc = buildSaleDocument(dto, issuer, { number, today: now.date, now: now.time });
-      return {
-        xml: saleDocumentXml(doc),
-        issueDate: doc.issueDate,
-        customerDoc: doc.customer.docNumber,
-        customerName: doc.customer.name,
-        currency: doc.currency,
-        total: fmt(doc.totals.payable),
-        input: { ...dto, numero: number, fecha_de_emision: doc.issueDate, hora_de_emision: doc.issueTime },
-      };
-    });
+    let record: SunatDocument;
+    try {
+      record = await this.reserve(company, sender, type, dto.serie, dto.numero, `${dto.documento.replace('_', ' de ')} ${dto.serie}`, idempotencyKey, (number) => {
+        const doc = buildSaleDocument(dto, issuer, { number, today: now.date, now: now.time });
+        return {
+          xml: saleDocumentXml(doc),
+          issueDate: doc.issueDate,
+          customerDoc: doc.customer.docNumber,
+          customerName: doc.customer.name,
+          currency: doc.currency,
+          total: fmt(doc.totals.payable),
+          input: { ...dto, numero: number, fecha_de_emision: doc.issueDate, hora_de_emision: doc.issueTime },
+        };
+      });
+    } catch (e) {
+      if (e instanceof KeyTaken) return { ...e.doc, replayed: true };
+      throw e;
+    }
 
     // Boletas que el cliente prefiere informar luego, juntas, en un resumen diario.
     if (opts.hold) return record;
     return this.transmit({ ...record, company }, sender);
+  }
+
+  /**
+   * El comprobante que ya se emitió con esta Idempotency-Key (el POS reintenta tras un corte y no debe salir otra
+   * boleta). Si quedó PENDIENTE, se reintenta como en `status`. Un rechazado no cuenta. Si la clave se usó para otro
+   * comprobante (otro tipo, serie o número), es un error del cliente.
+   */
+  async replay(company: SunatCompany, key: string, dto: Pick<SaleDocumentDto, 'documento' | 'serie' | 'numero'>): Promise<SunatDocument | null> {
+    const doc = await this.prisma.sunatDocument.findUnique({
+      where: { companyId_environment_idempotencyKey: { companyId: company.id, environment: company.environment, idempotencyKey: key } },
+    });
+    if (!doc || doc.status === 'RECHAZADO') return null;
+    const sameDocument = doc.type === DOCUMENT_CODES[dto.documento] && doc.series === dto.serie && (dto.numero === undefined || doc.number === dto.numero);
+    if (!sameDocument) throw new ConflictException(`La Idempotency-Key ya se usó para ${doc.series}-${doc.number}: usa una clave nueva para otro comprobante.`);
+    return doc.status === 'PENDIENTE' ? this.refresh({ ...doc, company }) : doc;
   }
 
   /** Emite una guía de remisión (remitente o transportista) por la API REST de SUNAT. */
@@ -107,7 +143,7 @@ export class DocumentsService {
         ? { doc: dto.destinatario.numero_de_documento, name: dto.destinatario.denominacion }
         : { doc: dto.destinatario_numero_de_documento, name: dto.destinatario_denominacion };
 
-    const record = await this.reserve(company, sender, type, dto.serie, dto.numero, `guía de remisión ${dto.serie}`, (number) => {
+    const record = await this.reserve(company, sender, type, dto.serie, dto.numero, `guía de remisión ${dto.serie}`, null, (number) => {
       const meta = { number, issueDate: dto.fecha_de_emision ?? now.date, issueTime: normalizeTime(dto.hora_de_emision) ?? now.time };
       return {
         xml: despatchXml(dto, issuer, meta),
@@ -133,6 +169,7 @@ export class DocumentsService {
     series: string,
     requested: number | undefined,
     label: string,
+    idempotencyKey: string | null,
     build: (number: number) => { xml: string; issueDate: string; customerDoc: string; customerName: string; currency: string | null; total: string | null; input: Record<string, unknown> },
   ): Promise<SunatDocument> {
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -165,12 +202,20 @@ export class DocumentsService {
         attempts: 0,
         nextCheckAt: null,
         voidedById: null,
+        idempotencyKey,
       } satisfies Prisma.SunatDocumentUncheckedUpdateInput;
       try {
         return existing
           ? await this.prisma.sunatDocument.update({ where: { id: existing.id }, data })
           : await this.prisma.sunatDocument.create({ data: { ...data, ...key, token: randomBytes(18).toString('base64url') } });
       } catch (e) {
+        // Otra request con la misma Idempotency-Key se adelantó: ese es el comprobante.
+        if (idempotencyKey && e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002' && String(e.meta?.target ?? '').includes('idempotency')) {
+          const taken = await this.prisma.sunatDocument.findUnique({
+            where: { companyId_environment_idempotencyKey: { companyId: company.id, environment: sender.environment, idempotencyKey } },
+          });
+          if (taken) throw new KeyTaken(taken);
+        }
         // Otra request tomó ese número a la vez.
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
           if (requested !== undefined) throw new BadRequestException(`ERROR: ${label}-${number} fue emitido anteriormente.`);

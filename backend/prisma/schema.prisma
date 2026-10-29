@@ -278,12 +278,16 @@ model SunatDocument {
   nextCheckAt  DateTime? @map("next_check_at")
   // Baja o resumen que lo anuló.
   voidedById   String?   @map("voided_by_id")
+  // Cabecera Idempotency-Key del cliente: el mismo pedido repetido (tras un corte de red) devuelve este
+  // comprobante en vez de emitir otro.
+  idempotencyKey String? @map("idempotency_key")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   // Restrict: una empresa con comprobantes no se borra.
   company      SunatCompany @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   @@unique([companyId, environment, type, series, number])
+  @@unique([companyId, environment, idempotencyKey])
   @@index([status, nextCheckAt])
   @@index([companyId, createdAt])
   @@map("sunat_documents")

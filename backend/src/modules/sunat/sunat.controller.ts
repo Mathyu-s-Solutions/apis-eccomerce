@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, HttpCode, HttpStatus, Inject, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiHeader, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { FastifyRequest } from 'fastify';
@@ -79,9 +79,12 @@ export class SunatController {
     @Inject(API_KEY_STORE) private readonly store: ApiKeyStore,
   ) {}
 
-  /** Un comprobante que SUNAT rechazó no existe: no gasta cuota. */
+  /**
+   * Un comprobante que SUNAT rechazó no existe, y uno repetido con la misma Idempotency-Key ya se cobró: ninguno gasta
+   * cuota (la unidad que se reservó al entrar se devuelve).
+   */
   private async respond(doc: Awaited<ReturnType<DocumentsService['emit']>>, company: SunatCompany, key: ApiKeyRecord, req: FastifyRequest) {
-    if (doc.status === 'RECHAZADO' && doc.environment === 'produccion') await this.store.refund(key, 1, 'sunat').catch(() => undefined);
+    if ((doc.status === 'RECHAZADO' || doc.replayed) && doc.environment === 'produccion') await this.store.refund(key, 1, 'sunat').catch(() => undefined);
     return this.documents.view(doc, company.ruc, baseUrl(this.config, req));
   }
 
@@ -93,14 +96,29 @@ export class SunatController {
     summary: 'Emite una factura, boleta, nota de crédito o nota de débito',
     description:
       'Calcula el comprobante, lo firma, lo envía a SUNAT y devuelve el estado con los enlaces al XML, el CDR y el PDF. ' +
-      'Sin `numero` usa el siguiente correlativo de la serie. En `beta` no consume cuota.',
+      'Sin `numero` usa el siguiente correlativo de la serie. En `beta` no consume cuota. ' +
+      'Cada ítem lleva `valor_unitario` (sin IGV) o `precio_unitario` (con IGV: el total del ítem es exacto precio × cantidad). ' +
+      'Con la cabecera `Idempotency-Key`, repetir el mismo pedido (p. ej. tras un corte de red) devuelve el mismo comprobante sin emitir otro ni cobrarlo dos veces.',
   })
+  @ApiHeader({ name: 'Idempotency-Key', required: false, description: 'Clave única del pedido (hasta 100 caracteres: letras, números, - _ : .). La misma clave devuelve el mismo comprobante.' })
   @ApiBody({ schema: { type: 'object', example: FACTURA_EXAMPLE } })
-  async emit(@Company() company: SunatCompany, @CurrentKey() key: ApiKeyRecord, @Req() req: FastifyRequest, @Body() body: unknown) {
+  async emit(
+    @Company() company: SunatCompany,
+    @CurrentKey() key: ApiKeyRecord,
+    @Req() req: FastifyRequest,
+    @Body() body: unknown,
+    @Headers('idempotency-key') idempotencyHeader?: string,
+  ) {
     // Las guías también entran por aquí: el esquema sale del campo `documento`.
     if (isDespatch(body)) return this.dispatch(company, key, req, new SunatValidationPipe(DespatchSchema).transform(body) as DespatchDto);
     const dto = new SunatValidationPipe(SaleDocumentSchema).transform(body) as SaleDocumentDto;
-    const doc = await this.documents.emit(company, dto, { hold: dto.enviar_en_resumen });
+    const idempotencyKey = idempotencyHeader?.trim() || undefined;
+    if (idempotencyKey && !/^[\w:.-]{1,100}$/.test(idempotencyKey)) throw new BadRequestException('Idempotency-Key admite hasta 100 caracteres: letras, números, - _ : .');
+    if (idempotencyKey) {
+      const prior = await this.documents.replay(company, idempotencyKey, dto);
+      if (prior) return this.respond({ ...prior, replayed: true }, company, key, req);
+    }
+    const doc = await this.documents.emit(company, dto, { hold: dto.enviar_en_resumen, idempotencyKey });
     return this.respond(doc, company, key, req);
   }
 

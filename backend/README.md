@@ -113,10 +113,17 @@ mandas `numero`, `GET /documents` y ticket de 80 mm.
    el número se puede volver a usar y no gasta cuota). Si SUNAT no responde,
    queda `PENDIENTE` y el worker lo reintenta (en producción primero pide el CDR
    por si SUNAT ya lo tenía).
+   - **Precio con IGV:** cada ítem lleva `valor_unitario` (sin IGV) o, para un
+     POS, `precio_unitario` (con IGV): el ítem cuesta exacto precio × cantidad y
+     el IGV sale por diferencia (con los dos, manda `valor_unitario`, como en
+     apisunat.pe).
+   - **`Idempotency-Key`:** con esa cabecera, repetir el mismo pedido (tras un
+     corte de red) devuelve el mismo comprobante sin emitir otro ni cobrarlo dos
+     veces. Un rechazado libera la clave. La misma clave para otro comprobante da 409.
 5. **Anular:** facturas con `/voided` (comunicación de baja), boletas con
    `/daily-summary` (o `/voided`, que las deriva). Al aceptar SUNAT, pasan a `ANULADO`.
 
-**Verificado contra SUNAT:** los 30 ejemplos de la documentación de apisunat.pe
+**Verificado contra SUNAT:** los 30 ejemplos de la documentación de apisunat.pe y 2 boletas de POS (precio con IGV y clientes varios)
 (crédito, detracción, anticipos, exportación, gratuitas, descuentos, retención,
 notas…) salen aceptados y sin observaciones en beta, igual que las bajas, los
 resúmenes y las 8 variantes de guía. Se repite con `SUNAT_BETA=1 pnpm test`

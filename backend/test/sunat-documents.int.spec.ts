@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { AppConfig } from '../src/config/configuration';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -121,6 +121,44 @@ describe.skipIf(!url)('SUNAT: documentos (Postgres)', () => {
     expect(view.payload.cdr).toBe(`https://api.test/v1/sunat/files/${a.token}/R-20000000001-01-F001-1.xml`);
     expect(view.payload.pdf).toEqual({ ticket: `https://api.test/v1/sunat/files/${a.token}/20000000001-01-F001-1-ticket.pdf`, a4: `https://api.test/v1/sunat/files/${a.token}/20000000001-01-F001-1.pdf` });
     expect((await documents.byToken(a.token)).id).toBe(a.id);
+  });
+
+  it('Idempotency-Key: el mismo pedido repetido devuelve el mismo comprobante sin volver a enviarlo', async () => {
+    const c = await company();
+    const dto = boleta({ serie: 'B091', items: [{ descripcion: 'Polo', cantidad: 2, precio_unitario: '59.90' }] });
+    const first = await documents.emit(c, dto, { idempotencyKey: `${tag}-venta-1` });
+    expect(first).toMatchObject({ status: 'ACEPTADO', number: 1 });
+    expect(first.total?.toFixed(2)).toBe('119.80');
+    const again = await documents.replay(c, `${tag}-venta-1`, dto);
+    expect(again?.id).toBe(first.id);
+    expect(calls.sendBill).toHaveLength(1);
+    // La misma clave para otro comprobante es un error del cliente.
+    await expect(documents.replay(c, `${tag}-venta-1`, { ...dto, serie: 'B092' })).rejects.toThrow(ConflictException);
+  });
+
+  it('Idempotency-Key: dos envíos a la vez con la misma clave dan un solo comprobante', async () => {
+    const c = await company();
+    const dto = boleta({ serie: 'B093' });
+    const [a, b] = await Promise.all([documents.emit(c, dto, { idempotencyKey: `${tag}-doble` }), documents.emit(c, dto, { idempotencyKey: `${tag}-doble` })]);
+    expect(a.id).toBe(b.id);
+    expect([a.replayed, b.replayed].filter(Boolean)).toHaveLength(1);
+    expect(calls.sendBill).toHaveLength(1);
+    expect(await prisma.sunatDocument.count({ where: { companyId: c.id, series: 'B093' } })).toBe(1);
+  });
+
+  it('Idempotency-Key: si SUNAT lo rechazó, la misma clave vuelve a emitir con los datos corregidos', async () => {
+    const c = await company();
+    sendBill = [
+      () => {
+        throw new SunatFault('2017', 'El numero de documento de identidad del receptor debe ser RUC');
+      },
+    ];
+    const rejected = await documents.emit(c, boleta({ serie: 'B094' }), { idempotencyKey: `${tag}-rechazo` });
+    expect(rejected.status).toBe('RECHAZADO');
+    expect(await documents.replay(c, `${tag}-rechazo`, boleta({ serie: 'B094' }))).toBeNull();
+    const fixed = await documents.emit(c, boleta({ serie: 'B094' }), { idempotencyKey: `${tag}-rechazo` });
+    expect(fixed).toMatchObject({ status: 'ACEPTADO', number: 1 });
+    expect(fixed.replayed).toBeUndefined();
   });
 
   it('no repite un número ya emitido', async () => {

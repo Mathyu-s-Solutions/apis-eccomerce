@@ -43,7 +43,11 @@ const ItemSchema = z.object({
   codigo_producto_sunat: z.string().trim().regex(/^\d{8}$/, 'codigo_producto_sunat tiene 8 dígitos').optional().nullable(),
   descripcion: text('items.descripcion', 500),
   cantidad: decimal('items.cantidad'),
-  valor_unitario: decimal('items.valor_unitario'),
+  // El valor sin IGV o, si no viene, el precio con IGV (el de la etiqueta): con el precio, el total del ítem es exacto
+  // (precio × cantidad) y el IGV sale por diferencia, así un POS cobra S/ 99.00 y no S/ 99.01. Si vienen los dos (como
+  // en los ejemplos de apisunat.pe), manda valor_unitario y el precio se ignora, igual que antes.
+  valor_unitario: decimal('items.valor_unitario').optional(),
+  precio_unitario: decimal('items.precio_unitario').optional(),
   porcentaje_igv: decimal('items.porcentaje_igv', 2).default('18'),
   codigo_tipo_afectacion_igv: z
     .string()
@@ -153,6 +157,12 @@ export const SaleDocumentSchema = z
     if (targetsInvoice && !foreign && d.cliente_tipo_de_documento !== '6') issue('cliente_tipo_de_documento', 'Una factura se emite a un cliente con RUC (cliente_tipo_de_documento = 6)');
     if (d.cliente_tipo_de_documento === '6' && !/^\d{11}$/.test(d.cliente_numero_de_documento)) issue('cliente_numero_de_documento', 'El RUC del cliente debe tener 11 dígitos');
     if (d.cliente_tipo_de_documento === '1' && !/^\d{8}$/.test(d.cliente_numero_de_documento)) issue('cliente_numero_de_documento', 'El DNI del cliente debe tener 8 dígitos');
+
+    d.items.forEach((item, i) => {
+      if (item.valor_unitario === undefined && item.precio_unitario === undefined) {
+        ctx.addIssue({ code: 'custom', path: ['items', i, 'valor_unitario'], message: `items[${i}]: falta valor_unitario (sin IGV) o precio_unitario (con IGV)` });
+      }
+    });
 
     if (d.enviar_en_resumen && !d.serie.startsWith('B')) issue('enviar_en_resumen', 'Solo las boletas y sus notas (serie B) van en un resumen diario');
     if (d.detraccion && !/^100[1-4]$/.test(d.tipo_operacion)) issue('tipo_operacion', 'Con detracción, tipo_operacion debe ser 1001 (o 1002 a 1004)');

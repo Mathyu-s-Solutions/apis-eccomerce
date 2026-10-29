@@ -3,7 +3,7 @@ import forge from 'node-forge';
 import { SignedXml } from 'xml-crypto';
 import { describe, expect, it } from 'vitest';
 import { amountInWords } from '../src/modules/sunat/core/amount-in-words';
-import { add, dec, div, fmt, fmtTrim, mul, round } from '../src/modules/sunat/core/decimal';
+import { abs, add, cmp, dec, div, fmt, fmtTrim, mul, round, sub } from '../src/modules/sunat/core/decimal';
 import { isValidRuc, rucFromDni } from '../src/modules/sunat/core/ruc';
 import { ubigeoNames } from '../src/modules/sunat/core/ubigeos';
 import { esc } from '../src/modules/sunat/core/xml';
@@ -181,10 +181,45 @@ describe('cálculo del comprobante', () => {
   it('una sola tasa de IGV por comprobante', () => {
     expect(() => boleta({ items: [item(), item({ porcentaje_igv: '10.5' })] })).toThrow(/una sola tasa/);
   });
+
+  it('precio_unitario (con IGV): el total es exacto precio × cantidad y el IGV sale por diferencia', () => {
+    const byPrice = (precio: string, cantidad = '1') => item({ valor_unitario: undefined, precio_unitario: precio, cantidad });
+    const doc = boleta({ items: [byPrice('99'), byPrice('70')], total: '169.00' });
+    expect(total(doc)).toBe('169.00');
+    expect(fmt(add(doc.totals.gravadas, doc.totals.igv))).toBe('169.00');
+    expect([fmt(doc.lines[0].value), fmt(doc.lines[0].igv), fmtTrim(doc.lines[0].unitPrice, 6)]).toEqual(['83.90', '15.10', '99']);
+
+    // Todos los precios de S/ 0.10 a S/ 300 (de 10 en 10 céntimos) por 1 a 4 unidades: nunca se pasa ni le falta un
+    // céntimo, y el IGV queda a un céntimo como mucho de valor × 18 % (SUNAT tolera ±1).
+    for (let cents = 10; cents <= 30000; cents += 10) {
+      for (let qty = 1; qty <= 4; qty++) {
+        const precio = (cents / 100).toFixed(2);
+        const line = boleta({ items: [byPrice(precio, String(qty))] }).lines[0];
+        const expected = ((cents * qty) / 100).toFixed(2);
+        expect([precio, qty, fmt(line.total)]).toEqual([precio, qty, expected]);
+        expect(cmp(abs(sub(line.igv, round(mul(line.value, dec('0.18')), 2))), dec('0.01')) <= 0).toBe(true);
+      }
+    }
+  });
+
+  it('precio_unitario con una promo repartida (3 × S/ 100): S/ 33.3333333333 por prenda da S/ 100.00', () => {
+    const doc = boleta({ items: [item({ valor_unitario: undefined, precio_unitario: '33.3333333333', cantidad: '3' })] });
+    expect(total(doc)).toBe('100.00');
+  });
 });
 
 describe('validación del pedido', () => {
   const issues = (input: Record<string, unknown>) => SaleDocumentSchema.safeParse(input).error?.issues.map((i) => i.message) ?? [];
+
+  it('cada ítem lleva valor_unitario o precio_unitario; con los dos (como apisunat.pe) manda el valor', () => {
+    const base = { documento: 'boleta', serie: 'B001', ...DNI_CLIENT };
+    expect(issues({ ...base, items: [item({ valor_unitario: undefined })] })).toContain('items[0]: falta valor_unitario (sin IGV) o precio_unitario (con IGV)');
+    expect(issues({ ...base, items: [item({ valor_unitario: undefined, precio_unitario: '99' })] })).toEqual([]);
+    // El ejemplo de nota de débito de apisunat.pe manda los dos: se calcula con el valor, como siempre.
+    const both = build({ ...base, items: [item({ valor_unitario: '84.745763', precio_unitario: '100' })] });
+    expect(fmt(both.totals.payable)).toBe('100.00');
+    expect(fmtTrim(both.lines[0].unitValue, 6)).toBe('84.745763');
+  });
 
   it('serie, cliente y notas', () => {
     expect(issues({ documento: 'factura', serie: 'B001', ...RUC_CLIENT, items: [item()] })).toContain('La serie de una factura empieza con F');

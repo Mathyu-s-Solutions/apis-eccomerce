@@ -69,8 +69,13 @@ const item = (over: Record<string, unknown> = {}) => ({
 });
 const inDays = (n: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date(Date.now() + n * 86_400_000));
 
-/** Los ejemplos de la documentación de apisunat.pe, con el total que ellos publican. */
+/** Ítem de un POS: precio con IGV (el de la etiqueta), sin valor_unitario. */
+const posItem = (over: Record<string, unknown> = {}) => item({ valor_unitario: undefined, ...over });
+
+/** Los ejemplos de la documentación de apisunat.pe, con el total que ellos publican, y los del POS. */
 const CASES: Array<[string, Record<string, unknown>]> = [
+  ['boleta del POS: precio con IGV y promo 3 x S/ 100', { documento: 'boleta', serie: 'B001', ...DNI_CLIENT, items: [posItem({ descripcion: 'BAGGY ANGEL CELESTE T28', precio_unitario: '99' }), posItem({ descripcion: 'POLO OVERSIZE NEGRO M', cantidad: '3', precio_unitario: '33.3333333333' })], total: '199.00' }],
+  ['boleta del POS: clientes varios', { documento: 'boleta', serie: 'B001', cliente_tipo_de_documento: '-', cliente_numero_de_documento: '-', cliente_denominacion: 'CLIENTES VARIOS', items: [posItem({ descripcion: 'FLARED JEAN TOTAL BLACK T32', precio_unitario: '70' })], total: '70.00' }],
   ['factura simple', { documento: 'factura', serie: 'F001', ...RUC_CLIENT, items: [item({ cantidad: '2', valor_unitario: '254.237288', codigo_interno: 'PROD001' })], total: '600.00', observacion: 'Se entregó el producto' }],
   ['factura al crédito', { documento: 'factura', serie: 'F001', ...RUC_CLIENT, fecha_de_vencimiento: inDays(12), cuotas: [{ importe: '100.00', fecha_de_pago: inDays(7) }, { importe: '176.12', fecha_de_pago: inDays(12) }], items: [item()], total: '276.12' }],
   ['factura exonerada', { documento: 'factura', serie: 'F001', ...RUC_CLIENT, items: [item({ porcentaje_igv: '0', codigo_tipo_afectacion_igv: '20', nombre_tributo: 'EXO' })], total: '234' }],
