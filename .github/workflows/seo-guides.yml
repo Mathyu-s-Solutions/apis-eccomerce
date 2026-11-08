@@ -1,14 +1,18 @@
 name: Guías SEO
 
-# Motor de contenido: lunes, miércoles y viernes Claude escribe la próxima guía del backlog
-# (frontend/content/seo/backlog.json) con los datos reales del producto, la revisa sola
-# (chequeos fijos + un segundo pedido como editor, con hasta 2 correcciones) y:
+# Motor de contenido: lunes, miércoles y viernes GitHub Copilot (Copilot CLI) escribe la
+# próxima guía del backlog (frontend/content/seo/backlog.json) con los datos reales del
+# producto, la revisa sola (chequeos fijos + un segundo pedido como editor, con hasta 2
+# correcciones) y:
 #   - si pasa, la publica directo en main (Vercel la despliega y entra al sitemap);
 #   - si no, abre un PR con los problemas pendientes para que alguien decida.
 # Cuando quedan pocos temas, el mismo commit trae ideas nuevas para el backlog.
+# Usa los créditos incluidos en el plan de Copilot del dueño del token: sin costo aparte.
 #
-# Secreto del repo: ANTHROPIC_API_KEY.
-# Variable del repo: PUBLIC_API_URL (URL pública de la API para los ejemplos).
+# Secreto del repo: COPILOT_GITHUB_TOKEN (fine-grained PAT de una cuenta con Copilot, con el
+#   permiso de cuenta "Copilot Requests").
+# Variables del repo: PUBLIC_API_URL (URL pública de la API para los ejemplos) y, opcional,
+#   COPILOT_MODEL (sin ella, Copilot elige el modelo: modo "auto").
 # Settings → Actions → General: "Read and write permissions" y "Allow GitHub Actions to
 # create and approve pull requests" (para el caso del PR).
 # Para pausarlo: Actions → Guías SEO → Disable workflow.
@@ -58,10 +62,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Instalar Copilot CLI
+        run: npm install -g @github/copilot@1.0.107
+
       - name: Escribir y revisar la guía
         id: guide
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_MODEL: ${{ vars.COPILOT_MODEL }}
           NEXT_PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
           NOTES_FILE: ${{ runner.temp }}/notes.md
           SLUG: ${{ inputs.slug }}

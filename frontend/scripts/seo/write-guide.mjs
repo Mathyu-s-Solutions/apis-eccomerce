@@ -1,37 +1,42 @@
-// Motor de contenido SEO: escribe la próxima guía del backlog con Claude, la revisa sola y la
-// deja en content/guias/<slug>.md. El workflow .github/workflows/seo-guides.yml la publica
+// Motor de contenido SEO: escribe la próxima guía del backlog con GitHub Copilot (el Copilot
+// CLI, con los créditos incluidos en el plan de Copilot: sin costo aparte), la revisa sola y
+// la deja en content/guias/<slug>.md. El workflow .github/workflows/seo-guides.yml la publica
 // directo en main si pasa la revisión, o abre un PR si no.
 //
 // La revisión reemplaza a la de una persona, así que es estricta:
 //   1. Chequeos fijos: links solo a páginas que existen, endpoints que existen en la API,
 //      sin H1, largo, título y descripción.
-//   2. Un segundo pedido a Claude, como revisor, compara cada afirmación con los datos del
+//   2. Un segundo pedido a Copilot, como revisor, compara cada afirmación con los datos del
 //      producto y busca cifras o normas inventadas, código que no funcionaría y afiliaciones.
 //   3. Si hay problemas, el autor corrige y se vuelve a revisar (hasta 2 veces). Si siguen,
 //      publish=false y el workflow abre un PR en vez de publicar.
 //
-//   ANTHROPIC_API_KEY=... node scripts/seo/write-guide.mjs              # el siguiente tema pendiente
-//   ANTHROPIC_API_KEY=... node scripts/seo/write-guide.mjs --slug X     # un tema concreto del backlog
-//   ... --dry-run                                                       # muestra el resultado sin escribir
-//   node scripts/seo/write-guide.mjs --slug X --print-prompt            # solo muestra el pedido (sin llamar a la API)
-//   node scripts/seo/write-guide.mjs --check content/guias/X.md         # chequeos fijos de una guía (sin la API)
+//   GH_TOKEN=$(gh auth token) COPILOT_BIN="npx -y @github/copilot" node scripts/seo/write-guide.mjs [--slug X] [--dry-run]
+//   node scripts/seo/write-guide.mjs --slug X --print-prompt            # solo muestra el pedido (sin llamar a Copilot)
+//   node scripts/seo/write-guide.mjs --check content/guias/X.md         # chequeos fijos de una guía (sin Copilot)
 //
-// Cuando quedan pocos temas pendientes, le pide a Claude ideas nuevas y las agrega al backlog.
+// Cuando quedan pocos temas pendientes, le pide a Copilot ideas nuevas y las agrega al backlog.
 //
-// Variables: ANTHROPIC_API_KEY (obligatoria), NEXT_PUBLIC_API_URL (URL pública de la API para
-// los ejemplos; sin ella los ejemplos usan $MATHYU_API_URL), GITHUB_OUTPUT y NOTES_FILE (en CI).
+// Variables: COPILOT_GITHUB_TOKEN (o GH_TOKEN): token de GitHub con acceso a Copilot (en CI, un
+// fine-grained PAT con el permiso "Copilot Requests"); COPILOT_MODEL (opcional, "auto" por
+// defecto); COPILOT_BIN (opcional); NEXT_PUBLIC_API_URL (URL pública de la API para los ejemplos;
+// sin ella usan $MATHYU_API_URL); GITHUB_OUTPUT y NOTES_FILE (en CI).
 // Salidas para el workflow: slug, title, publish ("true" | "false").
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import Anthropic from '@anthropic-ai/sdk';
-import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const GUIDES_DIR = path.join(ROOT, 'content', 'guias');
 const BACKLOG_FILE = path.join(ROOT, 'content', 'seo', 'backlog.json');
-const MODEL = 'claude-opus-5-5';
+/** Comando del Copilot CLI (en CI se instala con npm; en local puede ser "npx -y @github/copilot"). */
+const COPILOT_BIN = process.env.COPILOT_BIN || 'copilot';
+/** Modelo de Copilot: "auto" deja que Copilot elija (el único modo en algunos planes). */
+const MODEL = process.env.COPILOT_MODEL || 'auto';
+if (!/^[a-z0-9][a-z0-9.\-]*$/i.test(MODEL)) throw new Error(`COPILOT_MODEL no es válido: ${MODEL}`);
 /** Con menos temas pendientes que esto, se piden ideas nuevas. */
 const MIN_PENDING = 5;
 
@@ -163,9 +168,7 @@ function hubFacts() {
 }
 
 // ---------------------------------------------------------------------------
-// Claude
-
-const client = new Anthropic();
+// Modelo (GitHub Copilot CLI)
 
 const SYSTEM = `Escribes guías para el blog técnico de Mathyu's APIs, un proveedor peruano de APIs para ecommerce (Shalom, Olva Courier y SUNAT).
 
@@ -222,24 +225,59 @@ Marca como problema (y solo eso; el estilo no es motivo para rechazar):
 
 Para cada problema di dónde está y cómo corregirlo. Aprueba solo si no queda ninguno.`;
 
-/** Una llamada con salida JSON validada. Streaming: la respuesta es larga. */
-async function ask(schema, user, { effort = 'high', system = SYSTEM } = {}) {
-  const stream = client.beta.messages.stream({
-    model: MODEL,
-    max_tokens: 64000,
-    // Si un clasificador rechaza el pedido, la API lo reintenta en el modelo que recomienda.
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    output_config: { effort, format: betaZodOutputFormat(schema) },
-    system,
-    messages: [{ role: 'user', content: user }],
+/**
+ * Un pedido al Copilot CLI en modo no interactivo: sin herramientas (no lee ni escribe
+ * archivos, solo responde), el prompt por stdin (puede ser largo) y la respuesta en texto.
+ * Corre en una carpeta vacía para que no cargue instrucciones ni contexto del repo.
+ */
+function copilot(prompt) {
+  const flags = ['-s', '--no-ask-user', '--no-custom-instructions', '--disable-builtin-mcps', '--no-auto-update', '--available-tools'];
+  if (MODEL !== 'auto') flags.push('--model', MODEL);
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'seo-guide-'));
+  return new Promise((resolve, reject) => {
+    // Con shell: el comando puede ser "copilot" o "npx -y @github/copilot@x". Los flags son
+    // fijos y el modelo está validado; el texto del pedido va por stdin, nunca en la línea.
+    const child = spawn(`${COPILOT_BIN} ${flags.join(' ')}`, { cwd, shell: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
+    const timer = setTimeout(() => child.kill(), 15 * 60_000);
+    child.stdout.on('data', (d) => (out += d));
+    child.stderr.on('data', (d) => (err += d));
+    child.on('error', reject);
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      fs.rmSync(cwd, { recursive: true, force: true });
+      if (code === 0 && out.trim()) resolve(out.trim());
+      else reject(new Error(`Copilot CLI terminó con código ${code}: ${(err || out).trim().slice(-600)}`));
+    });
+    child.stdin.end(prompt);
   });
-  const message = await stream.finalMessage();
-  if (message.stop_reason === 'refusal') throw new Error(`El modelo rechazó el pedido (${message.stop_details?.category ?? 'sin categoría'}).`);
-  if (message.stop_reason === 'max_tokens') throw new Error('La respuesta se cortó por max_tokens.');
-  if (!message.parsed_output) throw new Error('La respuesta no tiene el formato esperado.');
-  console.log(`  ${message.model} · ${message.usage.input_tokens} tokens de entrada, ${message.usage.output_tokens} de salida`);
-  return message.parsed_output;
+}
+
+/** El primer objeto JSON de la respuesta (puede venir dentro de un bloque ```json). */
+function extractJson(text) {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start < 0 || end <= start) throw new Error('la respuesta no trae un objeto JSON');
+  return JSON.parse(text.slice(start, end + 1));
+}
+
+/** Un pedido con salida JSON validada contra el esquema; si llega mal, se pide de nuevo una vez. */
+async function ask(schema, user, { system = SYSTEM } = {}) {
+  const shape = JSON.stringify(z.toJSONSchema(schema), null, 1);
+  let prompt = `${system}\n\n---\n\n${user}\n\n---\n\nResponde SOLO con un objeto JSON válido que cumpla este JSON Schema, sin texto antes ni después:\n${shape}`;
+  for (let attempt = 1; ; attempt++) {
+    const started = Date.now();
+    const text = await copilot(prompt);
+    try {
+      const parsed = schema.parse(extractJson(text));
+      console.log(`  Copilot (${MODEL}) · ${Math.round((Date.now() - started) / 1000)} s · ${text.length} caracteres`);
+      return parsed;
+    } catch (e) {
+      if (attempt === 2) throw new Error(`La respuesta no tiene el formato esperado: ${e instanceof Error ? e.message : e}`);
+      prompt += `\n\nTu respuesta anterior no se pudo usar (${e instanceof Error ? e.message.slice(0, 300) : e}). Devuelve solo el objeto JSON completo y válido.`;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -395,7 +433,7 @@ async function writeGuide(topic, guides) {
 
   const host = topic.site === 'hub' ? HUB.hosts[0] : BRANDS[topic.site].hosts[0];
   const notes = [
-    `Guía para **${host}/guias/${topic.slug}**, escrita por ${MODEL} para la búsqueda _${topic.keyword}_ (${words} palabras).`,
+    `Guía para **${host}/guias/${topic.slug}**, escrita con GitHub Copilot (modelo: ${MODEL}) para la búsqueda _${topic.keyword}_ (${words} palabras).`,
     '',
     ...(publish
       ? ['Pasó los chequeos y la revisión automática.']
@@ -432,7 +470,7 @@ async function refillBacklog(backlog, guides) {
     'Temas que ya existen:',
     ...covered,
   ].join('\n');
-  const { topics } = await ask(IdeasSchema, user, { effort: 'medium' });
+  const { topics } = await ask(IdeasSchema, user);
   const slugs = new Set(backlog.map((t) => t.slug));
   const fresh = topics
     .map((t) => ({ ...t, slug: slugify(t.slug) }))
@@ -476,9 +514,6 @@ async function main() {
 try {
   await main();
 } catch (e) {
-  if (e instanceof Anthropic.AuthenticationError) console.error('ANTHROPIC_API_KEY no es válida.');
-  else if (e instanceof Anthropic.RateLimitError) console.error('Límite de la API de Anthropic: vuelve a intentarlo más tarde.');
-  else if (e instanceof Anthropic.APIError) console.error(`Error de la API de Anthropic (${e.status}): ${e.message}`);
-  else console.error(e instanceof Error ? e.message : e);
+  console.error(e instanceof Error ? e.message : e);
   process.exit(1);
 }
