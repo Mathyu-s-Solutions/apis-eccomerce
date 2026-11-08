@@ -110,17 +110,31 @@ Todas entran en el sitemap de su dominio y llevan breadcrumbs con JSON-LD.
 
 ### Motor de guías
 
-Cada lunes el workflow **Guías SEO** corre [`scripts/seo/write-guide.mjs`](scripts/seo/write-guide.mjs):
+Lunes, miércoles y viernes el workflow **Guías SEO** corre [`scripts/seo/write-guide.mjs`](scripts/seo/write-guide.mjs):
 toma el siguiente tema de [`content/seo/backlog.json`](content/seo/backlog.json), le pasa a Claude
 (`claude-opus-5-5`) los datos reales del producto (endpoints, campos, planes y precios salen de
-`brands.ts` y `plans.ts`, nunca de memoria) y abre un PR con la guía y una lista de cosas para
-verificar. **Nada se publica solo**: la guía sale al hacer merge, después de revisarla en la
-preview de Vercel. Cuando quedan menos de 5 temas, el mismo PR trae ideas nuevas para el backlog.
+`brands.ts` y `plans.ts`, nunca de memoria) y **publica la guía solo, sin aprobación**, si pasa
+la revisión automática:
+
+1. **Chequeos fijos**: links solo a páginas que existen y a sitios oficiales, rutas de la API que
+   existen en la doc, sin H1, con "Preguntas frecuentes", largo, título y descripción.
+2. **Revisión con Claude como editor**: compara cada afirmación con los datos del producto y busca
+   cifras o normas inventadas, código que no funcionaría y que no insinúe afiliación con Shalom,
+   Olva o la SUNAT.
+3. Si hay problemas, el autor corrige y se vuelve a revisar (hasta 2 veces).
+
+Si pasa, el commit va directo a `main` y Vercel lo despliega. Si después de las correcciones sigue
+con problemas, no se publica: se abre un PR con lo pendiente. Cuando quedan menos de 5 temas,
+el mismo commit trae ideas nuevas para el backlog, así que el motor no se detiene. Cada guía
+cuesta del orden de 1 USD en la API de Anthropic (escritura, revisión y correcciones).
 
 - Secreto `ANTHROPIC_API_KEY` y variable `NEXT_PUBLIC_API_URL` en el repo; en **Settings → Actions →
-  General**, permitir que GitHub Actions cree pull requests.
+  General**, "Read and write permissions" y permitir que GitHub Actions cree pull requests.
+- Para pausarlo: **Actions → Guías SEO → Disable workflow**. Para despublicar una guía, bórrala de
+  `content/guias/` o ponle `draft: true`.
 - Para correrlo a mano: `ANTHROPIC_API_KEY=... node scripts/seo/write-guide.mjs [--slug X] [--dry-run]`.
-  Con `--print-prompt` muestra lo que se le manda al modelo, sin llamar a la API.
+  `--print-prompt` muestra lo que se le manda al modelo y `--check content/guias/X.md` corre los
+  chequeos fijos sobre una guía, los dos sin llamar a la API.
 - Una guía con `draft: true` o con fecha futura solo se ve en desarrollo.
 - Si cambian los campos del JSON de SUNAT (`backend/src/modules/sunat/dto`), actualizar
   `SUNAT_FIELDS` en el script: es lo que evita que una guía invente campos.

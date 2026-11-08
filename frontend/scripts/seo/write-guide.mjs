@@ -1,17 +1,26 @@
-// Motor de contenido SEO: escribe la próxima guía del backlog con Claude y la deja en
-// content/guias/<slug>.md. No publica nada: el workflow .github/workflows/seo-guides.yml
-// abre un PR con la guía y alguien la revisa (datos, código, tono) antes del merge.
+// Motor de contenido SEO: escribe la próxima guía del backlog con Claude, la revisa sola y la
+// deja en content/guias/<slug>.md. El workflow .github/workflows/seo-guides.yml la publica
+// directo en main si pasa la revisión, o abre un PR si no.
+//
+// La revisión reemplaza a la de una persona, así que es estricta:
+//   1. Chequeos fijos: links solo a páginas que existen, endpoints que existen en la API,
+//      sin H1, largo, título y descripción.
+//   2. Un segundo pedido a Claude, como revisor, compara cada afirmación con los datos del
+//      producto y busca cifras o normas inventadas, código que no funcionaría y afiliaciones.
+//   3. Si hay problemas, el autor corrige y se vuelve a revisar (hasta 2 veces). Si siguen,
+//      publish=false y el workflow abre un PR en vez de publicar.
 //
 //   ANTHROPIC_API_KEY=... node scripts/seo/write-guide.mjs              # el siguiente tema pendiente
 //   ANTHROPIC_API_KEY=... node scripts/seo/write-guide.mjs --slug X     # un tema concreto del backlog
 //   ... --dry-run                                                       # muestra el resultado sin escribir
 //   node scripts/seo/write-guide.mjs --slug X --print-prompt            # solo muestra el pedido (sin llamar a la API)
+//   node scripts/seo/write-guide.mjs --check content/guias/X.md         # chequeos fijos de una guía (sin la API)
 //
-// Cuando quedan pocos temas pendientes, le pide a Claude ideas nuevas y las agrega al backlog
-// (entran en el mismo PR, así que también se revisan).
+// Cuando quedan pocos temas pendientes, le pide a Claude ideas nuevas y las agrega al backlog.
 //
 // Variables: ANTHROPIC_API_KEY (obligatoria), NEXT_PUBLIC_API_URL (URL pública de la API para
 // los ejemplos; sin ella los ejemplos usan $MATHYU_API_URL), GITHUB_OUTPUT y NOTES_FILE (en CI).
+// Salidas para el workflow: slug, title, publish ("true" | "false").
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -39,7 +48,18 @@ process.env.NEXT_PUBLIC_API_URL ||= '$MATHYU_API_URL';
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const { BRANDS, HUB } = await import(pathToFileURL(path.join(ROOT, 'src', 'lib', 'brands.ts')).href);
 const { PLANS, BUNDLES, fairUse } = await import(pathToFileURL(path.join(ROOT, 'src', 'lib', 'plans.ts')).href);
+const { DEPARTMENT_LABEL } = await import(pathToFileURL(path.join(ROOT, 'src', 'lib', 'peru-map.ts')).href);
 const catalogSlugs = [...fs.readFileSync(path.join(ROOT, 'src', 'lib', 'sunat-catalogs.ts'), 'utf8').matchAll(/slug: '([^']+)'/g)].map((m) => m[1]);
+
+/** Igual que slugify de src/lib/directory.ts. */
+function slugify(s) {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 // ---------------------------------------------------------------------------
 // Backlog y guías existentes
@@ -175,6 +195,11 @@ const GuideSchema = z.object({
   review_notes: z.array(z.string()).describe('Qué verificar antes de publicar'),
 });
 
+const ReviewSchema = z.object({
+  approved: z.boolean().describe('true solo si no queda ningún problema'),
+  issues: z.array(z.string()).describe('Cada problema: dónde está, qué está mal y cómo corregirlo'),
+});
+
 const IdeasSchema = z.object({
   topics: z.array(
     z.object({
@@ -186,8 +211,19 @@ const IdeasSchema = z.object({
   ),
 });
 
+const REVIEWER = `Eres el editor que decide si una guía del blog técnico de Mathyu's APIs se publica. Nadie más la va a revisar: si apruebas algo falso, sale publicado.
+
+Marca como problema (y solo eso; el estilo no es motivo para rechazar):
+- Cualquier afirmación sobre nuestro producto (endpoints, campos del JSON, precios, límites, planes, funciones) que no esté respaldada por los datos del producto.
+- Cifras, tarifas, plazos, multas, números de resolución, fechas u otros datos concretos sobre SUNAT, Shalom u Olva que no sean de conocimiento general y bien establecido.
+- Código que no funcionaría: endpoints o campos que no existen, JSON inválido, método HTTP equivocado, la key fuera de $MATHYU_API_KEY.
+- Que diga o dé a entender que somos Shalom, Olva o la SUNAT, o que tenemos un convenio con ellos.
+- Que no responda la búsqueda objetivo, o que tenga secciones de relleno que no aportan.
+
+Para cada problema di dónde está y cómo corregirlo. Aprueba solo si no queda ninguno.`;
+
 /** Una llamada con salida JSON validada. Streaming: la respuesta es larga. */
-async function ask(schema, user, { effort = 'high' } = {}) {
+async function ask(schema, user, { effort = 'high', system = SYSTEM } = {}) {
   const stream = client.beta.messages.stream({
     model: MODEL,
     max_tokens: 64000,
@@ -195,7 +231,7 @@ async function ask(schema, user, { effort = 'high' } = {}) {
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
     output_config: { effort, format: betaZodOutputFormat(schema) },
-    system: SYSTEM,
+    system,
     messages: [{ role: 'user', content: user }],
   });
   const message = await stream.finalMessage();
@@ -216,6 +252,78 @@ function output(name, value) {
   if (!process.env.GITHUB_OUTPUT) return;
   const delim = `EOF_${Math.random().toString(36).slice(2)}`;
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}<<${delim}\n${value}\n${delim}\n`);
+}
+
+// ---------------------------------------------------------------------------
+// Chequeos fijos (no dependen del modelo)
+
+/** Correcciones después de la primera revisión; si siguen los problemas, va a PR. */
+const MAX_REVISIONS = 2;
+/** Dominios externos que una guía puede enlazar. */
+const EXTERNAL_OK = ['gob.pe', 'shalom.com.pe', 'olvacourier.com', 'mathyusolutions.com'];
+const departmentSlugs = new Set(Object.values(DEPARTMENT_LABEL).map(slugify));
+
+/** "/v1/sunat/ruc/{ruc}" → /^\/v1\/sunat\/ruc\/[^/]+$/ */
+function routeRegex(p) {
+  return new RegExp(`^${p.split('/').map((s) => (/^\{.+\}$/.test(s) ? '[^/]+' : s.replace(/[.*+?^$()|[\]\\]/g, '\\$&'))).join('/')}$`);
+}
+
+/** Endpoints documentados del sitio (todos, en la central). */
+function apiRoutes(siteId) {
+  const brands = siteId === 'hub' ? Object.values(BRANDS) : [BRANDS[siteId]];
+  return {
+    prefixes: new Set(brands.map((b) => b.apiPrefix)),
+    routes: brands.flatMap((b) => b.docs.flatMap((s) => s.endpoints.map((e) => routeRegex(e.absolute ? e.path : `${b.apiPrefix}${e.path}`)))),
+  };
+}
+
+function internalPathOk(siteId, href, guides) {
+  const p = href.split(/[?#]/)[0].replace(/(.)\/$/, '$1');
+  const pages = new Set(['/', '/docs', '/pricing', ...guides.filter((g) => g.site === siteId).map((g) => `/guias/${g.slug}`)]);
+  if (siteId === 'hub') pages.add('/register');
+  if (siteId === 'shalom' || siteId === 'olva') {
+    pages.add('/agencias');
+    if (/^\/agencias\/[a-z-]+$/.test(p) && departmentSlugs.has(p.split('/')[2])) return true;
+  }
+  if (siteId === 'sunat') {
+    pages.add('/tipo-de-cambio');
+    pages.add('/catalogos');
+    catalogSlugs.forEach((s) => pages.add(`/catalogos/${s}`));
+    if (/^\/tipo-de-cambio\/[a-z]+-\d{4}$/.test(p)) return true;
+  }
+  return pages.has(p) || href.startsWith('#');
+}
+
+/** Problemas objetivos de una guía; cada uno dice cómo corregirlo. */
+function checkGuide(guide, topic, guides) {
+  const issues = [];
+  const body = guide.body_markdown;
+  const words = body.split(/\s+/).filter(Boolean).length;
+  if (words < 900) issues.push(`La guía tiene ${words} palabras: amplíala a más de 1200 con contenido útil (no relleno).`);
+  if (words > 2600) issues.push(`La guía tiene ${words} palabras: recórtala a menos de 1800 quitando lo que no aporta.`);
+  if (/^# /m.test(body)) issues.push('Tiene un título de primer nivel (# ): el título va aparte; usa ## para las secciones.');
+  if (!/^##\s+Preguntas frecuentes/m.test(body)) issues.push('Falta la sección "## Preguntas frecuentes" al final.');
+  if (guide.title.length < 30 || guide.title.length > 70) issues.push(`El título tiene ${guide.title.length} caracteres: déjalo entre 45 y 65.`);
+  if (guide.description.length < 100 || guide.description.length > 170) issues.push(`La descripción tiene ${guide.description.length} caracteres: déjala entre 130 y 160.`);
+
+  for (const [, href] of body.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
+    if (/^https?:\/\//.test(href)) {
+      const host = new URL(href).hostname;
+      if (!EXTERNAL_OK.some((d) => host === d || host.endsWith(`.${d}`))) issues.push(`El link ${href} va a un sitio no permitido: enlaza solo a nuestras páginas o a sitios oficiales (${EXTERNAL_OK.join(', ')}).`);
+    } else if (!internalPathOk(topic.site, href, guides)) {
+      issues.push(`El link ${href} no es una página del sitio: usa solo las de la lista "Páginas del sitio".`);
+    }
+  }
+
+  const { prefixes, routes } = apiRoutes(topic.site);
+  const seen = new Set();
+  for (const [raw] of body.matchAll(/\/v1\/[A-Za-z0-9_\-/{}.]+/g)) {
+    const p = raw.replace(/[./]+$/, '');
+    if (seen.has(p) || prefixes.has(p) || p.startsWith('/v1/sunat/files/')) continue;
+    seen.add(p);
+    if (!routes.some((r) => r.test(p))) issues.push(`La ruta ${p} no existe en la API: usa solo los endpoints de los datos del producto.`);
+  }
+  return issues;
 }
 
 async function writeGuide(topic, guides) {
@@ -241,7 +349,27 @@ async function writeGuide(topic, guides) {
     return null;
   }
 
-  const guide = await ask(GuideSchema, user);
+  // Escribir → chequear → revisar → corregir, hasta que pase o se acaben las vueltas.
+  let guide = await ask(GuideSchema, user);
+  let issues = [];
+  for (let round = 0; ; round++) {
+    const fixed = checkGuide(guide, topic, guides);
+    const review = await ask(
+      ReviewSchema,
+      [user, '', '<guia_a_revisar>', `# ${guide.title}`, `> ${guide.description}`, '', guide.body_markdown, '</guia_a_revisar>'].join('\n'),
+      { system: REVIEWER },
+    );
+    issues = [...fixed, ...(review.approved ? [] : review.issues)];
+    console.log(`  Revisión ${round + 1}: ${issues.length ? `${issues.length} problemas` : 'aprobada'}`);
+    issues.forEach((i) => console.log(`    - ${i}`));
+    if (!issues.length || round === MAX_REVISIONS) break;
+    guide = await ask(
+      GuideSchema,
+      [user, '', 'Esta es tu guía anterior:', '<guia>', JSON.stringify(guide), '</guia>', '', 'Corrige estos problemas y devuelve la guía completa:', ...issues.map((i) => `- ${i}`)].join('\n'),
+    );
+  }
+  const publish = issues.length === 0;
+
   const today = new Date().toISOString().slice(0, 10);
   const file = path.join(GUIDES_DIR, `${topic.slug}.md`);
   const content =
@@ -251,28 +379,40 @@ async function writeGuide(topic, guides) {
     '\n';
 
   const words = guide.body_markdown.split(/\s+/).filter(Boolean).length;
-  console.log(`  "${guide.title}" · ${words} palabras`);
+  console.log(`  "${guide.title}" · ${words} palabras · ${publish ? 'se publica' : 'queda para revisión humana'}`);
   if (dryRun) {
     console.log(content);
     return guide;
   }
   fs.mkdirSync(GUIDES_DIR, { recursive: true });
   fs.writeFileSync(file, content);
+  if (!publish) {
+    // El tema queda marcado en el backlog (eso sí va a main): la próxima corrida sigue con
+    // otro en vez de reintentar este. La guía espera en su PR.
+    const backlog = readBacklog().map((t) => (t.slug === topic.slug ? { ...t, skip: true, review: 'PR pendiente' } : t));
+    fs.writeFileSync(BACKLOG_FILE, `${JSON.stringify(backlog, null, 2)}\n`);
+  }
 
   const host = topic.site === 'hub' ? HUB.hosts[0] : BRANDS[topic.site].hosts[0];
   const notes = [
-    `Guía nueva para **${host}/guias/${topic.slug}**, escrita por ${MODEL} para la búsqueda _${topic.keyword}_ (${words} palabras).`,
+    `Guía para **${host}/guias/${topic.slug}**, escrita por ${MODEL} para la búsqueda _${topic.keyword}_ (${words} palabras).`,
     '',
-    'Se publica al hacer merge. Antes, revisa en la preview de Vercel que todo sea cierto y que el código funcione.',
+    ...(publish
+      ? ['Pasó los chequeos y la revisión automática.']
+      : [
+          `No pasó la revisión automática después de ${MAX_REVISIONS} correcciones, así que no se publicó sola. Corrige lo que queda y haz merge (o cierra el PR para descartarla).`,
+          '',
+          '### Problemas pendientes',
+          ...issues.map((i) => `- [ ] ${i}`),
+        ]),
     '',
-    '### Para verificar',
-    ...guide.review_notes.map((n) => `- [ ] ${n}`),
-    '- [ ] Los ejemplos de código corren contra la API con una key de prueba',
-    '- [ ] El tono y los enlaces están bien',
+    '### Notas del autor',
+    ...guide.review_notes.map((n) => `- ${n}`),
   ].join('\n');
   if (process.env.NOTES_FILE) fs.writeFileSync(process.env.NOTES_FILE, `${notes}\n`);
   output('slug', topic.slug);
   output('title', guide.title);
+  output('publish', String(publish));
   return guide;
 }
 
@@ -295,13 +435,28 @@ async function refillBacklog(backlog, guides) {
   const { topics } = await ask(IdeasSchema, user, { effort: 'medium' });
   const slugs = new Set(backlog.map((t) => t.slug));
   const fresh = topics
-    .map((t) => ({ ...t, slug: t.slug.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }))
+    .map((t) => ({ ...t, slug: slugify(t.slug) }))
     .filter((t) => t.slug && !slugs.has(t.slug));
   console.log(`  ${fresh.length} temas nuevos: ${fresh.map((t) => t.slug).join(', ')}`);
   if (!dryRun && fresh.length) fs.writeFileSync(BACKLOG_FILE, `${JSON.stringify([...backlog, ...fresh], null, 2)}\n`);
 }
 
+/** --check <archivo.md>: corre los chequeos fijos sobre una guía ya escrita (sin la API). */
+function checkFile(file) {
+  const raw = fs.readFileSync(file, 'utf8');
+  const [, head = '', ...rest] = raw.split(/^---\s*$/m);
+  const get = (k) => {
+    const m = new RegExp(`^${k}:\\s*(.*)$`, 'm').exec(head);
+    return m ? JSON.parse(m[1]) : '';
+  };
+  const guide = { title: get('title'), description: get('description'), body_markdown: rest.join('---') };
+  const issues = checkGuide(guide, { site: get('site') }, existingGuides());
+  console.log(issues.length ? issues.map((i) => `- ${i}`).join('\n') : 'Sin problemas.');
+  process.exitCode = issues.length ? 1 : 0;
+}
+
 async function main() {
+  if (option('check')) return checkFile(option('check'));
   const guides = existingGuides();
   const wanted = option('slug');
   // Primero se repone el backlog (si hace falta): así nunca se queda una semana sin guía.
