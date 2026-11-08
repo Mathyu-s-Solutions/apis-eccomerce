@@ -18,7 +18,7 @@ export async function GET() {
   return NextResponse.json({
     subscriptions: subs.map((s) => ({
       id: s.id, product: s.product, plan: s.plan, monthlyLimit: s.monthlyLimit, expiresAt: s.expiresAt,
-      userEmail: s.user.email, userName: s.user.name,
+      userId: s.userId, userEmail: s.user.email, userName: s.user.name,
     })),
   });
 }

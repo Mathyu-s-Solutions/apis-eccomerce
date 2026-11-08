@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, ExternalLink, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, Badge, Textarea } from '@/components/ui/primitives';
+import { PAYMENT_METHODS } from '@/lib/plans';
 import { formatDateTime, formatNumber, formatSoles } from '@/lib/utils';
 
 interface AdminPayment {
@@ -19,6 +20,7 @@ interface AdminPayment {
   status: string;
   note: string | null;
   createdAt: string;
+  hasProof: boolean;
   userEmail: string;
   userName: string | null;
 }
@@ -91,21 +93,25 @@ export function PaymentsReview() {
                   </div>
                   <p className="text-sm text-[var(--muted)]">{p.userEmail}</p>
                   <p className="mt-2 text-sm">
-                    <b>{p.label}</b> · {formatSoles(p.amountPen)} · {p.method}
+                    <b>{p.label}</b> · {formatSoles(p.amountPen)} · {PAYMENT_METHODS[p.method] ?? p.method}
                     {p.operationCode ? ` · Op. ${p.operationCode}` : ''}
                   </p>
                   <p className="text-xs text-[var(--muted)]">
                     {formatDateTime(p.createdAt)} · activa por un mes:{' '}
                     {p.items.map((i) => `${i.product} ${i.plan} (${formatNumber(i.monthlyLimit)}/mes)`).join(' + ')}
                   </p>
-                  <a
-                    href={`/api/payments/${p.id}/proof`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-[var(--accent)]"
-                  >
-                    Ver comprobante <ExternalLink size={14} />
-                  </a>
+                  {p.hasProof ? (
+                    <a
+                      href={`/api/payments/${p.id}/proof`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-[var(--accent)]"
+                    >
+                      Ver comprobante <ExternalLink size={14} />
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-xs text-[var(--muted)]">Registrado a mano desde Planes de clientes (sin comprobante).</p>
+                  )}
                 </div>
 
                 {p.status === 'pending' && (

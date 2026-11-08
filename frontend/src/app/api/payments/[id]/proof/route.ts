@@ -12,6 +12,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (payment.userId !== user.id && !user.isAdmin) {
     return new Response('Prohibido', { status: 403 });
   }
+  // Pago registrado a mano por el admin.
+  if (payment.proofData.length === 0) return new Response('Este pago no tiene comprobante', { status: 404 });
 
   return new Response(new Uint8Array(payment.proofData), {
     headers: {

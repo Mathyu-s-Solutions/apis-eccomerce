@@ -92,9 +92,36 @@ export function bundlesWith(product: Product): Bundle[] {
   return BUNDLES.filter((b) => b.items.some((i) => i.product === product));
 }
 
+/**
+ * Planes de un cliente agrupados como los compra: cada pack que tiene completo
+ * (todas sus APIs en el plan del pack) va junto, y el resto, uno por API.
+ */
+export function groupByBundle<T extends { product: string; plan: string }>(subs: T[]): { bundle?: Bundle; subs: T[] }[] {
+  let left = [...subs];
+  const groups: { bundle?: Bundle; subs: T[] }[] = [];
+  for (const bundle of BUNDLES) {
+    const members = bundle.items.map((i) => left.find((s) => s.product === i.product && s.plan === i.plan));
+    if (members.every((m) => m !== undefined)) {
+      groups.push({ bundle, subs: members as T[] });
+      left = left.filter((s) => !members.includes(s));
+    }
+  }
+  const order = (s: T) => (PRODUCTS as readonly string[]).indexOf(s.product);
+  for (const s of left.sort((a, b) => order(a) - order(b))) groups.push({ subs: [s] });
+  return groups;
+}
+
 /** Lo que activa un pago: un plan de una API o los de un pack. Se guarda en `payments.items`. */
 export interface PaymentItem {
   product: Product;
   plan: string;
   monthlyLimit: number | null;
 }
+
+/** Cómo pagó. El cliente sube Yape o Plin; el admin registra también los demás. */
+export const PAYMENT_METHODS: Record<string, string> = {
+  yape: 'Yape',
+  plin: 'Plin',
+  transferencia: 'Transferencia',
+  efectivo: 'Efectivo',
+};

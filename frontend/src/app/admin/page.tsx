@@ -15,7 +15,9 @@ export default function AdminPage() {
       </section>
       <section>
         <h2 className="text-2xl font-bold tracking-tight">Planes de clientes</h2>
-        <p className="mt-1 text-[var(--muted)]">Asigna o quita un plan a mano (sin pago de por medio), por ejemplo a un cliente propio.</p>
+        <p className="mt-1 text-[var(--muted)]">
+          Asigna o quita un plan a mano (sin pago de por medio), por ejemplo a un cliente propio. Si un cliente te pagó por fuera (Yape directo, transferencia, efectivo), usa «Ya pagó» en su plan: lo renueva un mes y el pago queda en su historial.
+        </p>
         <div className="mt-6">
           <PlansManager />
         </div>
