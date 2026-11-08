@@ -30,9 +30,9 @@ export function BrandSwitcher({ current }: { current: SiteId }) {
         onClick={() => setOpen((v) => !v)}
         disabled={switching}
         className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-black/15 px-2.5 py-1.5 text-xs font-medium text-[var(--on-header)] hover:bg-black/6"
-        title="Ver otra marca (solo preview)"
+        title="Ver otra marca"
       >
-        <span className="hidden sm:inline">Demo:</span> {OPTIONS.find((o) => o.id === current)?.label}
+        <span className="hidden sm:inline">Ver:</span> {OPTIONS.find((o) => o.id === current)?.label}
         {switching ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
       </button>
       {open && (
