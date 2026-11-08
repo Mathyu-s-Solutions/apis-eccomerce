@@ -8,7 +8,7 @@ name: Guías SEO
 # Cuando quedan pocos temas, el mismo commit trae ideas nuevas para el backlog.
 #
 # Secreto del repo: ANTHROPIC_API_KEY.
-# Variable del repo: NEXT_PUBLIC_API_URL (URL pública de la API para los ejemplos).
+# Variable del repo: PUBLIC_API_URL (URL pública de la API para los ejemplos).
 # Settings → Actions → General: "Read and write permissions" y "Allow GitHub Actions to
 # create and approve pull requests" (para el caso del PR).
 # Para pausarlo: Actions → Guías SEO → Disable workflow.
@@ -62,7 +62,7 @@ jobs:
         id: guide
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
           NOTES_FILE: ${{ runner.temp }}/notes.md
           SLUG: ${{ inputs.slug }}
         run: node scripts/seo/write-guide.mjs ${SLUG:+--slug "$SLUG"}

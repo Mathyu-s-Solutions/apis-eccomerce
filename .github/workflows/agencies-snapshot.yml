@@ -8,7 +8,7 @@ name: Snapshot de agencias
 # se publica nada.
 #
 # Secreto del repo: SNAPSHOT_API_KEY (una key de la cuenta propia con acceso a Shalom y Olva).
-# Variable del repo: NEXT_PUBLIC_API_URL.
+# Variable del repo: PUBLIC_API_URL.
 
 on:
   schedule:
@@ -37,7 +37,7 @@ jobs:
 
       - name: Bajar las agencias
         env:
-          API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          API_URL: ${{ vars.PUBLIC_API_URL }}
           API_KEY: ${{ secrets.SNAPSHOT_API_KEY }}
         run: node frontend/scripts/snapshot-agencies.mjs
 

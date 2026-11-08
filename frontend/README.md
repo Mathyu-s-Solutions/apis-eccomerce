@@ -103,7 +103,7 @@ Todas entran en el sitemap de su dominio y llevan breadcrumbs con JSON-LD.
 
 | Sitio | Páginas | Datos | Cómo se actualiza |
 |---|---|---|---|
-| Shalom, Olva | `/agencias`, `/agencias/<departamento>`, `/agencias/<departamento>/<provincia>` (si tiene 2+ agencias), `/agencia/<nombre>-<id>` | `public/data/agencies-*.json` ([`src/lib/directory.ts`](src/lib/directory.ts)) | Workflow **Snapshot de agencias**, cada domingo (secreto `SNAPSHOT_API_KEY`, variable `NEXT_PUBLIC_API_URL`). Falla, sin publicar, si la API trae muchas menos agencias que el snapshot actual. |
+| Shalom, Olva | `/agencias`, `/agencias/<departamento>`, `/agencias/<departamento>/<provincia>` (si tiene 2+ agencias), `/agencia/<nombre>-<id>` | `public/data/agencies-*.json` ([`src/lib/directory.ts`](src/lib/directory.ts)) | Workflow **Snapshot de agencias**, cada domingo (secreto `SNAPSHOT_API_KEY`, variable `PUBLIC_API_URL`). Falla, sin publicar, si la API trae muchas menos agencias que el snapshot actual. |
 | SUNAT | `/tipo-de-cambio`, `/tipo-de-cambio/<mes>-<año>` (desde 2015) | API de series del BCRP, la misma del backend ([`src/lib/exchange-rate.ts`](src/lib/exchange-rate.ts)) | Solo: caché de 30 min para lo reciente y de 30 días para los meses cerrados. Un error del BCRP no queda en caché. |
 | SUNAT | `/catalogos`, `/catalogos/<número>-<nombre>` | `src/data/sunat-catalogs.json`, generado desde `backend/src/modules/sunat/core/catalogs.ts` | `node scripts/snapshot-sunat-catalogs.mjs` cuando cambian los catálogos del backend (y actualizar `CATALOGS_UPDATED` en `src/app/sitemap.ts`). |
 | Todos | `/guias`, `/guias/<slug>` | `content/guias/*.md` ([`src/lib/guides.ts`](src/lib/guides.ts)) | Motor de guías, abajo. |
@@ -128,7 +128,7 @@ con problemas, no se publica: se abre un PR con lo pendiente. Cuando quedan meno
 el mismo commit trae ideas nuevas para el backlog, así que el motor no se detiene. Cada guía
 cuesta del orden de 1 USD en la API de Anthropic (escritura, revisión y correcciones).
 
-- Secreto `ANTHROPIC_API_KEY` y variable `NEXT_PUBLIC_API_URL` en el repo; en **Settings → Actions →
+- Secreto `ANTHROPIC_API_KEY` y variable `PUBLIC_API_URL` en el repo; en **Settings → Actions →
   General**, "Read and write permissions" y permitir que GitHub Actions cree pull requests.
 - Para pausarlo: **Actions → Guías SEO → Disable workflow**. Para despublicar una guía, bórrala de
   `content/guias/` o ponle `draft: true`.
