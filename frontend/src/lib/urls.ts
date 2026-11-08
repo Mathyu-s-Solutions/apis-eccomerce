@@ -2,7 +2,7 @@ import { getSiteById, type SiteId } from './brands';
 
 /**
  * Panel central (cuenta, keys y pagos de todas las APIs). Con dominios propios,
- * NEXT_PUBLIC_PANEL_URL (p. ej. https://app.mathyu.dev): las landings de cada API
+ * NEXT_PUBLIC_PANEL_URL (https://apis.mathyusolutions.com): las landings de cada API
  * mandan ahí y proxy.ts redirige el panel de los otros dominios. Sin él (preview
  * en un solo dominio), todo es relativo.
  */
