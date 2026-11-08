@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ShalomModule } from '../shalom/shalom.module';
 import { OlvaModule } from '../olva/olva.module';
 import { SunatModule } from '../sunat/sunat.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { CronController } from './cron.controller';
 import { OlvaSubscriptionsController, ShalomSubscriptionsController } from './subscriptions.controllers';
 import { TrackingSubscriptionsService } from './tracking-subscriptions.service';
@@ -10,7 +11,7 @@ import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
 
 @Module({
-  imports: [ShalomModule, OlvaModule, SunatModule],
+  imports: [ShalomModule, OlvaModule, SunatModule, NotificationsModule],
   controllers: [WebhooksController, ShalomSubscriptionsController, OlvaSubscriptionsController, CronController],
   providers: [WebhooksService, TrackingSubscriptionsService, WebhookSender],
 })

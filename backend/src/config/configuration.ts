@@ -18,6 +18,12 @@ export interface AppConfig {
   portal: {
     secret?: string;
   };
+  email: {
+    resendApiKey?: string;
+    from: string;
+    replyTo: string;
+    panelUrl: string;
+  };
   auth: {
     databaseUrl?: string;
     devApiKey?: string;
@@ -63,6 +69,12 @@ export function buildConfig(env: Env): AppConfig {
     },
     portal: {
       secret: env.PORTAL_API_SECRET,
+    },
+    email: {
+      resendApiKey: env.RESEND_API_KEY,
+      from: env.EMAIL_FROM,
+      replyTo: env.EMAIL_REPLY_TO,
+      panelUrl: env.PANEL_URL.replace(/\/+$/, ''),
     },
     auth: {
       databaseUrl: env.DATABASE_URL,

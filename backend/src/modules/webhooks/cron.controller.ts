@@ -6,11 +6,13 @@ import { Public } from '../../auth/public.decorator';
 import { TrackingSubscriptionsService } from './tracking-subscriptions.service';
 import { WebhooksService } from './webhooks.service';
 import { DocumentsService } from '../sunat/documents.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /**
  * Worker: lo llama Cloud Scheduler cada 10 minutos con `x-cron-secret`.
- * Revisa las guías que tocan, manda los webhooks pendientes y reintenta los
- * comprobantes que SUNAT dejó sin responder.
+ * Revisa las guías que tocan, manda los webhooks pendientes, reintenta los
+ * comprobantes que SUNAT dejó sin responder y manda los avisos por correo
+ * (cuota, webhook caído, certificado de SUNAT por vencer).
  */
 @ApiExcludeController()
 @Public()
@@ -21,6 +23,7 @@ export class CronController {
     private readonly subs: TrackingSubscriptionsService,
     private readonly webhooks: WebhooksService,
     private readonly sunat: DocumentsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   @Post('tick')
@@ -35,6 +38,8 @@ export class CronController {
     const tracking = await this.subs.pollDue();
     const deliveries = await this.webhooks.dispatchDue();
     const sunat = await this.sunat.pollDue();
-    return { tracking, deliveries, sunat };
+    // Después de los webhooks: las entregas que murieron en este tick ya cuentan.
+    const notifications = await this.notifications.runDue();
+    return { tracking, deliveries, sunat, notifications };
   }
 }

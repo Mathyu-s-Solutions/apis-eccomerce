@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/current-user';
+import { notifyPaymentReviewed } from '@/lib/payment-notices';
 import { grantPlans, paymentItems } from '@/lib/subscriptions';
 
 const schema = z.object({
@@ -44,6 +45,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       data: { status: 'rejected', note: note ?? null, reviewedBy: admin.email, reviewedAt: new Date() },
     });
   }
+
+  // Al cliente: confirmado (hasta cuándo) o rechazado (con la nota como motivo).
+  after(() => notifyPaymentReviewed(id));
 
   return NextResponse.json({ ok: true });
 }

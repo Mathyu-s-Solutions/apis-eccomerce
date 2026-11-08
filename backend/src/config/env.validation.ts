@@ -64,6 +64,15 @@ export const envSchema = z.object({
   PADRON_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
   // Secreto con el que el portal (frontend/) llama a /v1/internal/portal/*. Sin él, esas rutas no existen.
   PORTAL_API_SECRET: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
+
+  // Avisos por correo del worker (cuota, webhook caído, certificado de SUNAT) con Resend.
+  // Sin la key no se manda nada.
+  RESEND_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  EMAIL_FROM: z.string().min(3).default("Mathyu's APIs <avisos@mathyusolutions.com>"),
+  // A dónde llegan las respuestas de los clientes.
+  EMAIL_REPLY_TO: z.string().email().default('mathyusolutions@gmail.com'),
+  // Panel de los clientes, para los enlaces de los correos.
+  PANEL_URL: z.string().url().default('https://apis.mathyusolutions.com'),
 });
 
 export type Env = z.infer<typeof envSchema>;

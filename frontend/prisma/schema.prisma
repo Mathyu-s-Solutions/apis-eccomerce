@@ -175,3 +175,10 @@ model ShalomGuide {
 
   @@map("shalom_guides")
 }
+
+model SentEmail {
+  key       String   @id
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sent_emails")
+}

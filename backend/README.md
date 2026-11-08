@@ -197,6 +197,7 @@ el origen despache y el destino reciba (y acepte aéreo) antes de gastar un capt
 4. Reintentos: 1 min, 5 min, 30 min, 2 h y 12 h; después queda `dead`.
    `GET /v1/webhooks/deliveries` muestra el historial y
    `POST /v1/webhooks/deliveries/{id}/redeliver` lo reenvía. `POST /v1/webhooks/test` prueba la URL.
+   Si una entrega queda `dead`, al cliente le llega un correo (a lo más uno al día).
 
 Verificar la firma en el receptor (Node):
 
@@ -256,6 +257,22 @@ function verify(rawBody, header, secret) {
 > Con `none` (por defecto) esos endpoints devuelven 501. Verificado end-to-end:
 > `scripts/probes/captcha-probe.mjs`.
 
+## Avisos por correo
+
+El worker (`/v1/internal/cron/tick`, cada 10 min) también manda correos con Resend
+desde `avisos@mathyusolutions.com` (`src/modules/notifications/`):
+
+| Correo | Cuándo |
+|---|---|
+| Cuota al 80% / agotada | El consumo del mes pasa el 80% o el 100% de un plan con límite (el gratis incluido). Si pasa los dos entre dos ticks, va solo el del 100%. No avisa si el plan pagado venció ese mes (ya le llega el aviso de plan vencido del portal). |
+| Webhook caído | Una entrega agotó sus reintentos (`dead`). Cada entrega se cuenta una vez; a lo más un correo al día por cliente. |
+| Certificado digital de SUNAT | 30 días y 7 días antes de que venza, y cuando vence. |
+
+Cada aviso se anota en `sent_emails` antes de enviarse (dos ticks a la vez no lo
+duplican) y se libera si Resend falla, para reintentarlo en el siguiente tick.
+Sin `RESEND_API_KEY` no se manda nada. Los avisos de pagos y vencimiento de planes
+los manda el portal (ver `frontend/README.md`).
+
 ## Prueba rápida
 
 ```bash
@@ -278,7 +295,7 @@ Los PRs solo corren [ci.yml](.github/workflows/ci.yml).
 | Proyecto | `mathyu-apis`, región `southamerica-east1` (misma ciudad que Neon `sa-east-1`) |
 | Cloud Run | servicio `mathyu-apis`, 1 vCPU / 1 GiB, facturación por request, 0–2 instancias |
 | Imágenes | Artifact Registry `apis`; conserva las 3 últimas y `latest`, borra las de +7 días (~350 MB por imagen, capas compartidas; límite gratis 0,5 GB) |
-| Secretos | Secret Manager `database-url`, `direct-database-url`, `cron-secret`, `sunat-secrets-key` y `portal-api-secret` (réplica única) |
+| Secretos | Secret Manager `database-url`, `direct-database-url`, `cron-secret`, `sunat-secrets-key`, `portal-api-secret` y `resend-api-key` (réplica única) |
 | Padrón RUC | bucket `mathyu-apis-padron` (us-east1, capa gratis); [padron-ruc.yml](../.github/workflows/padron-ruc.yml) lo regenera cada día si SUNAT publicó uno nuevo |
 | Auth CI→GCP | Workload Identity Federation, sin llaves JSON; solo `refs/heads/main` de este repo |
 | Costos | Presupuesto de 1 USD con alertas al 50/90/100 % (avisa, no corta) |

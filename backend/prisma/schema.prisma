@@ -202,6 +202,15 @@ model ShalomGuide {
   @@map("shalom_guides")
 }
 
+// Correos automáticos ya enviados, para no mandar dos veces el mismo aviso
+// (p. ej. "plan-expired:<subscription id>:<expiresAt>"). Lo escribe el portal.
+model SentEmail {
+  key       String   @id
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sent_emails")
+}
+
 // Empresa emisora de un cliente en la API de SUNAT: su RUC, sus datos para el
 // comprobante y las credenciales con las que se envía a SUNAT.
 model SunatCompany {

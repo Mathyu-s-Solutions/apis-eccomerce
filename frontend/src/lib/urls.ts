@@ -12,10 +12,15 @@ export function panelHref(path: string): string {
   return `${PANEL_URL}${path}`;
 }
 
+/** Ruta del panel para pagar un plan de una API (o un pack). */
+export function billingPath(choice: { product: string; plan: string } | { bundle: string }): string {
+  const qs = 'bundle' in choice ? `bundle=${choice.bundle}` : `product=${choice.product}&plan=${choice.plan}`;
+  return `/dashboard/billing?${qs}`;
+}
+
 /** Pagar un plan de una API (o un pack) desde cualquier landing. */
 export function billingHref(choice: { product: string; plan: string } | { bundle: string }): string {
-  const qs = 'bundle' in choice ? `bundle=${choice.bundle}` : `product=${choice.product}&plan=${choice.plan}`;
-  return panelHref(`/dashboard/billing?${qs}`);
+  return panelHref(billingPath(choice));
 }
 
 /**

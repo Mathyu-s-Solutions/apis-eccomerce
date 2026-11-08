@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/current-user';
+import { notifyPaymentReviewed } from '@/lib/payment-notices';
 import { getBundle, getPlan, isProduct, PAYMENT_METHODS, type PaymentItem } from '@/lib/plans';
 import { grantPlans, paymentItems, paymentLabel } from '@/lib/subscriptions';
 
@@ -72,8 +73,8 @@ export async function POST(request: Request) {
   });
 
   const now = new Date();
-  await prisma.$transaction(async (tx) => {
-    await tx.payment.create({
+  const payment = await prisma.$transaction(async (tx) => {
+    const created = await tx.payment.create({
       data: {
         userId,
         product: purchase.product,
@@ -91,7 +92,11 @@ export async function POST(request: Request) {
       },
     });
     await grantPlans(tx, userId, items, now);
+    return created;
   });
+
+  // Al cliente: confirmamos el pago y hasta cuándo quedan sus planes.
+  after(() => notifyPaymentReviewed(payment.id));
 
   return NextResponse.json({ ok: true });
 }

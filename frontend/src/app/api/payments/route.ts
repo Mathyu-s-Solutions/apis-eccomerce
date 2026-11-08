@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/current-user';
 import { getBundle, getPlan, PRODUCT_NAME, type PaymentItem } from '@/lib/plans';
 import { paymentLabel } from '@/lib/subscriptions';
 import { notifyOwner } from '@/lib/email';
+import { paymentReceivedEmail } from '@/lib/email-templates';
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -85,15 +86,13 @@ export async function POST(request: Request) {
     },
   });
 
-  await notifyOwner(
-    `Nuevo pago por validar — ${purchase.name}`,
-    `<p>${user.email} registró un pago.</p>
-     <ul>
-       <li>Compra: <b>${purchase.name}</b> (S/ ${purchase.amountPen})</li>
-       <li>Método: <b>${method}</b>${operationCode ? ` — Op. ${operationCode}` : ''}</li>
-     </ul>
-     <p>Valídalo en el panel de administración.</p>`,
-  );
+  // El aviso al dueño (con el comprobante adjunto) sale después de responder: el cliente no espera a Resend.
+  after(async () => {
+    const { subject, html } = paymentReceivedEmail({ user, purchase, method, operationCode });
+    await notifyOwner(subject, html, [{ filename: `comprobante.${PROOF_EXT[proof.type] ?? 'bin'}`, content: bytes }]);
+  });
 
   return NextResponse.json({ ok: true, id: payment.id });
 }
+
+const PROOF_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };

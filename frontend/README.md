@@ -12,10 +12,36 @@ según el dominio, el **sitio central** (todas las APIs) y la landing de cada AP
 - **Planes por API** (precio individual) y **packs** de promoción (p. ej. Shalom +
   Olva Básico a S/ 45). La cuota es del plan, no de la key: la comparten todas las
   keys del cliente para esa API (`subscriptions` + `plan_usage`, ver backend).
-- Pagos con **Yape/Plin**: el cliente sube la foto, al dueño le llega un aviso y
-  valida desde el admin; al aprobar, se activan por un mes los planes comprados
-  (si es el mismo plan y sigue vigente, se suma un mes). El admin también puede
-  asignar o quitar un plan a mano.
+- Pagos con **Yape/Plin**: el cliente sube la foto, al dueño le llega un correo con
+  el comprobante adjunto y valida desde el admin; al aprobar, se activan por un mes
+  los planes comprados (si es el mismo plan y sigue vigente, se suma un mes). El
+  admin también puede asignar o quitar un plan a mano.
+## Correos (Resend)
+
+Salen de `avisos@mathyusolutions.com`; el dominio está verificado en Resend
+(región `sa-east-1`) con sus registros DKIM/SPF/DMARC en Vercel DNS. Las
+plantillas están en [`src/lib/email-templates.ts`](src/lib/email-templates.ts).
+
+| Correo | A quién | Cuándo |
+|---|---|---|
+| Pago por validar (con el comprobante adjunto) | Dueño (`OWNER_EMAIL`) | El cliente sube un pago con Yape/Plin. |
+| Pago confirmado / no validado | Cliente | El admin aprueba o rechaza (la nota va como motivo), o registra un pago hecho por fuera. |
+| Tu plan vence pronto | Cliente | 3 días antes, si no tiene un pago por validar. |
+| Tu plan venció | Cliente | El día siguiente; si ya pagó, le dice que lo estamos validando. |
+
+Los dos últimos los manda el cron diario de Vercel (`vercel.json`, 8:00 de Lima)
+en `/api/cron/plan-expiry`: un correo por cliente (un pack va junto). Cada aviso
+queda en `sent_emails` para no repetirlo, y si Resend falla se reintenta al día
+siguiente. Los avisos de cuota, webhook caído y certificado de SUNAT salen del
+worker del backend (ver su README).
+
+Con el [CLI de Resend](https://github.com/resend/resend-cli) (`npm i -g resend-cli`):
+
+```bash
+resend login                        # una key con acceso completo para administrar
+resend domains list                 # estado del dominio
+resend emails list                  # últimos envíos y si llegaron (delivered, bounced…)
+```
 
 Usa la **misma base Neon** que el backend (Prisma). No corre migraciones: el
 dueño del esquema es `backend/` (ver su README). Si cambias modelos, migra en el
@@ -43,8 +69,9 @@ Para entrar al panel de admin, registra tu cuenta con un correo que esté en `AD
 | `NEXT_PUBLIC_FIREBASE_*` | Config web de Firebase (`API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `APP_ID`). Ver [Login con Firebase](#login-con-firebase). |
 | `ADMIN_EMAILS` | Correos (coma) que entran al panel de admin. |
 | `OWNER_EMAIL` | A quién llega el aviso de un pago nuevo. |
-| `RESEND_API_KEY` | Opcional: envío real de correos (si falta, solo se registra en logs). |
-| `EMAIL_FROM` | Remitente del correo (requiere dominio verificado en Resend). |
+| `RESEND_API_KEY` | Envío de correos con Resend (basta una key *sending access*). Sin ella, los correos solo se registran en logs. |
+| `EMAIL_FROM` | Remitente: `Mathyu's APIs <avisos@mathyusolutions.com>` (dominio verificado en Resend). |
+| `CRON_SECRET` | Protege el cron diario de planes vencidos: Vercel lo manda como `Authorization: Bearer`. Sin ella, la ruta no existe. |
 | `NEXT_PUBLIC_YAPE_NUMBER` / `NEXT_PUBLIC_PLIN_NUMBER` | Números que ve el cliente para pagar. |
 | `NEXT_PUBLIC_PAY_NAME` | Nombre del titular que ve el cliente. |
 | `NEXT_PUBLIC_API_URL` | URL pública del backend (para los ejemplos de la doc). |
@@ -77,7 +104,7 @@ Authorized domains**: el del panel (`apis.mathyusolutions.com`) y el `*.vercel.a
    Vercel detecta Next.js y usa pnpm (campo `packageManager`).
 2. Carga las variables de arriba en **Settings → Environment Variables**
    (al menos `DATABASE_URL`, `SESSION_SECRET`, `ADMIN_EMAILS`, `OWNER_EMAIL`,
-   los `NEXT_PUBLIC_*` y, si quieres correos, `RESEND_API_KEY`/`EMAIL_FROM`).
+   los `NEXT_PUBLIC_*` y, para los correos, `RESEND_API_KEY`, `EMAIL_FROM` y `CRON_SECRET`).
 3. Deploy. Luego, en **Settings → Domains**, agrega el dominio central y los 3 de
    marca (los `hosts` de `HUB` y de cada marca en `src/lib/brands.ts`) y define
    `NEXT_PUBLIC_PANEL_URL` con el del panel.
