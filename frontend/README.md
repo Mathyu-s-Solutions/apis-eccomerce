@@ -48,7 +48,7 @@ Para entrar al panel de admin, registra tu cuenta con un correo que esté en `AD
 | `NEXT_PUBLIC_YAPE_NUMBER` / `NEXT_PUBLIC_PLIN_NUMBER` | Números que ve el cliente para pagar. |
 | `NEXT_PUBLIC_PAY_NAME` | Nombre del titular que ve el cliente. |
 | `NEXT_PUBLIC_API_URL` | URL pública del backend (para los ejemplos de la doc). |
-| `NEXT_PUBLIC_PANEL_URL` | Solo con dominios propios: el panel único, p. ej. `https://app.mathyu.dev`. Las landings mandan ahí y `src/proxy.ts` redirige `/login`, `/register`, `/dashboard` y `/admin` de los otros dominios (una sola sesión). Sin ella, todo es relativo. |
+| `NEXT_PUBLIC_PANEL_URL` | Solo con dominios propios: el panel único, `https://apis.mathyusolutions.com`. Las landings mandan ahí y `src/proxy.ts` redirige `/login`, `/register`, `/dashboard` y `/admin` de los otros dominios (una sola sesión). Sin ella, todo es relativo. |
 
 ## Login con Firebase
 
@@ -67,8 +67,9 @@ npx firebase-tools deploy --only auth            # habilita Google + correo/cont
 npx firebase-tools apps:sdkconfig WEB            # valores para NEXT_PUBLIC_FIREBASE_*
 ```
 
-Cada dominio donde corre el portal (los 3 de marca y el `*.vercel.app`) debe estar
-en **Authentication → Settings → Authorized domains**; `localhost` ya viene incluido.
+Cada dominio donde se inicia sesión debe estar en **Authentication → Settings →
+Authorized domains**: el del panel (`apis.mathyusolutions.com`) y el `*.vercel.app`;
+`localhost` ya viene incluido. Las landings de cada API mandan el login al panel.
 
 ## Despliegue en Vercel
 

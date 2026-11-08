@@ -105,7 +105,7 @@ export const BRANDS: Record<BrandId, Brand> = {
     name: 'Shalom API',
     product: 'Shalom',
     owner: 'Shalom Empresarial',
-    hosts: ['shalom.mathyu.dev', 'api-shalom.mathyu.dev'],
+    hosts: ['shalom.mathyusolutions.com'],
     tagline: 'Integra Shalom en tu ecommerce',
     heroTitle: 'Tu ecommerce, conectado a Shalom',
     heroSubtitle:
@@ -182,7 +182,7 @@ export const BRANDS: Record<BrandId, Brand> = {
     name: 'Olva API',
     product: 'Olva',
     owner: 'Olva Courier',
-    hosts: ['olva.mathyu.dev', 'api-olva.mathyu.dev'],
+    hosts: ['olva.mathyusolutions.com'],
     tagline: 'Integra Olva Courier en tu ecommerce',
     heroTitle: 'La API de Olva Courier, lista para tu tienda',
     heroSubtitle:
@@ -258,7 +258,7 @@ export const BRANDS: Record<BrandId, Brand> = {
     name: 'SUNAT API',
     product: 'SUNAT',
     owner: 'la SUNAT ni al Estado peruano',
-    hosts: ['sunat.mathyu.dev', 'api-sunat.mathyu.dev'],
+    hosts: ['sunat.mathyusolutions.com'],
     tagline: 'Facturación electrónica y consultas SUNAT',
     heroTitle: 'Emite comprobantes y consulta SUNAT por API',
     heroSubtitle:
@@ -392,7 +392,8 @@ export const HUB: HubSite = {
   heroTitle: 'Las APIs de tu ecommerce, en una sola cuenta',
   heroSubtitle:
     'Shalom, Olva y SUNAT con un solo registro, un solo panel y pagos con Yape o Plin. Pagas solo por las APIs que usas.',
-  hosts: ['mathyu.dev', 'www.mathyu.dev', 'app.mathyu.dev'],
+  // La raíz mathyusolutions.com es otro sitio: la central (y el panel) va en su subdominio.
+  hosts: ['apis.mathyusolutions.com'],
   theme: {
     font: 'inter',
     foreground: '#0F172A',
