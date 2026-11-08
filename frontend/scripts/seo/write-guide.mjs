@@ -1,7 +1,7 @@
 // Motor de contenido SEO: escribe la próxima guía del backlog con GitHub Copilot (el Copilot
 // CLI, con los créditos incluidos en el plan de Copilot: sin costo aparte), la revisa sola y
 // la deja en content/guias/<slug>.md. El workflow .github/workflows/seo-guides.yml la publica
-// directo en main si pasa la revisión, o abre un PR si no.
+// directo en main si pasa la revisión; si no, la deja en una rama con un issue para revisarla.
 //
 // La revisión reemplaza a la de una persona, así que es estricta:
 //   1. Chequeos fijos: links solo a páginas que existen, endpoints que existen en la API,
@@ -9,7 +9,7 @@
 //   2. Un segundo pedido a Copilot, como revisor, compara cada afirmación con los datos del
 //      producto y busca cifras o normas inventadas, código que no funcionaría y afiliaciones.
 //   3. Si hay problemas, el autor corrige y se vuelve a revisar (hasta 2 veces). Si siguen,
-//      publish=false y el workflow abre un PR en vez de publicar.
+//      publish=false y el workflow la deja en una rama (con un issue) en vez de publicar.
 //
 //   GH_TOKEN=$(gh auth token) COPILOT_BIN="npx -y @github/copilot" node scripts/seo/write-guide.mjs [--slug X] [--dry-run]
 //   node scripts/seo/write-guide.mjs --slug X --print-prompt            # solo muestra el pedido (sin llamar a Copilot)
@@ -295,7 +295,7 @@ function output(name, value) {
 // ---------------------------------------------------------------------------
 // Chequeos fijos (no dependen del modelo)
 
-/** Correcciones después de la primera revisión; si siguen los problemas, va a PR. */
+/** Correcciones después de la primera revisión; si siguen los problemas, queda para revisión humana. */
 const MAX_REVISIONS = 2;
 /** Dominios externos que una guía puede enlazar. */
 const EXTERNAL_OK = ['gob.pe', 'shalom.com.pe', 'olvacourier.com', 'mathyusolutions.com'];
@@ -426,8 +426,8 @@ async function writeGuide(topic, guides) {
   fs.writeFileSync(file, content);
   if (!publish) {
     // El tema queda marcado en el backlog (eso sí va a main): la próxima corrida sigue con
-    // otro en vez de reintentar este. La guía espera en su PR.
-    const backlog = readBacklog().map((t) => (t.slug === topic.slug ? { ...t, skip: true, review: 'PR pendiente' } : t));
+    // otro en vez de reintentar este. La guía espera en su rama.
+    const backlog = readBacklog().map((t) => (t.slug === topic.slug ? { ...t, skip: true, review: 'pendiente en su rama' } : t));
     fs.writeFileSync(BACKLOG_FILE, `${JSON.stringify(backlog, null, 2)}\n`);
   }
 
@@ -438,7 +438,7 @@ async function writeGuide(topic, guides) {
     ...(publish
       ? ['Pasó los chequeos y la revisión automática.']
       : [
-          `No pasó la revisión automática después de ${MAX_REVISIONS} correcciones, así que no se publicó sola. Corrige lo que queda y haz merge (o cierra el PR para descartarla).`,
+          `No pasó la revisión automática después de ${MAX_REVISIONS} correcciones, así que no se publicó sola. Corrige lo que queda y publícala con un PR desde su rama (o borra la rama para descartarla).`,
           '',
           '### Problemas pendientes',
           ...issues.map((i) => `- [ ] ${i}`),

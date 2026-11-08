@@ -5,7 +5,7 @@ name: Guías SEO
 # producto, la revisa sola (chequeos fijos + un segundo pedido como editor, con hasta 2
 # correcciones) y:
 #   - si pasa, la publica directo en main (Vercel la despliega y entra al sitemap);
-#   - si no, abre un PR con los problemas pendientes para que alguien decida.
+#   - si no, la deja en una rama y abre un issue con lo pendiente para que alguien decida.
 # Cuando quedan pocos temas, el mismo commit trae ideas nuevas para el backlog.
 # Usa los créditos incluidos en el plan de Copilot del dueño del token: sin costo aparte.
 #
@@ -13,8 +13,7 @@ name: Guías SEO
 #   permiso de cuenta "Copilot Requests").
 # Variables del repo: PUBLIC_API_URL (URL pública de la API para los ejemplos) y, opcional,
 #   COPILOT_MODEL (sin ella, Copilot elige el modelo: modo "auto").
-# Settings → Actions → General: "Read and write permissions" y "Allow GitHub Actions to
-# create and approve pull requests" (para el caso del PR).
+# Los permisos los pide el propio workflow (abajo): no hace falta tocar Settings → Actions.
 # Para pausarlo: Actions → Guías SEO → Disable workflow.
 
 on:
@@ -30,7 +29,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
+  issues: write
 
 concurrency:
   group: seo-guides
@@ -88,13 +87,14 @@ jobs:
           git pull --rebase origin main
           git push origin HEAD:main
 
-      - name: Abrir PR (no pasó la revisión)
+      - name: Dejar la guía para revisión (no pasó)
         if: steps.guide.outputs.slug != '' && steps.guide.outputs.publish != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           SLUG: ${{ steps.guide.outputs.slug }}
           TITLE: ${{ steps.guide.outputs.title }}
           NOTES_FILE: ${{ runner.temp }}/notes.md
+          BODY_FILE: ${{ runner.temp }}/issue.md
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -104,14 +104,20 @@ jobs:
           git commit -m "content(seo): \"$SLUG\" queda para revisión"
           git pull --rebase origin main
           git push origin HEAD:main
-          # 2. La guía espera en su PR.
+          # 2. La guía espera en su rama. La organización no deja que Actions abra PRs, así
+          #    que se abre un issue con lo pendiente y el link para crear el PR en un clic.
           branch="seo/guia-$SLUG"
           git switch -c "$branch"
           git add content/guias
           git commit -m "content(guias): $TITLE"
           git push --force -u origin "$branch"
-          gh pr create --base main --head "$branch" --title "Guía para revisar: $TITLE" --body-file "$NOTES_FILE" \
-            || gh pr edit "$branch" --body-file "$NOTES_FILE"
+          compare="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1"
+          {
+            cat "$NOTES_FILE"
+            echo
+            echo "**Para publicarla:** [abre el PR desde la rama \`$branch\`]($compare), corrige lo pendiente y haz merge. Para descartarla, borra la rama y cierra este issue."
+          } > "$BODY_FILE"
+          gh issue create --title "Guía para revisar: $TITLE" --body-file "$BODY_FILE"
 
       - name: Resumen
         if: always() && steps.guide.outputs.slug != ''

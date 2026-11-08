@@ -152,7 +152,8 @@ aprobación**, si pasa la revisión automática:
 3. Si hay problemas, el autor corrige y se vuelve a revisar (hasta 2 veces).
 
 Si pasa, el commit va directo a `main` y Vercel lo despliega. Si después de las correcciones sigue
-con problemas, no se publica: se abre un PR con lo pendiente. Cuando quedan menos de 5 temas,
+con problemas, no se publica: queda en una rama `seo/guia-<slug>` y se abre un issue con lo
+pendiente y el link para crear el PR (la organización no deja que Actions abra PRs). Cuando quedan menos de 5 temas,
 el mismo commit trae ideas nuevas para el backlog, así que el motor no se detiene. Usa los
 créditos incluidos en el plan de Copilot del dueño del token (sin costo aparte mientras no se
 pase de lo incluido; si se acaban, Copilot deja de responder hasta el mes siguiente, salvo que
@@ -161,8 +162,7 @@ se haya configurado un presupuesto de uso adicional).
 - Secreto `COPILOT_GITHUB_TOKEN`: un fine-grained PAT de la cuenta con Copilot, con el permiso de
   cuenta **Copilot Requests** (GitHub → Settings → Developer settings → Fine-grained tokens).
   Variable `PUBLIC_API_URL` (ya está) y, opcional, `COPILOT_MODEL` (sin ella, modo `auto`).
-  En **Settings → Actions → General**, "Read and write permissions" y permitir que GitHub Actions
-  cree pull requests.
+  Los permisos (escribir en `main` y abrir issues) los pide el propio workflow.
 - Para pausarlo: **Actions → Guías SEO → Disable workflow**. Para despublicar una guía, bórrala de
   `content/guias/` o ponle `draft: true`.
 - Para correrlo a mano con tu sesión de `gh`:
