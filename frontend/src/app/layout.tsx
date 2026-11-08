@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Fira_Sans, Geist_Mono, Inter, Roboto } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { getSite } from '@/lib/brand-server';
 import { requestOrigin, siteIcons } from '@/lib/seo';
@@ -54,6 +55,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <NavigationProgress />
         </Suspense>
         <div className="flex min-h-screen flex-col">{children}</div>
+        {/* Vercel Web Analytics: visitas y páginas vistas de todas las marcas (solo cuenta en Vercel). */}
+        <Analytics />
       </body>
     </html>
   );
