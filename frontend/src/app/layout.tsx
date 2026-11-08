@@ -46,7 +46,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html
-      lang="es"
+      lang="es-PE"
       className={`${fira.variable} ${inter.variable} ${roboto.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full" style={themeVars(site.theme)}>

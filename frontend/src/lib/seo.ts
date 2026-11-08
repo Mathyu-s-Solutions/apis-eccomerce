@@ -53,6 +53,21 @@ export function pageMetadata(site: Site, page: { title?: string; description: st
 /** Panel, admin y similares: que no salgan en buscadores. */
 export const NO_INDEX: Metadata['robots'] = { index: false, follow: false };
 
+/** Un paso de la ruta de navegación (breadcrumb): nombre y path relativo al dominio. */
+export interface Crumb {
+  name: string;
+  path: string;
+}
+
+/** BreadcrumbList de schema.org: Google la muestra en el resultado en vez de la URL. */
+export function breadcrumbLd(origin: string, crumbs: Crumb[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: `${origin}${c.path === '/' ? '' : c.path}` })),
+  };
+}
+
 /** JSON-LD listo para un <script>: escapa `<` para que no cierre la etiqueta. */
 export function jsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, '\\u003c');

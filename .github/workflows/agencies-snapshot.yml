@@ -1,0 +1,56 @@
+name: Snapshot de agencias
+
+# Cada semana baja el catálogo de agencias de Shalom y Olva desde la API y actualiza
+# frontend/public/data/agencies-*.json. De esos archivos salen el mapa de las landings y el
+# directorio público (/agencias, /agencia/<slug>) con su sitemap: al hacer push a main,
+# Vercel redespliega y el directorio queda al día (con la fecha nueva en cada página).
+# Si la API devuelve muchas menos agencias que el snapshot actual, el script falla y no
+# se publica nada.
+#
+# Secreto del repo: SNAPSHOT_API_KEY (una key de la cuenta propia con acceso a Shalom y Olva).
+# Variable del repo: NEXT_PUBLIC_API_URL.
+
+on:
+  schedule:
+    # Domingo 06:00 de Lima.
+    - cron: '0 11 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agencies-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: Actualizar el catálogo de agencias
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Bajar las agencias
+        env:
+          API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          API_KEY: ${{ secrets.SNAPSHOT_API_KEY }}
+        run: node frontend/scripts/snapshot-agencies.mjs
+
+      - name: Publicar
+        run: |
+          # Se publica aunque solo cambie la fecha: las páginas dicen "datos al <fecha>"
+          # y esa fecha tiene que ser la de la última revisión.
+          if git diff --quiet -- frontend/public/data; then
+            echo "Sin cambios."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/public/data/agencies-*.json
+          git commit -m "data(agencias): catálogo de Shalom y Olva al $(TZ=America/Lima date +%F)"
+          git push

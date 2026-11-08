@@ -2,12 +2,41 @@ import Link from 'next/link';
 import { BRAND_IDS, BRANDS, type Site } from '@/lib/brands';
 import { contactEmail } from '@/lib/legal';
 import { panelHref } from '@/lib/urls';
+import { directoryPath, getDirectory } from '@/lib/directory';
+import { allGuides, guidesFor } from '@/lib/guides';
 import { SiteLink } from '@/components/site/site-link';
 
 const link = 'text-[var(--on-dark-muted)] transition-colors hover:text-white';
 
+/** Enlaces al contenido de cada sitio (directorio, tipo de cambio, catálogos, guías). */
+function resources(site: Site): { site: Site['id']; path: string; label: string }[] {
+  if (site.id === 'hub') {
+    return [
+      { site: 'shalom', path: '/agencias', label: 'Agencias Shalom' },
+      { site: 'olva', path: '/agencias', label: 'Agencias Olva Courier' },
+      { site: 'sunat', path: '/tipo-de-cambio', label: 'Tipo de cambio SBS' },
+      { site: 'sunat', path: '/catalogos', label: 'Catálogos de SUNAT' },
+    ];
+  }
+  if (site.id === 'sunat') {
+    return [
+      { site: 'sunat', path: '/tipo-de-cambio', label: 'Tipo de cambio de hoy' },
+      { site: 'sunat', path: '/catalogos', label: 'Catálogos de SUNAT' },
+      { site: 'sunat', path: '/catalogos/07-tipo-de-afectacion-del-igv', label: 'Afectación del IGV' },
+      { site: 'sunat', path: '/catalogos/54-bienes-y-servicios-sujetos-a-detraccion', label: 'Detracciones' },
+    ];
+  }
+  // Los departamentos con más agencias.
+  const top = [...getDirectory(site.id).departments].sort((a, b) => b.agencies.length - a.agencies.length).slice(0, 3);
+  return [
+    { site: site.id, path: directoryPath.index(), label: 'Todas las agencias' },
+    ...top.map((d) => ({ site: site.id, path: directoryPath.department(d), label: `Agencias en ${d.name}` })),
+  ];
+}
+
 export function Footer({ site }: { site: Site }) {
   const email = contactEmail();
+  const hasGuides = (site.id === 'hub' ? allGuides() : guidesFor(site.id)).length > 0;
   return (
     <footer className="bg-[var(--darker)] text-[var(--on-dark-muted)]">
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-14">
@@ -36,6 +65,19 @@ export function Footer({ site }: { site: Site }) {
                 </ul>
               </div>
             )}
+            <div>
+              <p className="mb-3 font-semibold text-white">Recursos</p>
+              <ul className="space-y-2">
+                {resources(site).map((r) =>
+                  r.site === site.id ? (
+                    <li key={r.path}><Link href={r.path} className={link}>{r.label}</Link></li>
+                  ) : (
+                    <li key={`${r.site}${r.path}`}><SiteLink site={r.site} path={r.path} className={link}>{r.label}</SiteLink></li>
+                  ),
+                )}
+                {hasGuides && <li><Link href="/guias" className={link}>Guías</Link></li>}
+              </ul>
+            </div>
             <div>
               <p className="mb-3 font-semibold text-white">Cuenta</p>
               <ul className="space-y-2">

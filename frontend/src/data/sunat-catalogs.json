@@ -1,0 +1,994 @@
+{
+  "documents": [
+    {
+      "code": "01",
+      "description": "FACTURA ELECTRÓNICA",
+      "api": "factura"
+    },
+    {
+      "code": "03",
+      "description": "BOLETA DE VENTA ELECTRÓNICA",
+      "api": "boleta"
+    },
+    {
+      "code": "07",
+      "description": "NOTA DE CRÉDITO ELECTRÓNICA",
+      "api": "nota_credito"
+    },
+    {
+      "code": "08",
+      "description": "NOTA DE DÉBITO ELECTRÓNICA",
+      "api": "nota_debito"
+    },
+    {
+      "code": "09",
+      "description": "GUÍA DE REMISIÓN REMITENTE ELECTRÓNICA",
+      "api": "guia_remision_remitente"
+    },
+    {
+      "code": "31",
+      "description": "GUÍA DE REMISIÓN TRANSPORTISTA ELECTRÓNICA",
+      "api": "guia_remision_transportista"
+    }
+  ],
+  "identityTypes": [
+    {
+      "code": "0",
+      "description": "DOC.TRIB.NO.DOM.SIN.RUC"
+    },
+    {
+      "code": "1",
+      "description": "DNI"
+    },
+    {
+      "code": "4",
+      "description": "CARNET DE EXTRANJERÍA"
+    },
+    {
+      "code": "6",
+      "description": "RUC"
+    },
+    {
+      "code": "7",
+      "description": "PASAPORTE"
+    },
+    {
+      "code": "A",
+      "description": "CÉDULA DIPLOMÁTICA DE IDENTIDAD"
+    },
+    {
+      "code": "B",
+      "description": "DOC.IDENT.PAÍS.RESIDENCIA-NO.D"
+    },
+    {
+      "code": "C",
+      "description": "TAX IDENTIFICATION NUMBER - TIN"
+    },
+    {
+      "code": "D",
+      "description": "IDENTIFICATION NUMBER - IN"
+    },
+    {
+      "code": "E",
+      "description": "TAM - TARJETA ANDINA DE MIGRACIÓN"
+    },
+    {
+      "code": "F",
+      "description": "PERMISO TEMPORAL DE PERMANENCIA - PTP"
+    },
+    {
+      "code": "G",
+      "description": "SALVOCONDUCTO"
+    },
+    {
+      "code": "-",
+      "description": "VARIOS"
+    }
+  ],
+  "units": [
+    {
+      "code": "NIU",
+      "description": "UNIDAD (BIENES)"
+    },
+    {
+      "code": "ZZ",
+      "description": "UNIDAD (SERVICIOS)"
+    },
+    {
+      "code": "4A",
+      "description": "BOBINAS"
+    },
+    {
+      "code": "BJ",
+      "description": "BALDE"
+    },
+    {
+      "code": "BLL",
+      "description": "BARRILES"
+    },
+    {
+      "code": "BG",
+      "description": "BOLSA"
+    },
+    {
+      "code": "BO",
+      "description": "BOTELLAS"
+    },
+    {
+      "code": "BX",
+      "description": "CAJA"
+    },
+    {
+      "code": "CT",
+      "description": "CARTONES"
+    },
+    {
+      "code": "CMK",
+      "description": "CENTIMETRO CUADRADO"
+    },
+    {
+      "code": "CMQ",
+      "description": "CENTIMETRO CUBICO"
+    },
+    {
+      "code": "CMT",
+      "description": "CENTIMETRO LINEAL"
+    },
+    {
+      "code": "CEN",
+      "description": "CIENTO DE UNIDADES"
+    },
+    {
+      "code": "CY",
+      "description": "CILINDRO"
+    },
+    {
+      "code": "CJ",
+      "description": "CONOS"
+    },
+    {
+      "code": "DZN",
+      "description": "DOCENA"
+    },
+    {
+      "code": "DZP",
+      "description": "DOCENA POR 10**6"
+    },
+    {
+      "code": "BE",
+      "description": "FARDO"
+    },
+    {
+      "code": "GLI",
+      "description": "GALON INGLES (4,545956L)"
+    },
+    {
+      "code": "GRM",
+      "description": "GRAMO"
+    },
+    {
+      "code": "GRO",
+      "description": "GRUESA"
+    },
+    {
+      "code": "HLT",
+      "description": "HECTOLITRO"
+    },
+    {
+      "code": "LEF",
+      "description": "HOJA"
+    },
+    {
+      "code": "SET",
+      "description": "JUEGO"
+    },
+    {
+      "code": "KGM",
+      "description": "KILOGRAMO"
+    },
+    {
+      "code": "KTM",
+      "description": "KILOMETRO"
+    },
+    {
+      "code": "KWH",
+      "description": "KILOVATIO HORA"
+    },
+    {
+      "code": "KT",
+      "description": "KIT"
+    },
+    {
+      "code": "CA",
+      "description": "LATAS"
+    },
+    {
+      "code": "LBR",
+      "description": "LIBRAS"
+    },
+    {
+      "code": "LTR",
+      "description": "LITRO"
+    },
+    {
+      "code": "MWH",
+      "description": "MEGAWATT HORA"
+    },
+    {
+      "code": "MTR",
+      "description": "METRO"
+    },
+    {
+      "code": "MTK",
+      "description": "METRO CUADRADO"
+    },
+    {
+      "code": "MTQ",
+      "description": "METRO CUBICO"
+    },
+    {
+      "code": "MGM",
+      "description": "MILIGRAMOS"
+    },
+    {
+      "code": "MLT",
+      "description": "MILILITRO"
+    },
+    {
+      "code": "MMT",
+      "description": "MILIMETRO"
+    },
+    {
+      "code": "MMK",
+      "description": "MILIMETRO CUADRADO"
+    },
+    {
+      "code": "MMQ",
+      "description": "MILIMETRO CUBICO"
+    },
+    {
+      "code": "MLL",
+      "description": "MILLARES"
+    },
+    {
+      "code": "UM",
+      "description": "MILLON DE UNIDADES"
+    },
+    {
+      "code": "ONZ",
+      "description": "ONZAS"
+    },
+    {
+      "code": "PF",
+      "description": "PALETAS"
+    },
+    {
+      "code": "PK",
+      "description": "PAQUETE"
+    },
+    {
+      "code": "PR",
+      "description": "PAR"
+    },
+    {
+      "code": "FOT",
+      "description": "PIES"
+    },
+    {
+      "code": "FTK",
+      "description": "PIES CUADRADOS"
+    },
+    {
+      "code": "FTQ",
+      "description": "PIES CUBICOS"
+    },
+    {
+      "code": "C62",
+      "description": "PIEZAS"
+    },
+    {
+      "code": "PG",
+      "description": "PLACAS"
+    },
+    {
+      "code": "ST",
+      "description": "PLIEGO"
+    },
+    {
+      "code": "INH",
+      "description": "PULGADAS"
+    },
+    {
+      "code": "RM",
+      "description": "RESMA"
+    },
+    {
+      "code": "DR",
+      "description": "TAMBOR"
+    },
+    {
+      "code": "STN",
+      "description": "TONELADA CORTA"
+    },
+    {
+      "code": "LTN",
+      "description": "TONELADA LARGA"
+    },
+    {
+      "code": "TNE",
+      "description": "TONELADAS"
+    },
+    {
+      "code": "TU",
+      "description": "TUBOS"
+    },
+    {
+      "code": "GLL",
+      "description": "US GALON (3,7843 L)"
+    },
+    {
+      "code": "YRD",
+      "description": "YARDA"
+    },
+    {
+      "code": "YDK",
+      "description": "YARDA CUADRADA"
+    },
+    {
+      "code": "HUR",
+      "description": "HORA"
+    },
+    {
+      "code": "DAY",
+      "description": "DÍA"
+    },
+    {
+      "code": "MON",
+      "description": "MES"
+    }
+  ],
+  "affectations": [
+    {
+      "code": "10",
+      "description": "Gravado - Operación Onerosa",
+      "scheme": "1000 IGV",
+      "free": false
+    },
+    {
+      "code": "11",
+      "description": "Gravado - Retiro por premio",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "12",
+      "description": "Gravado - Retiro por donación",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "13",
+      "description": "Gravado - Retiro",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "14",
+      "description": "Gravado - Retiro por publicidad",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "15",
+      "description": "Gravado - Bonificaciones",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "16",
+      "description": "Gravado - Retiro por entrega a trabajadores",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "17",
+      "description": "Gravado - IVAP",
+      "scheme": "1016 IVAP",
+      "free": false
+    },
+    {
+      "code": "20",
+      "description": "Exonerado - Operación Onerosa",
+      "scheme": "9997 EXO",
+      "free": false
+    },
+    {
+      "code": "21",
+      "description": "Exonerado - Transferencia gratuita",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "30",
+      "description": "Inafecto - Operación Onerosa",
+      "scheme": "9998 INA",
+      "free": false
+    },
+    {
+      "code": "31",
+      "description": "Inafecto - Retiro por bonificación",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "32",
+      "description": "Inafecto - Retiro",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "33",
+      "description": "Inafecto - Retiro por muestras médicas",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "34",
+      "description": "Inafecto - Retiro por convenio colectivo",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "35",
+      "description": "Inafecto - Retiro por premio",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "36",
+      "description": "Inafecto - Retiro por publicidad",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "37",
+      "description": "Inafecto - Transferencia gratuita",
+      "scheme": "9996 GRA",
+      "free": true
+    },
+    {
+      "code": "40",
+      "description": "Exportación de Bienes o Servicios",
+      "scheme": "9995 EXP",
+      "free": false
+    }
+  ],
+  "creditNoteTypes": [
+    {
+      "code": "10",
+      "description": "Otros conceptos"
+    },
+    {
+      "code": "11",
+      "description": "Ajustes de operaciones de exportación"
+    },
+    {
+      "code": "12",
+      "description": "Ajustes afectos al IVAP"
+    },
+    {
+      "code": "13",
+      "description": "Corrección del monto neto pendiente de pago y/o la(s) fechas(s) de vencimiento del pago único o de las cuotas"
+    },
+    {
+      "code": "01",
+      "description": "Anulación de la operación"
+    },
+    {
+      "code": "02",
+      "description": "Anulación por error en el RUC"
+    },
+    {
+      "code": "03",
+      "description": "Corrección por error en la descripción"
+    },
+    {
+      "code": "04",
+      "description": "Descuento global"
+    },
+    {
+      "code": "05",
+      "description": "Descuento por ítem"
+    },
+    {
+      "code": "06",
+      "description": "Devolución total"
+    },
+    {
+      "code": "07",
+      "description": "Devolución por ítem"
+    },
+    {
+      "code": "08",
+      "description": "Bonificación"
+    },
+    {
+      "code": "09",
+      "description": "Disminución en el valor"
+    }
+  ],
+  "debitNoteTypes": [
+    {
+      "code": "11",
+      "description": "Ajustes de operaciones de exportación"
+    },
+    {
+      "code": "12",
+      "description": "Ajustes afectos al IVAP"
+    },
+    {
+      "code": "01",
+      "description": "Intereses por mora"
+    },
+    {
+      "code": "02",
+      "description": "Aumento en el valor"
+    },
+    {
+      "code": "03",
+      "description": "Penalidades/ otros conceptos"
+    }
+  ],
+  "operationTypes": [
+    {
+      "code": "1001",
+      "description": "Operación sujeta a detracción"
+    },
+    {
+      "code": "1002",
+      "description": "Operación sujeta a detracción - Recursos hidrobiológicos"
+    },
+    {
+      "code": "1003",
+      "description": "Operación sujeta a detracción - Servicios de transporte pasajeros"
+    },
+    {
+      "code": "1004",
+      "description": "Operación sujeta a detracción - Servicios de transporte carga"
+    },
+    {
+      "code": "2001",
+      "description": "Operación sujeta a percepción"
+    },
+    {
+      "code": "0101",
+      "description": "Venta interna"
+    },
+    {
+      "code": "0102",
+      "description": "Venta interna - Anticipos"
+    },
+    {
+      "code": "0104",
+      "description": "Venta interna - Itinerante"
+    },
+    {
+      "code": "0112",
+      "description": "Venta interna - Sustenta gastos deducibles persona natural"
+    },
+    {
+      "code": "0113",
+      "description": "Venta interna - NRUS"
+    },
+    {
+      "code": "0200",
+      "description": "Exportación de bienes"
+    },
+    {
+      "code": "0201",
+      "description": "Exportación de servicios - prestación en el país"
+    },
+    {
+      "code": "0202",
+      "description": "Exportación de servicios - hospedaje no domiciliados"
+    },
+    {
+      "code": "0203",
+      "description": "Exportación de servicios - transporte de navieras"
+    },
+    {
+      "code": "0204",
+      "description": "Exportación de servicios - a naves y aeronaves de bandera extranjera"
+    },
+    {
+      "code": "0205",
+      "description": "Exportación de servicios - paquete turístico"
+    },
+    {
+      "code": "0206",
+      "description": "Exportación de servicios - complementarios al transporte de carga"
+    },
+    {
+      "code": "0207",
+      "description": "Exportación de servicios - suministro de energía eléctrica a ZED"
+    },
+    {
+      "code": "0208",
+      "description": "Exportación de servicios - prestación parcialmente en el extranjero"
+    },
+    {
+      "code": "0301",
+      "description": "Operaciones con carta porte aéreo"
+    },
+    {
+      "code": "0302",
+      "description": "Operaciones de transporte ferroviario de pasajeros"
+    },
+    {
+      "code": "0303",
+      "description": "Operaciones de pago de regalía petrolera"
+    },
+    {
+      "code": "0401",
+      "description": "Ventas no domiciliados que no califican como exportación"
+    }
+  ],
+  "allowances": [
+    {
+      "code": "62",
+      "description": "Retención del IGV",
+      "level": "global",
+      "affectsBase": false
+    },
+    {
+      "code": "00",
+      "description": "Descuento que afecta la base imponible del IGV/IVAP",
+      "level": "item",
+      "affectsBase": true
+    },
+    {
+      "code": "01",
+      "description": "Descuento que no afecta la base imponible del IGV/IVAP",
+      "level": "item",
+      "affectsBase": false
+    },
+    {
+      "code": "02",
+      "description": "Descuento global que afecta la base imponible del IGV/IVAP",
+      "level": "global",
+      "affectsBase": true
+    },
+    {
+      "code": "03",
+      "description": "Descuento global que no afecta la base imponible del IGV/IVAP",
+      "level": "global",
+      "affectsBase": false
+    },
+    {
+      "code": "04",
+      "description": "Descuento global por anticipos gravados que afecta la base imponible del IGV/IVAP",
+      "level": "global",
+      "affectsBase": true
+    },
+    {
+      "code": "05",
+      "description": "Descuento global por anticipos exonerados",
+      "level": "global",
+      "affectsBase": false
+    },
+    {
+      "code": "06",
+      "description": "Descuento global por anticipos inafectos",
+      "level": "global",
+      "affectsBase": false
+    }
+  ],
+  "paymentMeans": [
+    {
+      "code": "001",
+      "description": "Depósito en cuenta"
+    },
+    {
+      "code": "002",
+      "description": "Giro"
+    },
+    {
+      "code": "003",
+      "description": "Cheque"
+    },
+    {
+      "code": "004",
+      "description": "Tarjeta de crédito"
+    },
+    {
+      "code": "005",
+      "description": "Tarjeta de débito"
+    }
+  ],
+  "detractions": [
+    {
+      "code": "001",
+      "description": "Azúcar y melaza de caña",
+      "percent": "10",
+      "minimum": "2750"
+    },
+    {
+      "code": "003",
+      "description": "Alcohol etílico",
+      "percent": "10",
+      "minimum": "2750"
+    },
+    {
+      "code": "004",
+      "description": "Recursos hidrobiológicos",
+      "percent": "4",
+      "minimum": "700"
+    },
+    {
+      "code": "005",
+      "description": "Maíz amarillo duro",
+      "percent": "4",
+      "minimum": "700"
+    },
+    {
+      "code": "007",
+      "description": "Caña de azúcar",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "008",
+      "description": "Madera",
+      "percent": "4",
+      "minimum": "700"
+    },
+    {
+      "code": "009",
+      "description": "Arena y piedra",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "010",
+      "description": "Residuos, subproductos, desechos, recortes y desperdicios",
+      "percent": "15",
+      "minimum": "700"
+    },
+    {
+      "code": "011",
+      "description": "Bienes gravados con IGV por renuncia a la exoneración",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "012",
+      "description": "Intermediación laboral y tercerización",
+      "percent": "12",
+      "minimum": "700"
+    },
+    {
+      "code": "013",
+      "description": "Animales vivos",
+      "percent": "4",
+      "minimum": "700"
+    },
+    {
+      "code": "014",
+      "description": "Carnes y despojos comestibles",
+      "percent": "4",
+      "minimum": "700"
+    },
+    {
+      "code": "015",
+      "description": "Abonos, cueros y pieles de origen animal",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "016",
+      "description": "Aceite de pescado",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "017",
+      "description": "Harina, polvo y pellets de pescado, crustáceos, moluscos y similares",
+      "percent": "4",
+      "minimum": "700"
+    },
+    {
+      "code": "019",
+      "description": "Arrendamiento de bienes",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "020",
+      "description": "Mantenimiento y reparación de bienes muebles",
+      "percent": "12",
+      "minimum": "700"
+    },
+    {
+      "code": "021",
+      "description": "Movimiento de carga",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "022",
+      "description": "Otros servicios empresariales",
+      "percent": "12",
+      "minimum": "700"
+    },
+    {
+      "code": "023",
+      "description": "Leche",
+      "percent": "4",
+      "minimum": "700"
+    },
+    {
+      "code": "024",
+      "description": "Comisión mercantil",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "025",
+      "description": "Fabricación de bienes por encargo",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "026",
+      "description": "Servicio de transporte de personas",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "027",
+      "description": "Servicio de transporte de bienes",
+      "percent": "4",
+      "minimum": "400"
+    },
+    {
+      "code": "030",
+      "description": "Contratos de construcción",
+      "percent": "4",
+      "minimum": "700"
+    },
+    {
+      "code": "031",
+      "description": "Oro gravado con IGV",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "032",
+      "description": "Páprika y otros frutos de capsicum o pimienta",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "034",
+      "description": "Minerales metálicos no auríferos",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "035",
+      "description": "Bienes exonerados del IGV",
+      "percent": "1.5",
+      "minimum": "700"
+    },
+    {
+      "code": "036",
+      "description": "Oro y demás minerales metálicos exonerados del IGV",
+      "percent": "1.5",
+      "minimum": "700"
+    },
+    {
+      "code": "037",
+      "description": "Demás servicios gravados con IGV",
+      "percent": "12",
+      "minimum": "700"
+    },
+    {
+      "code": "039",
+      "description": "Minerales no metálicos",
+      "percent": "10",
+      "minimum": "700"
+    },
+    {
+      "code": "040",
+      "description": "Bien inmueble gravado con IGV",
+      "percent": "4",
+      "minimum": "700"
+    },
+    {
+      "code": "041",
+      "description": "Plomo",
+      "percent": "15",
+      "minimum": "700"
+    },
+    {
+      "code": "044",
+      "description": "Servicio de beneficio de minerales metálicos gravado con IGV",
+      "percent": "12",
+      "minimum": "700"
+    },
+    {
+      "code": "045",
+      "description": "Minerales de oro y sus concentrados gravados con IGV",
+      "percent": "10",
+      "minimum": "700"
+    }
+  ],
+  "transferReasons": [
+    {
+      "code": "13",
+      "description": "Otros"
+    },
+    {
+      "code": "14",
+      "description": "Venta sujeta a confirmación del comprador"
+    },
+    {
+      "code": "17",
+      "description": "Traslado de bienes para transformación"
+    },
+    {
+      "code": "18",
+      "description": "Traslado emisor itinerante CP"
+    },
+    {
+      "code": "19",
+      "description": "Traslado a zona primaria"
+    },
+    {
+      "code": "01",
+      "description": "Venta"
+    },
+    {
+      "code": "02",
+      "description": "Compra"
+    },
+    {
+      "code": "03",
+      "description": "Venta con entrega a terceros"
+    },
+    {
+      "code": "04",
+      "description": "Traslado entre establecimientos de la misma empresa"
+    },
+    {
+      "code": "05",
+      "description": "Consignación"
+    },
+    {
+      "code": "06",
+      "description": "Devolución"
+    },
+    {
+      "code": "07",
+      "description": "Recojo de bienes transformados"
+    },
+    {
+      "code": "08",
+      "description": "Importación"
+    },
+    {
+      "code": "09",
+      "description": "Exportación"
+    }
+  ],
+  "transportModes": [
+    {
+      "code": "01",
+      "description": "Transporte público"
+    },
+    {
+      "code": "02",
+      "description": "Transporte privado"
+    }
+  ]
+}

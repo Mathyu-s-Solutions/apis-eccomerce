@@ -1,0 +1,146 @@
+[
+  {
+    "slug": "api-facturacion-electronica-peru",
+    "site": "sunat",
+    "keyword": "api facturación electrónica perú",
+    "angle": "Qué es una API de facturación electrónica, qué resuelve frente a armar el XML y firmarlo uno mismo, y cómo emitir una boleta y una factura de punta a punta (registrar la empresa en beta, emitir, leer el estado, XML, CDR y PDF)."
+  },
+  {
+    "slug": "consultar-ruc-por-api",
+    "site": "sunat",
+    "keyword": "consulta ruc api",
+    "angle": "Cómo validar un RUC (dígito verificador) y traer razón social, estado, condición y domicilio fiscal desde el padrón de SUNAT por API antes de emitir una factura; ejemplo en un formulario de checkout."
+  },
+  {
+    "slug": "migrar-de-apisunat",
+    "site": "sunat",
+    "keyword": "alternativa a apisunat",
+    "angle": "Cómo pasar una integración hecha para apisunat.pe a SUNAT API cambiando solo la URL y la key, porque el JSON de entrada y respuesta es el mismo; qué revisar antes y cómo probar en beta."
+  },
+  {
+    "slug": "resumen-diario-de-boletas",
+    "site": "sunat",
+    "keyword": "resumen diario de boletas sunat",
+    "angle": "Qué es el resumen diario, cuándo conviene informar boletas por resumen en lugar de enviarlas una por una y cómo hacerlo con el endpoint /daily-summary y el campo enviar_en_resumen."
+  },
+  {
+    "slug": "anular-factura-electronica",
+    "site": "sunat",
+    "keyword": "cómo anular una factura electrónica",
+    "angle": "Las dos formas de anular: comunicación de baja (/voided) y nota de crédito con motivo 01; cuándo usar cada una y ejemplos con la API."
+  },
+  {
+    "slug": "que-es-el-cdr-de-sunat",
+    "site": "sunat",
+    "keyword": "qué es el cdr sunat",
+    "angle": "Qué es la Constancia de Recepción (CDR), qué estados puede traer un comprobante, por qué hay que guardarla y cómo la API la devuelve junto al XML y el PDF."
+  },
+  {
+    "slug": "guia-de-remision-electronica-por-api",
+    "site": "sunat",
+    "keyword": "guía de remisión electrónica remitente api",
+    "angle": "Cuándo se emite una guía de remisión remitente o transportista, qué datos pide (motivo de traslado, modalidad, puntos de partida y llegada) y cómo emitirla con /dispatches."
+  },
+  {
+    "slug": "factura-con-detraccion",
+    "site": "sunat",
+    "keyword": "factura electrónica con detracción",
+    "angle": "Qué datos lleva una factura sujeta a detracción (tipo de operación 1001, código del catálogo 54, porcentaje, monto, cuenta del Banco de la Nación) y un ejemplo completo en JSON."
+  },
+  {
+    "slug": "factura-al-credito-con-cuotas",
+    "site": "sunat",
+    "keyword": "factura al crédito con cuotas sunat",
+    "angle": "Cómo emitir una factura con forma de pago al crédito y su cronograma de cuotas con el campo cuotas, y cómo corregir las fechas después con una nota de crédito tipo 13."
+  },
+  {
+    "slug": "precio-con-igv-en-factura-electronica",
+    "site": "sunat",
+    "keyword": "precio con igv incluido factura electrónica",
+    "angle": "La diferencia entre valor unitario (sin IGV) y precio unitario (con IGV), por qué un POS debe mandar el precio de la etiqueta para que el total cuadre al céntimo y cómo lo calcula la API."
+  },
+  {
+    "slug": "validar-comprobante-electronico",
+    "site": "sunat",
+    "keyword": "validar comprobante electrónico sunat",
+    "angle": "Cómo verificar por API que una factura o boleta que recibiste de un proveedor existe y es válida en SUNAT (/cpe/validez) antes de registrarla como gasto."
+  },
+  {
+    "slug": "sire-ventas-y-compras-por-api",
+    "site": "sunat",
+    "keyword": "sire sunat api registro de ventas",
+    "angle": "Qué es el SIRE y cómo descargar por API las propuestas de registro de ventas (RVIE) y de compras (RCE) de un periodo para cuadrarlas con tu sistema."
+  },
+  {
+    "slug": "facturacion-electronica-en-beta",
+    "site": "sunat",
+    "keyword": "probar facturación electrónica sunat beta",
+    "angle": "Cómo probar la emisión sin certificado ni costo contra SUNAT beta, qué cambia al pasar a producción (certificado digital y credenciales) y una lista de pruebas antes de salir en vivo."
+  },
+  {
+    "slug": "rastrear-envios-shalom-por-api",
+    "site": "shalom",
+    "keyword": "rastrear envío shalom api",
+    "angle": "Cómo mostrar el estado de un envío de Shalom en tu tienda con número de orden y código, qué estados normalizados devuelve la API y cómo rastrear varias guías a la vez."
+  },
+  {
+    "slug": "cotizar-envio-shalom",
+    "site": "shalom",
+    "keyword": "cotizar envío shalom",
+    "angle": "Cómo calcular en el checkout el costo de un envío por Shalom entre dos agencias, terrestre o aéreo y con o sin entrega a domicilio, con el endpoint /quote."
+  },
+  {
+    "slug": "agencia-shalom-mas-cercana-en-el-checkout",
+    "site": "shalom",
+    "keyword": "agencia shalom más cercana",
+    "angle": "Cómo dejar que el cliente elija en el checkout la agencia de Shalom donde recoge su pedido: lista por departamento y búsqueda por cercanía con /agencies/search."
+  },
+  {
+    "slug": "webhooks-de-envios-shalom",
+    "site": "shalom",
+    "keyword": "notificar estado de envío shalom al cliente",
+    "angle": "Cómo enterarte cuando un envío de Shalom cambia de estado sin consultar cada rato: vigilar la guía, recibir el webhook firmado, verificar la firma y avisarle al cliente."
+  },
+  {
+    "slug": "integrar-shalom-en-woocommerce",
+    "site": "shalom",
+    "keyword": "shalom woocommerce",
+    "angle": "Cómo conectar una tienda WooCommerce con Shalom vía API: agencias en el checkout, costo del envío y rastreo en la página del pedido, con código PHP/JS de ejemplo y sin plugins de terceros."
+  },
+  {
+    "slug": "rastrear-envios-olva-por-api",
+    "site": "olva",
+    "keyword": "olva courier tracking api",
+    "angle": "Cómo consultar el estado de una guía de Olva Courier desde tu sistema, qué historial de eventos devuelve la API y cómo mostrarlo en la página del pedido."
+  },
+  {
+    "slug": "cotizar-envio-olva-por-ubigeo",
+    "site": "olva",
+    "keyword": "cotizar envío olva",
+    "angle": "Cómo calcular el costo de un envío de Olva por ubigeo de origen y destino y peso, con el endpoint /quote, y cómo armar los selectores de departamento, provincia y distrito."
+  },
+  {
+    "slug": "rastreo-masivo-de-guias-olva",
+    "site": "olva",
+    "keyword": "rastreo masivo olva",
+    "angle": "Cómo actualizar el estado de muchos pedidos de Olva a la vez con el rastreo en lote (hasta 50 guías por llamada) y un job diario."
+  },
+  {
+    "slug": "ubigeo-inei-para-envios",
+    "site": "olva",
+    "keyword": "ubigeo inei lista para ecommerce",
+    "angle": "Qué es el ubigeo, por qué tu checkout debería guardar el código y no solo el nombre del distrito, y cómo obtener departamentos, provincias y distritos por API."
+  },
+  {
+    "slug": "oficinas-olva-en-el-checkout",
+    "site": "olva",
+    "keyword": "agencias olva courier cerca de mí",
+    "angle": "Cómo mostrar al cliente las oficinas de Olva más cercanas a su ubicación para recoger su pedido, con /agencies/search y un mapa sencillo."
+  },
+  {
+    "slug": "envios-y-facturacion-para-tienda-online-peru",
+    "site": "hub",
+    "keyword": "cómo automatizar envíos y facturación de una tienda online en perú",
+    "angle": "El flujo completo de un pedido: cotizar el envío (Shalom u Olva), emitir la boleta o factura electrónica, rastrear el paquete y avisar al cliente, todo con una sola cuenta de APIs."
+  }
+]

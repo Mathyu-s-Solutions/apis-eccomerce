@@ -92,3 +92,35 @@ Se configuran en [`src/lib/brands.ts`](src/lib/brands.ts) (nombre, colores, text
 endpoints de la doc, dominios; `HUB` es el sitio central) y los planes y packs en
 [`src/lib/plans.ts`](src/lib/plans.ts). Los límites del plan gratis están también en
 `backend/src/auth/plan-quota.ts`: mantenerlos iguales.
+
+## SEO: páginas que se generan solas
+
+Además de la landing, la doc y los precios, cada sitio publica páginas armadas con datos
+reales que se mantienen al día sin tocarlas. Viven en `src/app/(content)`, un grupo **sin
+`loading.tsx`** para que una URL que no existe dé un 404 real y una vieja, un 308 (con
+`loading.tsx` la respuesta sale antes y serían un 200 con `noindex` o un `meta refresh`).
+Todas entran en el sitemap de su dominio y llevan breadcrumbs con JSON-LD.
+
+| Sitio | Páginas | Datos | Cómo se actualiza |
+|---|---|---|---|
+| Shalom, Olva | `/agencias`, `/agencias/<departamento>`, `/agencias/<departamento>/<provincia>` (si tiene 2+ agencias), `/agencia/<nombre>-<id>` | `public/data/agencies-*.json` ([`src/lib/directory.ts`](src/lib/directory.ts)) | Workflow **Snapshot de agencias**, cada domingo (secreto `SNAPSHOT_API_KEY`, variable `NEXT_PUBLIC_API_URL`). Falla, sin publicar, si la API trae muchas menos agencias que el snapshot actual. |
+| SUNAT | `/tipo-de-cambio`, `/tipo-de-cambio/<mes>-<año>` (desde 2015) | API de series del BCRP, la misma del backend ([`src/lib/exchange-rate.ts`](src/lib/exchange-rate.ts)) | Solo: caché de 30 min para lo reciente y de 30 días para los meses cerrados. Un error del BCRP no queda en caché. |
+| SUNAT | `/catalogos`, `/catalogos/<número>-<nombre>` | `src/data/sunat-catalogs.json`, generado desde `backend/src/modules/sunat/core/catalogs.ts` | `node scripts/snapshot-sunat-catalogs.mjs` cuando cambian los catálogos del backend (y actualizar `CATALOGS_UPDATED` en `src/app/sitemap.ts`). |
+| Todos | `/guias`, `/guias/<slug>` | `content/guias/*.md` ([`src/lib/guides.ts`](src/lib/guides.ts)) | Motor de guías, abajo. |
+
+### Motor de guías
+
+Cada lunes el workflow **Guías SEO** corre [`scripts/seo/write-guide.mjs`](scripts/seo/write-guide.mjs):
+toma el siguiente tema de [`content/seo/backlog.json`](content/seo/backlog.json), le pasa a Claude
+(`claude-opus-5-5`) los datos reales del producto (endpoints, campos, planes y precios salen de
+`brands.ts` y `plans.ts`, nunca de memoria) y abre un PR con la guía y una lista de cosas para
+verificar. **Nada se publica solo**: la guía sale al hacer merge, después de revisarla en la
+preview de Vercel. Cuando quedan menos de 5 temas, el mismo PR trae ideas nuevas para el backlog.
+
+- Secreto `ANTHROPIC_API_KEY` y variable `NEXT_PUBLIC_API_URL` en el repo; en **Settings → Actions →
+  General**, permitir que GitHub Actions cree pull requests.
+- Para correrlo a mano: `ANTHROPIC_API_KEY=... node scripts/seo/write-guide.mjs [--slug X] [--dry-run]`.
+  Con `--print-prompt` muestra lo que se le manda al modelo, sin llamar a la API.
+- Una guía con `draft: true` o con fecha futura solo se ve en desarrollo.
+- Si cambian los campos del JSON de SUNAT (`backend/src/modules/sunat/dto`), actualizar
+  `SUNAT_FIELDS` en el script: es lo que evita que una guía invente campos.

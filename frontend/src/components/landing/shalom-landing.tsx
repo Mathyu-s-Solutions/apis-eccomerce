@@ -84,6 +84,9 @@ export function ShalomLanding({ brand, apiUrl }: { brand: Brand; apiUrl: string 
           <Reveal>
             <AgencyMap brand="shalom" tone="light" noun="agencia" apiPrefix={brand.apiPrefix} />
           </Reveal>
+          <Link href="/agencias" className="inline-flex items-center gap-1.5 self-start text-[17px] font-semibold text-[var(--accent)] hover:underline">
+            Ver todas las agencias Shalom por departamento <ArrowRight size={18} aria-hidden />
+          </Link>
         </div>
       </section>
 

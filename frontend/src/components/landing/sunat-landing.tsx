@@ -89,6 +89,14 @@ export function SunatLanding({ brand }: { brand: Brand }) {
           <Reveal>
             <DocumentBuilder />
           </Reveal>
+          <p className="flex flex-wrap gap-x-6 gap-y-2 text-[17px] font-semibold">
+            <Link href="/catalogos" className="inline-flex items-center gap-1.5 text-[var(--primary)] hover:underline">
+              Catálogos de SUNAT con su etiqueta XML <ArrowRight size={18} aria-hidden />
+            </Link>
+            <Link href="/tipo-de-cambio" className="inline-flex items-center gap-1.5 text-[var(--primary)] hover:underline">
+              Tipo de cambio SBS de hoy <ArrowRight size={18} aria-hidden />
+            </Link>
+          </p>
         </div>
       </section>
 

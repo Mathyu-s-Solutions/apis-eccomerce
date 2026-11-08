@@ -60,6 +60,8 @@ function compact(brand, a) {
     n: title(shalom ? a.name.split(' / ').pop() : a.name.split(' - ')[0]),
     d: a.department ?? '',
     pv: title(a.province ?? ''),
+    // Distrito: agrupa las agencias de las provincias grandes (Lima) en el directorio.
+    ...(a.district ? { ds: title(a.district) } : {}),
     a: title(a.address ?? '').slice(0, 140),
     h: shalom ? shalomHours(raw) : olvaHours(raw),
     t: shalom ? raw.telefono ?? '' : title(raw.tipo ?? ''),
@@ -74,6 +76,12 @@ for (const [i, brand] of BRANDS.entries()) {
   const list = await load(brand, files[i]);
   const agencies = list.filter((a) => a.latitude && a.longitude).map((a) => compact(brand, a));
   const out = path.join(OUT_DIR, `agencies-${brand}.json`);
+  // El directorio público (/agencias) sale de este archivo: si la API devuelve una lista
+  // recortada (caída del courier, cambio de formato), no se pisa el snapshot bueno.
+  const previous = fs.existsSync(out) ? JSON.parse(fs.readFileSync(out, 'utf8')).agencies.length : 0;
+  if (previous && agencies.length < previous * 0.8 && process.env.FORCE !== '1') {
+    throw new Error(`${brand}: ${agencies.length} agencias con coordenadas contra ${previous} del snapshot actual. Revisa la API o corre con FORCE=1.`);
+  }
   fs.writeFileSync(out, JSON.stringify({ updatedAt: new Date().toISOString().slice(0, 10), total: list.length, agencies }));
   console.log(`${brand}: ${agencies.length} de ${list.length} agencias con coordenadas → ${path.relative(process.cwd(), out)}`);
 }

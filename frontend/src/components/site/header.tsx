@@ -5,16 +5,27 @@ import { ButtonLink } from '@/components/ui/button';
 import { getCurrentUser } from '@/lib/current-user';
 import { isSiteFromHost } from '@/lib/brand-server';
 import { panelHref } from '@/lib/urls';
+import { allGuides, guidesFor } from '@/lib/guides';
 import { BrandSwitcher } from './brand-switcher';
 import { SiteLink } from '@/components/site/site-link';
 
 const navLink =
   'rounded-lg px-3 py-2 font-medium text-[var(--on-header)] transition-colors hover:bg-black/6';
 
+/** Secciones de contenido de cada API (el logo ya lleva al inicio). */
+const SECTIONS: Record<Exclude<Site['id'], 'hub'>, { href: string; label: string }[]> = {
+  shalom: [{ href: '/agencias', label: 'Agencias' }],
+  olva: [{ href: '/agencias', label: 'Agencias' }],
+  sunat: [
+    { href: '/tipo-de-cambio', label: 'Tipo de cambio' },
+    { href: '/catalogos', label: 'Catálogos' },
+  ],
+};
+
 export async function Header({ site }: { site: Site }) {
   const [user, fromHost] = await Promise.all([getCurrentUser(), isSiteFromHost()]);
   const hub = site.id === 'hub';
-  const anchor = site.id === 'sunat' ? { href: '/#ruc', label: 'Consulta RUC' } : { href: '/#agencias', label: 'Agencias' };
+  const hasGuides = (hub ? allGuides() : guidesFor(site.id)).length > 0;
 
   return (
     <>
@@ -54,13 +65,16 @@ export async function Header({ site }: { site: Site }) {
                   <SiteLink key={id} site={id} className={navLink}>{BRANDS[id].product}</SiteLink>
                 ))}
                 <Link href="/pricing" className={navLink}>Precios</Link>
+                {hasGuides && <Link href="/guias" className={navLink}>Guías</Link>}
               </>
             ) : (
               <>
-                <Link href="/" className={navLink}>Inicio</Link>
-                <Link href={anchor.href} className={navLink}>{anchor.label}</Link>
+                {SECTIONS[site.id].map((s) => (
+                  <Link key={s.href} href={s.href} className={navLink}>{s.label}</Link>
+                ))}
                 <Link href="/docs" className={navLink}>Documentación</Link>
                 <Link href="/pricing" className={navLink}>Precios</Link>
+                {hasGuides && <Link href="/guias" className={navLink}>Guías</Link>}
               </>
             )}
           </nav>

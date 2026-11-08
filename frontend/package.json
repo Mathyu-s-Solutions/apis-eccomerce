@@ -19,6 +19,7 @@
     "gsap": "3.13.0",
     "jose": "^6.2.12",
     "lucide-react": "^1.52.0",
+    "marked": "^16.4.2",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -28,6 +29,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

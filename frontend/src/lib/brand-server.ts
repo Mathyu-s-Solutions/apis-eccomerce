@@ -1,6 +1,7 @@
 import 'server-only';
 import { cookies, headers } from 'next/headers';
-import { DEFAULT_SITE, getSiteById, siteByHost, SITE_IDS, type Site, type SiteId } from './brands';
+import { notFound } from 'next/navigation';
+import { DEFAULT_SITE, getSiteById, siteByHost, SITE_IDS, type Brand, type BrandId, type Site, type SiteId } from './brands';
 
 const BRAND_COOKIE = 'mathyu_brand';
 
@@ -24,6 +25,16 @@ export async function getSiteId(): Promise<SiteId> {
 
 export async function getSite(): Promise<Site> {
   return getSiteById(await getSiteId());
+}
+
+/**
+ * Páginas que existen solo en el sitio de ciertas APIs (el directorio de agencias en
+ * Shalom y Olva, el tipo de cambio en SUNAT…): en los demás dominios, 404.
+ */
+export async function requireBrand<T extends BrandId>(ids: readonly T[]): Promise<Brand & { id: T }> {
+  const site = await getSite();
+  if (!(ids as readonly SiteId[]).includes(site.id)) notFound();
+  return site as Brand & { id: T };
 }
 
 /** True si el sitio viene del dominio (en prod no mostramos el switcher). */

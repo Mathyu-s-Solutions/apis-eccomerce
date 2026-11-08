@@ -1,0 +1,81 @@
+name: Guías SEO
+
+# Motor de contenido: cada lunes Claude escribe la próxima guía del backlog
+# (frontend/content/seo/backlog.json) con los datos reales del producto y abre un PR.
+# Nada se publica solo: la guía sale al hacer merge, después de revisarla en la preview
+# de Vercel. Cuando quedan pocos temas, el mismo PR trae ideas nuevas para el backlog.
+#
+# Secreto del repo: ANTHROPIC_API_KEY.
+# Variable del repo: NEXT_PUBLIC_API_URL (URL pública de la API para los ejemplos).
+# Settings → Actions → General: "Allow GitHub Actions to create and approve pull requests".
+
+on:
+  schedule:
+    # Lunes 09:00 de Lima.
+    - cron: '0 14 * * 1'
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: Tema concreto del backlog (vacío = el siguiente pendiente)
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: seo-guides
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    name: Escribir la guía y abrir el PR
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # `prisma generate` (postinstall) necesita la variable; no se conecta a nada.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.10.1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Escribir la guía
+        id: guide
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NOTES_FILE: ${{ runner.temp }}/pr-body.md
+          SLUG: ${{ inputs.slug }}
+        run: node scripts/seo/write-guide.mjs ${SLUG:+--slug "$SLUG"}
+
+      - name: Abrir el PR
+        if: steps.guide.outputs.slug != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLUG: ${{ steps.guide.outputs.slug }}
+          TITLE: ${{ steps.guide.outputs.title }}
+          NOTES_FILE: ${{ runner.temp }}/pr-body.md
+        run: |
+          branch="seo/guia-$SLUG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add content/guias content/seo/backlog.json
+          git commit -m "content(guias): $TITLE"
+          git push -u origin "$branch"
+          gh pr create --base main --head "$branch" --title "Guía: $TITLE" --body-file "$NOTES_FILE"
