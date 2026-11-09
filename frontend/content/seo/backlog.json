@@ -9,7 +9,9 @@
     "slug": "consultar-ruc-por-api",
     "site": "sunat",
     "keyword": "consulta ruc api",
-    "angle": "Cómo validar un RUC (dígito verificador) y traer razón social, estado, condición y domicilio fiscal desde el padrón de SUNAT por API antes de emitir una factura; ejemplo en un formulario de checkout."
+    "angle": "Cómo validar un RUC (dígito verificador) y traer razón social, estado, condición y domicilio fiscal desde el padrón de SUNAT por API antes de emitir una factura; ejemplo en un formulario de checkout.",
+    "skip": true,
+    "review": "pendiente en su rama"
   },
   {
     "slug": "migrar-de-apisunat",
