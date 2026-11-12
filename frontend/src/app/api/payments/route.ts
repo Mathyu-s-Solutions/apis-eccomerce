@@ -36,13 +36,10 @@ export async function POST(request: Request) {
   const bundleId = String(form.get('bundle') ?? '');
   const product = String(form.get('product') ?? '');
   const planId = String(form.get('plan') ?? '');
-  const method = String(form.get('method') ?? '');
+  // Yape y Plin pagan al mismo número (y al mismo QR): un solo método.
+  const method = 'yape_plin';
   const operationCode = String(form.get('operationCode') ?? '').trim() || null;
   const proof = form.get('proof');
-
-  if (!['yape', 'plin'].includes(method)) {
-    return NextResponse.json({ message: 'Método de pago inválido' }, { status: 400 });
-  }
 
   // Qué se compra: los planes que activa, el monto y cómo se guarda.
   let purchase: { product: string; plan: string; name: string; amountPen: number; monthlyLimit: number | null; items: PaymentItem[] };

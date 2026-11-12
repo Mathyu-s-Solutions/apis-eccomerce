@@ -72,8 +72,7 @@ export default async function BillingPage({
       <PaymentForm
         choices={all}
         initial={initial}
-        yape={process.env.NEXT_PUBLIC_YAPE_NUMBER ?? '—'}
-        plin={process.env.NEXT_PUBLIC_PLIN_NUMBER ?? '—'}
+        number={process.env.NEXT_PUBLIC_YAPE_NUMBER ?? '—'}
         payName={process.env.NEXT_PUBLIC_PAY_NAME ?? "Mathyu's Solutions"}
       />
 

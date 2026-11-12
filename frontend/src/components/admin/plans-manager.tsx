@@ -250,7 +250,7 @@ function PaymentForm({ client, group, now, onCancel, onDone }: {
 }) {
   const id = useId();
   const first = group.subs[0];
-  const [method, setMethod] = useState('yape');
+  const [method, setMethod] = useState('yape_plin');
   const [amount, setAmount] = useState(String(group.bundle ? group.bundle.pricedPen : (getPlan(first.product, first.plan)?.pricedPen ?? 0)));
   const [operationCode, setOperationCode] = useState('');
   const [busy, setBusy] = useState(false);

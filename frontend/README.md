@@ -72,7 +72,7 @@ Para entrar al panel de admin, registra tu cuenta con un correo que esté en `AD
 | `RESEND_API_KEY` | Envío de correos con Resend (basta una key *sending access*). Sin ella, los correos solo se registran en logs. |
 | `EMAIL_FROM` | Remitente: `Mathyu's APIs <avisos@mathyusolutions.com>` (dominio verificado en Resend). |
 | `CRON_SECRET` | Protege el cron diario de planes vencidos: Vercel lo manda como `Authorization: Bearer`. Sin ella, la ruta no existe. |
-| `NEXT_PUBLIC_YAPE_NUMBER` / `NEXT_PUBLIC_PLIN_NUMBER` | Números que ve el cliente para pagar. |
+| `NEXT_PUBLIC_YAPE_NUMBER` | Número que ve el cliente para pagar con Yape o Plin (las dos apps pagan al mismo número; el QR de `public/pay/yape-qr.png` también sirve en las dos). |
 | `NEXT_PUBLIC_PAY_NAME` | Nombre del titular que ve el cliente. |
 | `NEXT_PUBLIC_API_URL` | URL pública del backend (para los ejemplos de la doc). |
 | `NEXT_PUBLIC_PANEL_URL` | Solo con dominios propios: el panel único, `https://apis.mathyusolutions.com`. Las landings mandan ahí y `src/proxy.ts` redirige `/login`, `/register`, `/dashboard` y `/admin` de los otros dominios (una sola sesión). Sin ella, todo es relativo. |

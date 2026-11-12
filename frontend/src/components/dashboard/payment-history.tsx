@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import { formatDateTime, formatSoles } from '@/lib/utils';
 import { paymentLabel } from '@/lib/subscriptions';
-import { PAYMENT_METHODS } from '@/lib/plans';
+import { paymentMethodLabel } from '@/lib/plans';
 import { Card, Badge } from '@/components/ui/primitives';
 
 const STATUS: Record<string, { label: string; tone: 'warning' | 'success' | 'danger' }> = {
@@ -33,7 +33,7 @@ export async function PaymentHistory({ userId }: { userId: string }) {
                 <Badge tone={s.tone}>{s.label}</Badge>
               </div>
               <p className="mt-0.5 text-xs text-[var(--muted)]">
-                {formatDateTime(p.createdAt)} · {PAYMENT_METHODS[p.method] ?? p.method}{p.operationCode ? ` · Op. ${p.operationCode}` : ''}
+                {formatDateTime(p.createdAt)} · {paymentMethodLabel(p.method)}{p.operationCode ? ` · Op. ${p.operationCode}` : ''}
               </p>
               {p.note && <p className="mt-1 text-xs text-[var(--muted)]">Nota: {p.note}</p>}
             </div>

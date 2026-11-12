@@ -131,10 +131,19 @@ export interface PaymentItem {
   monthlyLimit: number | null;
 }
 
-/** Cómo pagó. El cliente sube Yape o Plin; el admin registra también los demás. */
+/**
+ * Cómo pagó. El cliente paga con Yape o Plin (un solo número y un QR que sirve en las
+ * dos apps) y sube el comprobante; el admin registra también los demás.
+ */
 export const PAYMENT_METHODS: Record<string, string> = {
-  yape: 'Yape',
-  plin: 'Plin',
+  yape_plin: 'Yape / Plin',
   transferencia: 'Transferencia',
   efectivo: 'Efectivo',
 };
+
+/** Pagos de antes de unir Yape y Plin: solo para mostrarlos. */
+const LEGACY_PAYMENT_METHODS: Record<string, string> = { yape: 'Yape', plin: 'Plin' };
+
+export function paymentMethodLabel(method: string): string {
+  return PAYMENT_METHODS[method] ?? LEGACY_PAYMENT_METHODS[method] ?? method;
+}

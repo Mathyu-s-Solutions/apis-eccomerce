@@ -78,7 +78,7 @@ model Payment {
   plan          String // identificador del plan elegido
   amountPen     Int       @map("amount_pen") // monto en soles (entero)
   monthlyLimit  Int?      @map("monthly_limit") // cuota que otorga el plan
-  method        String // yape | plin; el admin registra también transferencia | efectivo
+  method        String // yape_plin (antes yape | plin); el admin registra también transferencia | efectivo
   operationCode String?   @map("operation_code") // nro de operación declarado
   proofMime     String    @map("proof_mime") // "" (y proofData vacío): pago registrado a mano por el admin
   proofData     Bytes     @map("proof_data")

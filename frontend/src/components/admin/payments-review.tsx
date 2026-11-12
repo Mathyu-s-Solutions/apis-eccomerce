@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, ExternalLink, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, Badge, Textarea } from '@/components/ui/primitives';
-import { PAYMENT_METHODS } from '@/lib/plans';
+import { paymentMethodLabel } from '@/lib/plans';
 import { formatDateTime, formatNumber, formatSoles } from '@/lib/utils';
 
 interface AdminPayment {
@@ -93,7 +93,7 @@ export function PaymentsReview() {
                   </div>
                   <p className="text-sm text-[var(--muted)]">{p.userEmail}</p>
                   <p className="mt-2 text-sm">
-                    <b>{p.label}</b> · {formatSoles(p.amountPen)} · {PAYMENT_METHODS[p.method] ?? p.method}
+                    <b>{p.label}</b> · {formatSoles(p.amountPen)} · {paymentMethodLabel(p.method)}
                     {p.operationCode ? ` · Op. ${p.operationCode}` : ''}
                   </p>
                   <p className="text-xs text-[var(--muted)]">

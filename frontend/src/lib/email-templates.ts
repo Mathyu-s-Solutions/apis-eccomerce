@@ -1,6 +1,6 @@
 import 'server-only';
 import { emailLayout, escapeHtml, limaDate, panelUrl } from './email';
-import { freePlan, getPlan, groupByBundle, PAYMENT_METHODS, PRODUCT_NAME, PRODUCTS } from './plans';
+import { freePlan, getPlan, groupByBundle, paymentMethodLabel, PRODUCT_NAME, PRODUCTS } from './plans';
 import { paymentLabel } from './subscriptions';
 import { billingPath } from './urls';
 
@@ -22,7 +22,7 @@ export function paymentReceivedEmail({ user, purchase, method, operationCode }: 
   const row = (label: string, value: string) =>
     `<tr><td style="padding:4px 16px 4px 0;color:#475569">${label}</td><td style="padding:4px 0"><b>${value}</b></td></tr>`;
   const body = `
-    <p style="margin:0 0 16px">${escapeHtml(who)} pagó con ${escapeHtml(PAYMENT_METHODS[method] ?? method)} y subió su comprobante (va adjunto).</p>
+    <p style="margin:0 0 16px">${escapeHtml(who)} pagó con ${escapeHtml(paymentMethodLabel(method))} y subió su comprobante (va adjunto).</p>
     <table style="border-collapse:collapse;margin:0 0 8px">
       ${row('Compra', escapeHtml(purchase.name))}
       ${row('Monto', `S/ ${purchase.amountPen}`)}
@@ -43,7 +43,7 @@ export function paymentReviewedEmail({ name, payment, plans }: {
   plans: { product: string; plan: string; expiresAt: Date | null }[];
 }): EmailContent {
   const label = paymentLabel(payment);
-  const paid = `<b>S/ ${payment.amountPen}</b> por <b>${escapeHtml(label)}</b> (${escapeHtml(PAYMENT_METHODS[payment.method] ?? payment.method)})`;
+  const paid = `<b>S/ ${payment.amountPen}</b> por <b>${escapeHtml(label)}</b> (${escapeHtml(paymentMethodLabel(payment.method))})`;
   const hello = `<p style="margin:0 0 12px">Hola${name ? ` ${escapeHtml(name)}` : ''},</p>`;
 
   if (payment.status === 'approved') {
