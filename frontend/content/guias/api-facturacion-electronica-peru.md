@@ -38,7 +38,7 @@ SUNAT API usa el mismo JSON de entrada y respuesta que apisunat.pe. Si ya tienes
 La URL base de la API es:
 
 ```text
-https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat
+https://apis.mathyusolutions.com/v1/sunat
 ```
 
 Autentica cada solicitud con el header `x-api-key`. Crea la key desde tu panel y guárdala como secreto en el servidor, por ejemplo, en la variable de entorno `$MATHYU_API_KEY`.
@@ -52,7 +52,7 @@ Si tu cuenta tiene más de una empresa emisora, selecciona la empresa con la cab
 El registro inicial deja la empresa en beta. Puedes emitir contra SUNAT beta sin certificado ni cuota para probar la integración. Para pasar a producción, sube el certificado de tu empresa según el proceso disponible en el servicio.
 
 ```bash
-curl -X POST "https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat/companies" \
+curl -X POST "https://apis.mathyusolutions.com/v1/sunat/companies" \
   -H "x-api-key: $MATHYU_API_KEY" \
   -H "content-type: application/json" \
   -d '{"ruc":"20123456789","razon_social":"MI EMPRESA S.A.C.","direccion":"AV. LOS OLIVOS 123","ubigeo":"150101"}'
@@ -65,7 +65,7 @@ Las credenciales de SUNAT de la empresa se almacenan cifradas y no se devuelven.
 Usa `POST /v1/sunat/documents`. El campo `documento` debe ser `boleta` y la serie debe tener cuatro caracteres y comenzar con `B`. En el ejemplo, `valor_unitario` no incluye IGV; el porcentaje de IGV usado por defecto es 18.
 
 ```bash
-curl -X POST "https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat/documents" \
+curl -X POST "https://apis.mathyusolutions.com/v1/sunat/documents" \
   -H "x-api-key: $MATHYU_API_KEY" \
   -H "content-type: application/json" \
   -H "Idempotency-Key: pedido-10045" \
@@ -106,7 +106,7 @@ Para revisar posteriormente un comprobante, usa `POST /v1/sunat/status`. El endp
 El flujo es el mismo, pero debes cambiar `documento` a `factura`, usar una serie de cuatro caracteres que empiece con `F` y enviar normalmente un cliente con tipo de documento `6` (RUC), salvo exportación.
 
 ```bash
-curl -X POST "https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat/documents" \
+curl -X POST "https://apis.mathyusolutions.com/v1/sunat/documents" \
   -H "x-api-key: $MATHYU_API_KEY" \
   -H "content-type: application/json" \
   -H "Idempotency-Key: pedido-10046" \

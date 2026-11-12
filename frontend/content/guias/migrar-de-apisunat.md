@@ -10,13 +10,13 @@ draft: false
 
 Si buscas una alternativa a apisunat.pe, puedes migrar a SUNAT API cambiando la URL base y la API key, sin rehacer el JSON de entrada ni el de respuesta. La API de Mathyu's Solutions mantiene el mismo formato compatible y permite probar tu integración contra SUNAT beta antes de pasar a producción.
 
-La URL base es `https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat` y la autenticación usa la cabecera `x-api-key`. En esta guía verás qué cambiar, qué revisar y cómo probar una emisión sin enviar comprobantes reales.
+La URL base es `https://apis.mathyusolutions.com/v1/sunat` y la autenticación usa la cabecera `x-api-key`. En esta guía verás qué cambiar, qué revisar y cómo probar una emisión sin enviar comprobantes reales.
 
 ## Qué cambia al migrar desde apisunat.pe
 
 La migración se concentra en dos valores de configuración:
 
-1. Reemplazar la URL base por `https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat`.
+1. Reemplazar la URL base por `https://apis.mathyusolutions.com/v1/sunat`.
 2. Reemplazar la API key por una key creada en tu panel de Mathyu's Solutions.
 
 El JSON de entrada y el JSON de respuesta son los mismos que usa apisunat.pe. Por eso, si tu aplicación ya construye correctamente solicitudes para facturas, boletas, notas o consultas, puedes conservar esa lógica y cambiar únicamente la configuración del cliente HTTP.
@@ -36,7 +36,7 @@ Puedes revisar las rutas y campos disponibles en la [documentación](/docs).
 Centraliza la URL base para que el cambio no quede repetido en varios archivos. Si tu código concatena las rutas, define solo la base y agrega después `/documents`, `/status` u otra ruta compatible.
 
 ```javascript
-const SUNAT_API_URL = "https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat";
+const SUNAT_API_URL = "https://apis.mathyusolutions.com/v1/sunat";
 const MATHYU_API_KEY = process.env.MATHYU_API_KEY;
 ```
 
@@ -79,13 +79,13 @@ No cambies los nombres de campos solo por cambiar de proveedor. La compatibilida
 La URL base de SUNAT API es:
 
 ```text
-https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat
+https://apis.mathyusolutions.com/v1/sunat
 ```
 
 Para emitir comprobantes, la ruta completa es:
 
 ```text
-https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat/documents
+https://apis.mathyusolutions.com/v1/sunat/documents
 ```
 
 Para consultar el estado de un comprobante, usa `POST /v1/sunat/status`. No agregues rutas de archivos que no estén en la documentación. La respuesta de emisión puede incluir enlaces al XML firmado, la constancia de SUNAT y el PDF; usa los enlaces que la API devuelva, sin construirlos manualmente.
@@ -95,7 +95,7 @@ Para consultar el estado de un comprobante, usa `POST /v1/sunat/status`. No agre
 Antes de emitir, registra tu empresa con `POST /v1/sunat/companies`. La empresa empieza en beta y puedes emitir contra SUNAT beta sin certificado ni cuota. Para producción, debes subir tu certificado.
 
 ```bash
-curl -X POST "https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat/companies" \
+curl -X POST "https://apis.mathyusolutions.com/v1/sunat/companies" \
   -H "x-api-key: $MATHYU_API_KEY" \
   -H "content-type: application/json" \
   -d '{"ruc":"20123456789","razon_social":"MI EMPRESA S.A.C.","direccion":"AV. LOS OLIVOS 123","ubigeo":"150101"}'
@@ -124,7 +124,7 @@ Haz las pruebas con una empresa registrada en beta antes de cambiar el tráfico 
 ### Paso 1: emite una boleta
 
 ```bash
-curl -X POST "https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat/documents" \
+curl -X POST "https://apis.mathyusolutions.com/v1/sunat/documents" \
   -H "x-api-key: $MATHYU_API_KEY" \
   -H "content-type: application/json" \
   -d '{"documento":"boleta","serie":"B001","cliente_tipo_de_documento":"1","cliente_numero_de_documento":"75413811","cliente_denominacion":"NOMBRE DEL CLIENTE","items":[{"descripcion":"Polo","cantidad":"2","valor_unitario":"42.372881"}],"total":"100.00"}'
@@ -168,7 +168,7 @@ Usa `POST /v1/sunat/status` para consultar el estado, XML, CDR y PDF de un compr
 Prueba una consulta de RUC con un endpoint disponible:
 
 ```bash
-curl "https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat/ruc/20100066603" \
+curl "https://apis.mathyusolutions.com/v1/sunat/ruc/20100066603" \
   -H "x-api-key: $MATHYU_API_KEY"
 ```
 
@@ -184,7 +184,7 @@ Las consultas disponibles incluyen RUC, DNI, validez de comprobantes, SIRE, tipo
 
 ## Checklist antes de producción
 
-1. La URL base apunta a `https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat`.
+1. La URL base apunta a `https://apis.mathyusolutions.com/v1/sunat`.
 2. La key se carga desde la variable segura `MATHYU_API_KEY`.
 3. La empresa emisora está registrada y configurada para el entorno correcto.
 4. Las series corresponden al tipo de comprobante.
@@ -204,7 +204,7 @@ No para la compatibilidad indicada: SUNAT API usa el mismo JSON de entrada y res
 
 ### ¿Cuál es la URL base de SUNAT API?
 
-Es `https://mathyu-apis-vzuxpxsama-rj.a.run.app/v1/sunat`. La API key va en la cabecera `x-api-key`.
+Es `https://apis.mathyusolutions.com/v1/sunat`. La API key va en la cabecera `x-api-key`.
 
 ### ¿Puedo probar sin certificado?
 

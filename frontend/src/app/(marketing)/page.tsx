@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getSite } from '@/lib/brand-server';
 import { HUB, type Site } from '@/lib/brands';
 import { PLANS } from '@/lib/plans';
+import { API_URL } from '@/lib/api-url';
 import { jsonLd, pageMetadata, requestOrigin } from '@/lib/seo';
 import { HubLanding } from '@/components/landing/hub-landing';
 import { OlvaLanding } from '@/components/landing/olva-landing';
@@ -46,14 +47,13 @@ function structuredData(site: Site, origin: string) {
 
 export default async function LandingPage() {
   const [site, origin] = await Promise.all([getSite(), requestOrigin()]);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(structuredData(site, origin)) }} />
       {site.id === 'hub' && <HubLanding />}
-      {site.id === 'shalom' && <ShalomLanding brand={site} apiUrl={apiUrl} />}
-      {site.id === 'olva' && <OlvaLanding brand={site} apiUrl={apiUrl} />}
+      {site.id === 'shalom' && <ShalomLanding brand={site} apiUrl={API_URL} />}
+      {site.id === 'olva' && <OlvaLanding brand={site} apiUrl={API_URL} />}
       {site.id === 'sunat' && <SunatLanding brand={site} />}
     </>
   );

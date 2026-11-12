@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/site/breadcrumbs';
 import { CodeBlock } from '@/components/ui/code-block';
 import { ApiCta, LinkGrid, PageIntro, pageContainer } from '@/components/directory/parts';
+import { API_URL } from '@/lib/api-url';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
 type Props = { params: Promise<{ slug: string }> };
 

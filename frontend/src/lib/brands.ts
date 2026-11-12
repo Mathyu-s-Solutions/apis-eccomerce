@@ -1,3 +1,5 @@
+import { API_URL } from './api-url';
+
 export type BrandId = 'shalom' | 'olva' | 'sunat';
 
 export interface Endpoint {
@@ -73,8 +75,6 @@ export interface Brand {
   docs: DocSection[];
   quickstart: { label: string; code: string }[];
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
 /** Igual en Shalom y Olva: el webhook es de la cuenta y las guías se vigilan por API. */
 const WEBHOOKS_DOCS: DocSection = {

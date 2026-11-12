@@ -6,8 +6,8 @@ import { pageMetadata } from '@/lib/seo';
 import { Breadcrumbs } from '@/components/site/breadcrumbs';
 import { ApiCta, PageIntro, pageContainer } from '@/components/directory/parts';
 import { exchangePath, ExchangeSourceNote, MonthArchive, RateStat, RateTable } from '@/components/sunat/exchange';
+import { API_URL } from '@/lib/api-url';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getSite();

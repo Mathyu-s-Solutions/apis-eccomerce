@@ -4,6 +4,7 @@ import { getSite } from '@/lib/brand-server';
 import { BRAND_IDS, BRANDS } from '@/lib/brands';
 import { pageMetadata } from '@/lib/seo';
 import { panelHref } from '@/lib/urls';
+import { API_URL } from '@/lib/api-url';
 import { Card, Badge } from '@/components/ui/primitives';
 import { CodeBlock } from '@/components/ui/code-block';
 import { ButtonLink } from '@/components/ui/button';
@@ -30,13 +31,12 @@ export default async function DocsPage() {
   // Sitio central: cada API tiene su documentación en su landing.
   if (site.id === 'hub') return <DocsIndex />;
   const brand = site;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-14">
       <h1 className="text-4xl font-bold tracking-tight">Documentación de {brand.name}</h1>
       <p className="mt-3 max-w-2xl text-[var(--muted)]">
-        API REST. Todas las rutas van bajo <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">{apiUrl}{brand.apiPrefix}</code> y
+        API REST. Todas las rutas van bajo <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">{API_URL}{brand.apiPrefix}</code> y
         requieren tu API key en el header <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-sm">x-api-key</code>.
       </p>
 
