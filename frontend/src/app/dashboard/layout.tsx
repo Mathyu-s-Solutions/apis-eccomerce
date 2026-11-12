@@ -8,6 +8,7 @@ import { NO_INDEX, siteIcons } from '@/lib/seo';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { PanelFrame } from '@/components/site/panel-frame';
 import { SiteLink } from '@/components/site/site-link';
+import { siteHref } from '@/lib/urls';
 
 export const metadata: Metadata = {
   title: { default: `Mi panel · ${HUB.name}`, template: `%s · ${HUB.name}` },
@@ -33,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         </div>
       </header>
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col md:flex-row">
-        <Sidebar isAdmin={user.isAdmin} email={user.email} />
+        <Sidebar isAdmin={user.isAdmin} email={user.email} docsHref={siteHref('hub', '/docs')} />
         <main className="min-w-0 flex-1 p-4 md:p-8">{children}</main>
       </div>
     </PanelFrame>

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, KeyRound } from 'lucide-react';
+import { ArrowRight, BookOpen, KeyRound } from 'lucide-react';
 import { getCurrentUser } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { BRANDS } from '@/lib/brands';
@@ -8,7 +8,7 @@ import { BUNDLES, PLANS, PRODUCT_NAME } from '@/lib/plans';
 import { getAccountPlans, type AccountPlan } from '@/lib/subscriptions';
 import { formatDate } from '@/lib/utils';
 import { Alert, Badge, Card } from '@/components/ui/primitives';
-import { ButtonLink } from '@/components/ui/button';
+import { ButtonLink, buttonClasses } from '@/components/ui/button';
 import { UsageBar } from '@/components/dashboard/usage-bar';
 import { BundleOffer } from '@/components/marketing/plan-cards';
 import { SiteLink } from '@/components/site/site-link';
@@ -54,8 +54,8 @@ function ApiCard({ p, renewHref }: { p: AccountPlan; renewHref: string }) {
         <ButtonLink href={`/dashboard/keys?product=${p.product}`} size="sm" variant="outline">
           <KeyRound size={14} /> Keys
         </ButtonLink>
-        <SiteLink site={p.product} path="/docs" className="inline-flex items-center px-1 text-sm font-medium text-[var(--accent)]">
-          Docs
+        <SiteLink site={p.product} path="/docs" className={buttonClasses('outline', 'sm')}>
+          <BookOpen size={14} /> Docs
         </SiteLink>
       </div>
     </Card>

@@ -27,6 +27,11 @@ interface CommonProps {
   className?: string;
 }
 
+/** Clases de un botón, para enlaces que no son <Link> (p. ej. SiteLink, que es un <a>). */
+export function buttonClasses(variant: Variant = 'primary', size: Size = 'md', className?: string) {
+  return cn(base, variants[variant], sizes[size], className);
+}
+
 export function Button({
   variant = 'primary',
   size = 'md',

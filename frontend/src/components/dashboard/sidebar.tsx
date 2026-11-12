@@ -3,9 +3,12 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { KeyRound, LayoutDashboard, CreditCard, ShieldCheck, LogOut, FileText, Loader2 } from 'lucide-react';
+import { KeyRound, LayoutDashboard, CreditCard, ShieldCheck, LogOut, FileText, Loader2, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { startNavigationProgress } from '@/components/site/navigation-progress';
+
+const navItem = 'flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors';
+const idle = 'text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]';
 
 const NAV = [
   { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard, exact: true },
@@ -14,7 +17,11 @@ const NAV = [
   { href: '/dashboard/billing', label: 'Pagos y planes', icon: CreditCard },
 ];
 
-export function Sidebar({ isAdmin, email }: { isAdmin: boolean; email: string }) {
+/**
+ * docsHref: la documentación vive en la landing de cada API (otro sitio, con otro tema):
+ * es un <a> con carga completa, igual que SiteLink. Se calcula en el servidor.
+ */
+export function Sidebar({ isAdmin, email, docsHref }: { isAdmin: boolean; email: string; docsHref: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
@@ -41,16 +48,17 @@ export function Sidebar({ isAdmin, email }: { isAdmin: boolean; email: string })
           <Link
             key={item.href}
             href={item.href}
-            className={cn(
-              'flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-              active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]',
-            )}
+            className={cn(navItem, active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : idle)}
           >
             <item.icon size={17} />
             {item.label}
           </Link>
         );
       })}
+      <a href={docsHref} className={cn(navItem, idle)}>
+        <BookOpen size={17} />
+        Documentación
+      </a>
       <button
         onClick={logout}
         disabled={leaving}
