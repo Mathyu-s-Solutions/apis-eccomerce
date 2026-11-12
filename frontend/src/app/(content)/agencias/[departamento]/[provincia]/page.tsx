@@ -15,8 +15,8 @@ import { pageMetadata } from '@/lib/seo';
 import { Breadcrumbs } from '@/components/site/breadcrumbs';
 import { DirectoryMap } from '@/components/directory/directory-map';
 import { AgencyCard, ApiCta, LinkGrid, PageIntro, pageContainer, SourceNote } from '@/components/directory/parts';
-import { API_URL } from '@/lib/api-url';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
 type Props = { params: Promise<{ departamento: string; provincia: string }> };
 
