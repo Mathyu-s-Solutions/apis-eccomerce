@@ -2,23 +2,38 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/current-user';
-import { getBundle, getPlan, isProduct, type Product } from '@/lib/plans';
+import { currentPeriod } from '@/lib/period';
+import { getBundle, getPlan, isProduct, PRODUCTS, type Product } from '@/lib/plans';
 import { addMonthsKeepingDay, endOfLimaDay } from '@/lib/renewal';
 
-// Planes de los clientes: los activa un pago aprobado o el admin a mano.
+// Todos los clientes con sus planes (los activa un pago aprobado o el admin a
+// mano). En las APIs sin plan de pago rige el de prueba: van las APIs que usan
+// (con keys o consumo este mes) para ver quién está probando qué.
 export async function GET() {
   const admin = await getCurrentUser();
   if (!admin?.isAdmin) return NextResponse.json({ message: 'Prohibido' }, { status: 403 });
 
-  const subs = await prisma.subscription.findMany({
-    orderBy: [{ updatedAt: 'desc' }],
-    include: { user: { select: { email: true, name: true } } },
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: 'desc' },
     take: 500,
+    select: {
+      id: true, email: true, name: true, createdAt: true,
+      subscriptions: { select: { id: true, product: true, plan: true, monthlyLimit: true, expiresAt: true, updatedAt: true } },
+      apiKeys: { where: { enabled: true }, select: { product: true } },
+      planUsage: { where: { period: currentPeriod() }, select: { product: true, used: true } },
+    },
   });
+  // Primero los que tienen un plan (el último que cambió arriba), luego el resto, de más nuevo a más antiguo.
+  const lastChange = (u: (typeof users)[number]) => Math.max(0, ...u.subscriptions.map((s) => s.updatedAt.getTime()));
+  users.sort((a, b) => lastChange(b) - lastChange(a));
+
   return NextResponse.json({
-    subscriptions: subs.map((s) => ({
-      id: s.id, product: s.product, plan: s.plan, monthlyLimit: s.monthlyLimit, expiresAt: s.expiresAt,
-      userId: s.userId, userEmail: s.user.email, userName: s.user.name,
+    clients: users.map((u) => ({
+      userId: u.id, userEmail: u.email, userName: u.name, createdAt: u.createdAt,
+      subs: u.subscriptions.map((s) => ({ id: s.id, product: s.product, plan: s.plan, monthlyLimit: s.monthlyLimit, expiresAt: s.expiresAt })),
+      // APIs a las que llegan sus keys activas (una key "all" llega a todas).
+      keyProducts: PRODUCTS.filter((p) => u.apiKeys.some((k) => k.product === p || k.product === 'all')),
+      used: Object.fromEntries(u.planUsage.map((x) => [x.product, x.used])),
     })),
   });
 }

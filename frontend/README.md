@@ -9,8 +9,8 @@ según el dominio, el **sitio central** (todas las APIs) y la landing de cada AP
   la sesión es propia, con cookie firmada. Una cuenta sirve para todas las APIs.
 - Panel del cliente: una tarjeta por API con su plan, vencimiento y consumo del mes;
   API keys (de una API o de todas) y pagos.
-- **Planes por API** (precio individual) y **packs** de promoción (p. ej. Shalom +
-  Olva Básico a S/ 45). La cuota es del plan, no de la key: la comparten todas las
+- **Planes por API** (precio individual) y **packs** de promoción (Pack Couriers:
+  Shalom + Olva Básico a S/ 45; Pack Completo: las tres en Básico a S/ 59). La cuota es del plan, no de la key: la comparten todas las
   keys del cliente para esa API (`subscriptions` + `plan_usage`, ver backend).
 - Pagos con **Yape/Plin**: el cliente sube la foto, al dueño le llega un correo con
   el comprobante adjunto y valida desde el admin; al aprobar, se activan por un mes

@@ -66,7 +66,20 @@ export interface Bundle {
   items: { product: Product; plan: string }[];
 }
 
+// De más APIs a menos: al agrupar los planes de un cliente (groupByBundle) y al
+// ver qué pack tiene (panel), manda el primero que calza.
 export const BUNDLES: Bundle[] = [
+  {
+    id: 'completo-basico',
+    name: 'Pack Completo',
+    description: 'Shalom Básico + Olva Básico + SUNAT Básico',
+    pricedPen: 59,
+    items: [
+      { product: 'shalom', plan: 'basico' },
+      { product: 'olva', plan: 'basico' },
+      { product: 'sunat', plan: 'basico' },
+    ],
+  },
   {
     id: 'couriers-basico',
     name: 'Pack Couriers',

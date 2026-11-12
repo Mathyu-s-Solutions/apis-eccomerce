@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import {
   BUNDLES,
+  freePlan,
   getPlan,
   groupByBundle,
   PAYMENT_METHODS,
@@ -24,16 +25,18 @@ interface AdminSubscription {
   plan: string;
   monthlyLimit: number | null;
   expiresAt: string | null;
-  userId: string;
-  userEmail: string;
-  userName: string | null;
 }
 
 interface Client {
   userId: string;
   userEmail: string;
   userName: string | null;
+  createdAt: string;
   subs: AdminSubscription[];
+  /** APIs a las que llegan sus keys activas. */
+  keyProducts: Product[];
+  /** Consumo de este mes por API. */
+  used: Partial<Record<Product, number>>;
 }
 
 /** Un pack completo del cliente o el plan de una API. */
@@ -53,9 +56,18 @@ function datesText(group: PlanGroup, dates: (string | Date | null)[], text: (d: 
   return group.subs.map((s, i) => `${PRODUCT_NAME[s.product] ?? s.product} ${texts[i]}`).join(' · ');
 }
 
-/** Asignar o quitar el plan de un cliente a mano, y registrar los pagos que hizo por fuera. */
+/** APIs que usa con el plan de prueba (sin plan de pago): con keys o consumo este mes. */
+function trialText(c: Client): string | null {
+  const products = PRODUCTS.filter((p) => !c.subs.some((s) => s.product === p));
+  if (c.subs.length === 0 && c.keyProducts.length === 0 && !products.some((p) => c.used[p])) return 'sin API keys todavía';
+  const using = products.filter((p) => c.keyProducts.includes(p) || c.used[p]);
+  if (using.length === 0) return null;
+  return using.map((p) => `${PRODUCT_NAME[p]} ${formatNumber(c.used[p] ?? 0)}/${formatNumber(freePlan(p).monthlyLimit)}`).join(' · ') + ' este mes';
+}
+
+/** Todos los clientes: asignar o quitar su plan a mano, y registrar los pagos que hizo por fuera. */
 export function PlansManager() {
-  const [subs, setSubs] = useState<AdminSubscription[] | null>(null);
+  const [data, setData] = useState<Client[] | null>(null);
   const [email, setEmail] = useState('');
   // Una API o un pack ("bundle:<id>", asigna los planes del pack).
   const [product, setProduct] = useState<string>('shalom');
@@ -73,21 +85,16 @@ export function PlansManager() {
 
   const load = useCallback(async () => {
     const res = await fetch('/api/admin/subscriptions');
-    const data = await res.json();
-    setSubs(data.subscriptions ?? []);
+    const body = await res.json();
+    setData(body.clients ?? []);
   }, []);
   useEffect(() => { load(); }, [load]);
 
   // Un cliente por fila, con sus planes agrupados como los compra (el pack junto).
-  const clients = useMemo(() => {
-    const byUser = new Map<string, Client>();
-    for (const s of subs ?? []) {
-      const client = byUser.get(s.userId) ?? { userId: s.userId, userEmail: s.userEmail, userName: s.userName, subs: [] };
-      client.subs.push(s);
-      byUser.set(s.userId, client);
-    }
-    return [...byUser.values()].map((c) => ({ ...c, groups: groupByBundle(c.subs) }));
-  }, [subs]);
+  const clients = useMemo(
+    () => (data ?? []).map((c) => ({ ...c, groups: groupByBundle(c.subs), trial: trialText(c) })),
+    [data],
+  );
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -158,10 +165,10 @@ export function PlansManager() {
 
       {notice && <Alert tone="success">{notice}</Alert>}
 
-      {subs === null ? (
+      {data === null ? (
         <div className="flex items-center gap-2 text-sm text-[var(--muted)]"><Loader2 size={16} className="animate-spin" /> Cargando…</div>
       ) : clients.length === 0 ? (
-        <Card className="p-6 text-sm text-[var(--muted)]">Ningún cliente tiene un plan de pago todavía.</Card>
+        <Card className="p-6 text-sm text-[var(--muted)]">Todavía no hay clientes registrados.</Card>
       ) : (
         <Card className="divide-y divide-[var(--border)]">
           {clients.map((c) => {
@@ -171,7 +178,7 @@ export function PlansManager() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-medium">{c.userName ?? c.userEmail}</p>
-                    <p className="text-xs text-[var(--muted)]">{c.userEmail}</p>
+                    <p className="text-xs text-[var(--muted)]">{c.userEmail} · desde {formatDate(c.createdAt)}</p>
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     {c.groups.map((g) => {
@@ -203,6 +210,12 @@ export function PlansManager() {
                         </div>
                       );
                     })}
+                    {c.trial && (
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Badge>Prueba</Badge>
+                        <span className="text-xs text-[var(--muted)]">{c.trial}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 {open && (
