@@ -23,7 +23,9 @@
     "slug": "resumen-diario-de-boletas",
     "site": "sunat",
     "keyword": "resumen diario de boletas sunat",
-    "angle": "Qué es el resumen diario, cuándo conviene informar boletas por resumen en lugar de enviarlas una por una y cómo hacerlo con el endpoint /daily-summary y el campo enviar_en_resumen."
+    "angle": "Qué es el resumen diario, cuándo conviene informar boletas por resumen en lugar de enviarlas una por una y cómo hacerlo con el endpoint /daily-summary y el campo enviar_en_resumen.",
+    "skip": true,
+    "review": "pendiente en su rama"
   },
   {
     "slug": "anular-factura-electronica",
