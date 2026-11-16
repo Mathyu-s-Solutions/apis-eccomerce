@@ -31,7 +31,9 @@
     "slug": "anular-factura-electronica",
     "site": "sunat",
     "keyword": "cómo anular una factura electrónica",
-    "angle": "Las dos formas de anular: comunicación de baja (/voided) y nota de crédito con motivo 01; cuándo usar cada una y ejemplos con la API."
+    "angle": "Las dos formas de anular: comunicación de baja (/voided) y nota de crédito con motivo 01; cuándo usar cada una y ejemplos con la API.",
+    "skip": true,
+    "review": "pendiente en su rama"
   },
   {
     "slug": "que-es-el-cdr-de-sunat",
