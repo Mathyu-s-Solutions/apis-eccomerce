@@ -120,6 +120,25 @@ endpoints de la doc, dominios; `HUB` es el sitio central) y los planes y packs e
 [`src/lib/plans.ts`](src/lib/plans.ts). Los límites del plan gratis están también en
 `backend/src/auth/plan-quota.ts`: mantenerlos iguales.
 
+## Página de estado (`/status`)
+
+Cada sitio tiene `/status` (link "Estado del servicio" en el footer): la central muestra
+todas las APIs y el sitio de cada API, la plataforma y lo suyo. Los datos son los
+chequeos que el worker del backend guarda cada 10 minutos en `status_checks` (ver
+"Página de estado" en `backend/README.md`); [`src/lib/status.ts`](src/lib/status.ts) los
+lee **directo de Neon**, así la página responde aunque la API esté caída, y además le
+pregunta a la API por `/health` en el momento (`NEXT_PUBLIC_API_URL`).
+
+- Estado actual: el último chequeo de cada componente; sin chequeos en 30 min, "Sin datos".
+  El de la API sale del `/health` en vivo.
+- Barras de 90 días (30 en el móvil): verde sin fallas, ámbar con fallas breves o demoras,
+  rojo con caídas que suman 30 min o más, gris sin datos. Al pasar el mouse (o tocar) se
+  ve el detalle del día.
+- Incidentes: chequeos sin respuesta seguidos de los últimos 14 días, y los huecos en los
+  chequeos de la API (la API o el worker no respondieron).
+- Todo pasa por `unstable_cache` de 60 s (no se le pega a Neon ni a la API en cada visita);
+  si lo guardado tiene más de 3 min se lee de nuevo.
+
 ## SEO: páginas que se generan solas
 
 Además de la landing, la doc y los precios, cada sitio publica páginas armadas con datos

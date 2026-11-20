@@ -334,6 +334,31 @@ duplican) y se libera si Resend falla, para reintentarlo en el siguiente tick.
 Sin `RESEND_API_KEY` no se manda nada. Los avisos de pagos y vencimiento de planes
 los manda el portal (ver `frontend/README.md`).
 
+## Página de estado
+
+El mismo worker prueba, en paralelo con lo demás, la API y cada servicio del que
+depende (`src/modules/status/`) y guarda el resultado en `status_checks` (90 días).
+El portal muestra esa tabla en `/status` leyéndola directo de Neon, así la página
+sigue funcionando aunque la API esté caída.
+
+| Componente | Qué se prueba (sin captcha ni cuota) |
+|---|---|
+| `api` | `SELECT 1` en la base; si el chequeo llega, la API y el worker corren. Los huecos entre chequeos cuentan como caída. |
+| `shalom-web` | Sesión en shalom.com.pe + `agencias/version` (el proxy del rastreo, agencias y cotización). |
+| `shalom-pro` | `GET /sanctum/csrf-cookie` de pro.shalom.pe. |
+| `olva-tracking` | Una guía que no existe: Olva debe responder 404 (con la apikey vencida sería 403). |
+| `olva-web` | Cotización de un sobre Lima → Lima en olvacourier.com. |
+| `sunat-cpe`, `sunat-beta` | El WSDL del `billService` de producción y de beta. |
+| `sunat-api` | El servidor de tokens de las APIs REST (a un cliente inexistente le responde 400). |
+| `sunat-padron` | Un RUC conocido y otro al azar (lee el bucket). Con un padrón de más de 7 días: "con demoras". Solo con `PADRON_URL`. |
+| `sunat-exchange` | La serie del dólar SBS en la API del BCRP. |
+
+Cada chequeo tiene 10 s; si falla se reintenta una vez a los 2 s (si responde, queda
+"con demoras"), y más de 5 s también es "con demoras". El motivo que se guarda es
+público ("HTTP 503", "No respondió en 10 s"): nunca el error crudo. Un componente
+nuevo se agrega aquí y en `COMPONENTS` de `frontend/src/lib/status.ts` (mismo id).
+`STATUS_LIVE=1 pnpm test` corre los chequeos contra los servicios reales.
+
 ## Prueba rápida
 
 ```bash
@@ -384,6 +409,7 @@ despliegue. En producción **no** se define `DEV_API_KEY`.
 - `pnpm key:create|list|revoke` — gestión de API keys
 - `node scripts/padron-build.mjs <padron.txt> <salida>` — índice del padrón RUC
 - `SUNAT_BETA=1 pnpm test` — además, envíos reales a SUNAT beta
+- `STATUS_LIVE=1 pnpm test` — además, los chequeos de la página de estado contra los servicios reales
 - `TEST_DATABASE_URL=… pnpm test` — además, tests de integración con Postgres
 
 ## Diseño (resumen)

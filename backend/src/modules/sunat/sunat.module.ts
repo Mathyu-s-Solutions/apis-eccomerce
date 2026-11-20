@@ -35,6 +35,6 @@ import { SunatRestClient } from './transport/sunat-rest';
     { provide: GreApiClient, inject: [CONFIG_TOKEN], useFactory: (config: AppConfig) => new GreApiClient({ timeoutMs: config.sunat.timeoutMs }) },
     { provide: SunatRestClient, inject: [CONFIG_TOKEN], useFactory: (config: AppConfig) => new SunatRestClient({ timeoutMs: config.sunat.timeoutMs }) },
   ],
-  exports: [DocumentsService],
+  exports: [DocumentsService, PadronService],
 })
 export class SunatModule {}

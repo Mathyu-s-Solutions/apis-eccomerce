@@ -24,6 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/docs', priority: site.id === 'hub' ? 0.6 : 0.8, changeFrequency: 'monthly' },
     // El registro vive en el panel (con dominios propios, solo en el dominio central).
     ...(site.id === 'hub' ? [{ path: '/register', priority: 0.5, changeFrequency: 'yearly' as const }] : []),
+    { path: '/status', priority: 0.3, changeFrequency: 'hourly' },
     { path: '/terminos', priority: 0.2, changeFrequency: 'yearly' },
     { path: '/privacidad', priority: 0.2, changeFrequency: 'yearly' },
   ];

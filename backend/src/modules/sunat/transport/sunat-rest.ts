@@ -1,7 +1,7 @@
 import type { SolCredentials } from './bill-service';
 import { SunatFault, SunatUnavailable } from './bill-service';
 
-const SECURITY = 'https://api-seguridad.sunat.gob.pe/v1';
+export const SECURITY = 'https://api-seguridad.sunat.gob.pe/v1';
 
 /**
  * Cómo se pide el token de las APIs REST de SUNAT:

@@ -3,6 +3,7 @@ import { ShalomModule } from '../shalom/shalom.module';
 import { OlvaModule } from '../olva/olva.module';
 import { SunatModule } from '../sunat/sunat.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { StatusModule } from '../status/status.module';
 import { CronController } from './cron.controller';
 import { OlvaSubscriptionsController, ShalomSubscriptionsController } from './subscriptions.controllers';
 import { TrackingSubscriptionsService } from './tracking-subscriptions.service';
@@ -11,7 +12,7 @@ import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
 
 @Module({
-  imports: [ShalomModule, OlvaModule, SunatModule, NotificationsModule],
+  imports: [ShalomModule, OlvaModule, SunatModule, NotificationsModule, StatusModule],
   controllers: [WebhooksController, ShalomSubscriptionsController, OlvaSubscriptionsController, CronController],
   providers: [WebhooksService, TrackingSubscriptionsService, WebhookSender],
 })

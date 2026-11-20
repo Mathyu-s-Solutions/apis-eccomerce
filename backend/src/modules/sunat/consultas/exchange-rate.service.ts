@@ -12,7 +12,7 @@ const SERIES = [
   { currency: 'USD', description: 'Dólar de N.A.', purchase: 'PD04639PD', sale: 'PD04640PD' },
   { currency: 'EUR', description: 'Euro', purchase: 'PD04647PD', sale: 'PD04648PD' },
 ] as const;
-const BCRP = 'https://estadisticas.bcrp.gob.pe/estadisticas/series/api';
+export const BCRP = 'https://estadisticas.bcrp.gob.pe/estadisticas/series/api';
 const MONTHS: Record<string, string> = { ene: '01', jan: '01', feb: '02', mar: '03', abr: '04', apr: '04', may: '05', jun: '06', jul: '07', ago: '08', aug: '08', set: '09', sep: '09', oct: '10', nov: '11', dic: '12', dec: '12' };
 
 export interface ExchangeRate {

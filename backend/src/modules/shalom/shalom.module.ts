@@ -21,6 +21,7 @@ import { ShalomProService } from './pro/shalom-pro.service';
     ShalomProClient,
     ShalomProService,
   ],
-  exports: [ShalomService],
+  // El cliente web también lo usa el chequeo de la página de estado.
+  exports: [ShalomService, ShalomWebClient],
 })
 export class ShalomModule {}

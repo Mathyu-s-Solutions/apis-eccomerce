@@ -53,6 +53,7 @@ export function Footer({ site }: { site: Site }) {
                   <li key={id}><SiteLink site={id} className={link}>{BRANDS[id].name}</SiteLink></li>
                 ))}
                 <li><SiteLink site="hub" path="/pricing" className={link}>Precios y packs</SiteLink></li>
+                <li><Link href="/status" className={link}>Estado del servicio</Link></li>
               </ul>
             </div>
             {site.id !== 'hub' && (
