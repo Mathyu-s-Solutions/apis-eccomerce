@@ -428,13 +428,15 @@ export class ShalomProService {
   /**
    * PDF del rótulo (etiqueta para la caja) o del ticket (comprobante). Solo de
    * guías que este cliente creó con la API: no se le pide a Shalom un ose_id ajeno.
-   * Se piden con la cuenta con la que se creó la guía.
+   * Se piden con la cuenta con la que se creó la guía o, si se indica, con otra
+   * de las del cliente (`ref`): sirve para guías creadas cuando reconectaba una sola
+   * cuenta con otro correo antes de cada guía, que quedaron como `default`.
    */
-  async document(userId: string, oseId: string, kind: 'label' | 'ticket'): Promise<ProFile> {
+  async document(userId: string, oseId: string, kind: 'label' | 'ticket', ref?: string): Promise<ProFile> {
     const db = this.db();
     const own = await db.shalomProShipment.findUnique({ where: { oseId } });
     if (own?.userId !== userId) throw new NotFoundException('No encontramos esa guía entre las que creaste con la API (oseId de POST /v1/shalom/shipments).');
-    const account = await db.shalomProAccount.findUnique({ where: { userId_ref: { userId, ref: own.accountRef } } });
+    const account = ref ? await this.find(userId, ref) : await db.shalomProAccount.findUnique({ where: { userId_ref: { userId, ref: own.accountRef } } });
     if (!account) {
       const which = own.accountRef === DEFAULT_PRO_ACCOUNT ? 'tu cuenta de Shalom Pro' : `la cuenta de Shalom Pro "${own.accountRef}"`;
       throw new NotFoundException(`La guía se creó con ${which}, que ya no está conectada: vuelve a conectarla con ${connectPath(own.accountRef)} para descargar su rótulo y ticket.`);

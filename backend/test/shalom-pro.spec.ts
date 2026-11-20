@@ -376,6 +376,29 @@ describe('ShalomProService', () => {
     expect((await pro.service.createShipment('user-1', shipment(), limit)).account).toBe('tienda-a');
   });
 
+  it('rótulo y ticket con `account`: usa esa cuenta (guías viejas que quedaron como default)', async () => {
+    const pro = fakePro();
+    const limit = PRO_ACCOUNTS_LIMIT.plataforma;
+    // Antes: una sola cuenta, reconectada con otro correo antes de cada guía.
+    await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' });
+    const old = await pro.service.createShipment('user-1', shipment(), limit);
+    await pro.service.connect('user-1', { email: 'b@b.pe', password: 'y' });
+    // Ahora: la cuenta del primer negocio conectada con su identificador.
+    await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' }, 'tienda-a', limit);
+
+    pro.calls.length = 0;
+    await pro.service.document('user-1', old.oseId, 'label', 'tienda-a');
+    expect(pro.calls.find((c) => c.path === '/rotulo/token')?.session).toBe('s3');
+    // Sin `account`, la cuenta con la que quedó registrada (default).
+    pro.calls.length = 0;
+    await pro.service.document('user-1', old.oseId, 'label');
+    expect(pro.calls.find((c) => c.path === '/rotulo/token')?.session).toBe('s2');
+
+    await expect(pro.service.document('user-1', old.oseId, 'ticket', 'tienda-x')).rejects.toThrow(/No hay una cuenta de Shalom Pro conectada como "tienda-x"/);
+    // Una guía ajena no se pide aunque se indique una cuenta propia.
+    await expect(pro.service.document('user-2', old.oseId, 'label', 'tienda-a')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('sin un plan con varias cuentas no crea guías si quedaron varias conectadas', async () => {
     const pro = fakePro();
     await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' }, 'tienda-a', PRO_ACCOUNTS_LIMIT.empresarial);

@@ -202,7 +202,9 @@ Necesita BD, `SUNAT_SECRETS_KEY` (cifra la contraseña y la sesión) y el captch
 3. `GET /v1/shalom/shipments/{oseId}/label` y `/ticket`: rótulo y ticket en PDF, solo
    de guías que ese cliente creó con la API (`shalom_pro_shipments`). Los `ose_id` son
    correlativos: así la API no sirve para pedir PDFs de guías ajenas. Se piden con la
-   cuenta con la que se creó la guía (`account_ref`).
+   cuenta con la que se creó la guía (`account_ref`) o con la de `?account=` (una de las
+   del cliente): sirve para guías creadas reconectando una sola cuenta con otro correo
+   antes de cada guía, que quedaron como `default`.
 
 **Varias cuentas (planes Plataforma y Empresarial)**: una plataforma con varios negocios conecta una
 cuenta de Shalom Pro por negocio, cada una con el identificador que elige:

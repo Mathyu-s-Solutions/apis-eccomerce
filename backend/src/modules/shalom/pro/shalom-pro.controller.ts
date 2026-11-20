@@ -44,6 +44,11 @@ function accountOf(raw: string): string {
 
 const ACCOUNT_BODY = { schema: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', example: 'ventas@mitienda.pe' }, password: { type: 'string', example: '••••••••' } } } };
 
+const DOCUMENT_ACCOUNT =
+  'Se pide con la cuenta de Shalom Pro con la que se creó la guía, así que `account` es opcional. ' +
+  'Si lo mandas, se pide con esa cuenta (una de las tuyas): sirve para las guías que creaste reconectando la cuenta con otro correo antes de cada una.';
+const DOCUMENT_ACCOUNT_QUERY = { name: 'account', required: false, description: 'Identificador de la cuenta (el de PUT /pro/accounts/{account}).', example: 'tienda-2' };
+
 function oseIdOf(raw: string): string {
   if (!/^\d{1,12}$/.test(raw)) throw new BadRequestException('oseId: el id interno de la guía (el oseId que devolvió POST /v1/shalom/shipments).');
   return raw;
@@ -164,20 +169,22 @@ export class ShalomProController {
   @Get('shipments/:oseId/label')
   @Cost(0)
   @ApiProduces('application/pdf')
-  @ApiOperation({ summary: 'Rótulo en PDF de una guía de tu cuenta (para pegar en la caja)', description: 'Se pide con la cuenta de Shalom Pro con la que se creó la guía: no hace falta mandar `account`.' })
-  async label(@CurrentKey() key: ApiKeyRecord, @Param('oseId') oseId: string, @Res() res: FastifyReply) {
+  @ApiOperation({ summary: 'Rótulo en PDF de una guía de tu cuenta (para pegar en la caja)', description: DOCUMENT_ACCOUNT })
+  @ApiQuery(DOCUMENT_ACCOUNT_QUERY)
+  async label(@CurrentKey() key: ApiKeyRecord, @Param('oseId') oseId: string, @Query('account') account: string | undefined, @Res() res: FastifyReply) {
     const id = oseIdOf(oseId);
-    const file = await this.pro.document(ownerOf(key), id, 'label');
+    const file = await this.pro.document(ownerOf(key), id, 'label', account ? accountOf(account) : undefined);
     return res.header('content-type', file.contentType).header('content-disposition', `inline; filename="rotulo-${id}.pdf"`).header('cache-control', 'private, no-store').send(file.data);
   }
 
   @Get('shipments/:oseId/ticket')
   @Cost(0)
   @ApiProduces('application/pdf')
-  @ApiOperation({ summary: 'Ticket en PDF de una guía de tu cuenta (comprobante del envío)', description: 'Se pide con la cuenta de Shalom Pro con la que se creó la guía: no hace falta mandar `account`.' })
-  async ticket(@CurrentKey() key: ApiKeyRecord, @Param('oseId') oseId: string, @Res() res: FastifyReply) {
+  @ApiOperation({ summary: 'Ticket en PDF de una guía de tu cuenta (comprobante del envío)', description: DOCUMENT_ACCOUNT })
+  @ApiQuery(DOCUMENT_ACCOUNT_QUERY)
+  async ticket(@CurrentKey() key: ApiKeyRecord, @Param('oseId') oseId: string, @Query('account') account: string | undefined, @Res() res: FastifyReply) {
     const id = oseIdOf(oseId);
-    const file = await this.pro.document(ownerOf(key), id, 'ticket');
+    const file = await this.pro.document(ownerOf(key), id, 'ticket', account ? accountOf(account) : undefined);
     return res.header('content-type', file.contentType).header('content-disposition', `inline; filename="ticket-${id}.pdf"`).header('cache-control', 'private, no-store').send(file.data);
   }
 }
