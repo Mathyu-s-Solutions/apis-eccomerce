@@ -83,7 +83,7 @@ servicio aparte se justifica desde el inicio, por madurez de ecosistema.
 7. **SUNAT**: padrón RUC primero, luego emisión en beta.
 8. **Registro de envíos** (hecho; Olva probado en vivo con pago en destino, Shalom Pro en
    uso por clientes desde el 2026-11-20): Shalom Pro, con la cuenta de
-   pro.shalom.pe de cada cliente cifrada (`POST /v1/shalom/shipments`; con el plan
-   Empresarial, varias cuentas por cliente, una por negocio), y Olva, con el
+   pro.shalom.pe de cada cliente cifrada (`POST /v1/shalom/shipments`; con los planes
+   Plataforma y Empresarial, varias cuentas por cliente, una por negocio), y Olva, con el
    registro web de invitado y reCAPTCHA Enterprise (`POST /v1/olva/shipments`). Ver
    README → Guías de Shalom y Envíos de Olva. Pendiente en Olva: pago con tarjeta (Niubiz).

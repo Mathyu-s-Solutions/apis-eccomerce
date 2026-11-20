@@ -19,7 +19,8 @@ export const PLANS: Record<Product, Plan[]> = {
   shalom: [
     { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 20, features: ['20 consultas/mes para probar', 'Agencias sin costo', 'Soporte por correo'] },
     { id: 'basico', name: 'Básico', pricedPen: 25, monthlyLimit: null, highlight: true, features: ['Consultas ilimitadas (uso razonable)', 'Rastreo, lote, agencias y cotización', 'Webhooks de estado', 'Soporte prioritario'] },
-    { id: 'empresarial', name: 'Empresarial', pricedPen: 399, monthlyLimit: null, features: ['Todo lo del Básico', 'Varias cuentas de Shalom Pro (una por negocio)', 'Integración a medida', 'Soporte dedicado y SLA'] },
+    { id: 'plataforma', name: 'Plataforma', pricedPen: 49, monthlyLimit: null, features: ['Todo lo del Básico', 'Hasta 20 cuentas de Shalom Pro (una por negocio)', 'Eliges con qué cuenta crear cada guía', 'Para plataformas y agencias con varios negocios'] },
+    { id: 'empresarial', name: 'Empresarial', pricedPen: 399, monthlyLimit: null, features: ['Todo lo del Plataforma', 'Hasta 100 cuentas de Shalom Pro', 'Integración a medida', 'Soporte dedicado y SLA'] },
   ],
   olva: [
     { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 20, features: ['20 consultas/mes para probar', 'Agencias sin costo', 'Soporte por correo'] },
@@ -67,7 +68,8 @@ export interface Bundle {
 }
 
 // De más APIs a menos: al agrupar los planes de un cliente (groupByBundle) y al
-// ver qué pack tiene (panel), manda el primero que calza.
+// ver qué pack tiene (panel), manda el primero que calza. Ningún pack debe costar
+// más que sus planes por separado (bundleListPrice).
 export const BUNDLES: Bundle[] = [
   {
     id: 'completo-basico',
@@ -87,6 +89,17 @@ export const BUNDLES: Bundle[] = [
     pricedPen: 45,
     items: [
       { product: 'shalom', plan: 'basico' },
+      { product: 'olva', plan: 'basico' },
+    ],
+  },
+  {
+    // Para plataformas con varios negocios: una cuenta de Shalom Pro por negocio.
+    id: 'couriers-plataforma',
+    name: 'Pack Plataforma',
+    description: 'Shalom Plataforma + Olva Básico',
+    pricedPen: 65,
+    items: [
+      { product: 'shalom', plan: 'plataforma' },
       { product: 'olva', plan: 'basico' },
     ],
   },

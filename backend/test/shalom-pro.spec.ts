@@ -337,12 +337,12 @@ describe('ShalomProService', () => {
     await expect(pro.service.account('user-1')).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('con un plan que no es Empresarial: reconecta la misma cuenta, pero no conecta otra', async () => {
+  it('con un plan sin varias cuentas: reconecta la misma cuenta, pero no conecta otra', async () => {
     const pro = fakePro();
     await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' });
     await pro.service.connect('user-1', { email: 'otra@b.pe', password: 'y' });
     expect(pro.rows.get('user-1/default').email).toBe('otra@b.pe');
-    await expect(pro.service.connect('user-1', { email: 'c@d.pe', password: 'z' }, 'tienda-2', PRO_ACCOUNTS_LIMIT.base)).rejects.toThrow(/plan Empresarial/);
+    await expect(pro.service.connect('user-1', { email: 'c@d.pe', password: 'z' }, 'tienda-2', PRO_ACCOUNTS_LIMIT.base)).rejects.toThrow(/planes Plataforma \(hasta 20\) y Empresarial/);
     // Se rechaza antes de entrar a Shalom (sin captcha).
     expect(pro.logins()).toBe(2);
   });
@@ -376,7 +376,7 @@ describe('ShalomProService', () => {
     expect((await pro.service.createShipment('user-1', shipment(), limit)).account).toBe('tienda-a');
   });
 
-  it('sin el plan Empresarial no crea guías si quedaron varias cuentas conectadas', async () => {
+  it('sin un plan con varias cuentas no crea guías si quedaron varias conectadas', async () => {
     const pro = fakePro();
     await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' }, 'tienda-a', PRO_ACCOUNTS_LIMIT.empresarial);
     await pro.service.connect('user-1', { email: 'b@b.pe', password: 'y' }, 'tienda-b', PRO_ACCOUNTS_LIMIT.empresarial);
@@ -403,7 +403,9 @@ describe('proAccountsLimit', () => {
   const key = (plans: ApiKeyRecord['plans']): ApiKeyRecord => ({ id: 'k', prefix: 'mk_', name: 'k', monthlyLimit: null, enabled: true, product: 'all', userId: 'user-1', plans });
   const now = new Date('2026-11-20T12:00:00Z');
 
-  it('varias cuentas solo con Shalom Empresarial vigente', () => {
+  it('varias cuentas solo con Shalom Plataforma o Empresarial vigente', () => {
+    expect(proAccountsLimit(key({ shalom: { plan: 'plataforma', monthlyLimit: null, expiresAt: null } }), now)).toBe(20);
+    expect(proAccountsLimit(key({ shalom: { plan: 'plataforma', monthlyLimit: null, expiresAt: new Date('2026-11-01') } }), now)).toBe(1);
     expect(proAccountsLimit(key({ shalom: { plan: 'empresarial', monthlyLimit: null, expiresAt: null } }), now)).toBe(PRO_ACCOUNTS_LIMIT.empresarial);
     expect(proAccountsLimit(key({ shalom: { plan: 'empresarial', monthlyLimit: null, expiresAt: new Date('2026-12-20') } }), now)).toBe(PRO_ACCOUNTS_LIMIT.empresarial);
     expect(proAccountsLimit(key({ shalom: { plan: 'empresarial', monthlyLimit: null, expiresAt: new Date('2026-11-01') } }), now)).toBe(1);

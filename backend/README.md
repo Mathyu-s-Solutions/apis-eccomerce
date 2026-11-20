@@ -204,12 +204,13 @@ Necesita BD, `SUNAT_SECRETS_KEY` (cifra la contraseña y la sesión) y el captch
    correlativos: así la API no sirve para pedir PDFs de guías ajenas. Se piden con la
    cuenta con la que se creó la guía (`account_ref`).
 
-**Varias cuentas (plan Empresarial)**: una plataforma con varios negocios conecta una
+**Varias cuentas (planes Plataforma y Empresarial)**: una plataforma con varios negocios conecta una
 cuenta de Shalom Pro por negocio, cada una con el identificador que elige:
 `PUT /v1/shalom/pro/accounts/{account}` (y `GET`/`DELETE`; `GET /v1/shalom/pro/accounts`
 las lista). En `POST /v1/shalom/shipments` manda `account`; si hay una sola conectada no
-hace falta. La de `PUT /v1/shalom/pro/account` es `default`. Con Shalom Empresarial vigente
-se pueden conectar hasta 100 (`PRO_ACCOUNTS_LIMIT`); con los demás planes, 1 (se puede
+hace falta. La de `PUT /v1/shalom/pro/account` es `default`. Con Shalom Plataforma vigente
+(S/ 49, o en el Pack Plataforma con Olva, S/ 65) se pueden conectar hasta 20 y con
+Empresarial hasta 100 (`PRO_ACCOUNTS_LIMIT`); con los demás planes, 1 (se puede
 reconectar con otro correo, pero no agregar otra). Si el plan vence con varias conectadas,
 no se crean guías hasta renovarlo o desconectar las que sobran; los PDFs de guías ya
 creadas se siguen entregando.

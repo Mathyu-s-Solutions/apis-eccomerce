@@ -91,7 +91,7 @@ export class ShalomProController {
     return { disconnected: true };
   }
 
-  // ─── Varias cuentas (plan Empresarial) ──────────────────────────────────────
+  // ─── Varias cuentas (planes Plataforma y Empresarial) ───────────────────────
 
   @Get('pro/accounts')
   @Cost(0)
@@ -107,7 +107,7 @@ export class ShalomProController {
     summary: 'Conecta una cuenta de Shalom Pro con un identificador (una por negocio)',
     description:
       `\`account\` es el identificador que eliges (p. ej. el id del negocio en tu plataforma; letras, números, "_", "." o "-"). Luego lo mandas en \`account\` de POST /shipments. ` +
-      `Con el plan Empresarial puedes conectar hasta ${PRO_ACCOUNTS_LIMIT.empresarial} cuentas; con los demás planes, ${PRO_ACCOUNTS_LIMIT.base}. ` +
+      `Con el plan Plataforma puedes conectar hasta ${PRO_ACCOUNTS_LIMIT.plataforma} cuentas y con Empresarial hasta ${PRO_ACCOUNTS_LIMIT.empresarial}; con los demás planes, ${PRO_ACCOUNTS_LIMIT.base}. ` +
       'Volver a llamarlo con el mismo identificador reemplaza esa cuenta. `default` es la de PUT /pro/account.',
   })
   @ApiBody(ACCOUNT_BODY)
@@ -148,7 +148,7 @@ export class ShalomProController {
       `\`package\`: ${SHALOM_PACKAGES.join(', ')} (\`custom\` = otra medida, con \`weightKg\` o las tres medidas en cm). ` +
       'Si Shalom ya tiene al destinatario por su documento, usa los datos que tiene registrados. `securityCode` (4 dígitos) es la clave para recoger: si no la mandas se genera una. ' +
       `\`declaration\` (${Object.keys(SHALOM_DECLARATIONS).join(', ')}) va con \`referralGuides\` y solo para persona natural. ` +
-      'Con varias cuentas conectadas (plan Empresarial), `account` dice con cuál se crea. ' +
+      'Con varias cuentas conectadas (planes Plataforma y Empresarial), `account` dice con cuál se crea. ' +
       'Devuelve `orderNumber` + `orderCode` (sirven para POST /track sin gastar captcha), `oseId`, el precio y las rutas del rótulo y del ticket en PDF.',
   })
   @ApiQuery({ name: 'raw', required: false, enum: ['1', '0'], description: 'Incluye la respuesta cruda de Shalom Pro.' })

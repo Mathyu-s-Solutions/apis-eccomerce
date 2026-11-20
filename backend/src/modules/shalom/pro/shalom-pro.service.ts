@@ -196,16 +196,23 @@ export function buildServiceOrder(i: {
   };
 }
 
-/** Cuentas de Shalom Pro conectadas a la vez: una, o varias (una por negocio) con el plan Empresarial. */
-export const PRO_ACCOUNTS_LIMIT = { base: 1, empresarial: 100 } as const;
+/**
+ * Cuentas de Shalom Pro conectadas a la vez: una, o varias (una por negocio) con
+ * los planes Plataforma y Empresarial de Shalom (frontend/src/lib/plans.ts).
+ */
+export const PRO_ACCOUNTS_LIMIT = { base: 1, plataforma: 20, empresarial: 100 } as const;
 
 export function proAccountsLimit(key: ApiKeyRecord, now = new Date()): number {
   const scope = quotaScope(key, 'shalom', now);
-  return scope.kind === 'plan' && scope.plan === 'empresarial' ? PRO_ACCOUNTS_LIMIT.empresarial : PRO_ACCOUNTS_LIMIT.base;
+  if (scope.kind !== 'plan') return PRO_ACCOUNTS_LIMIT.base;
+  if (scope.plan === 'empresarial') return PRO_ACCOUNTS_LIMIT.empresarial;
+  if (scope.plan === 'plataforma') return PRO_ACCOUNTS_LIMIT.plataforma;
+  return PRO_ACCOUNTS_LIMIT.base;
 }
 
 const MULTI_ACCOUNT_HINT =
-  'Varias cuentas (una por negocio, eligiendo con cuál crear cada guía) son del plan Empresarial; si no, crea otra cuenta en el panel para cada negocio.';
+  `Varias cuentas (una por negocio, eligiendo con cuál crear cada guía) son de los planes Plataforma (hasta ${PRO_ACCOUNTS_LIMIT.plataforma}) y Empresarial; ` +
+  'si no, crea otra cuenta en el panel para cada negocio.';
 
 /** Ruta con la que se conecta (o reconecta) una cuenta. */
 function connectPath(ref: string): string {
@@ -273,7 +280,7 @@ export class ShalomProService {
       if (others.length >= limit) {
         throw new ForbiddenException(
           limit > 1
-            ? `Ya tienes ${limit} cuentas de Shalom Pro conectadas, el máximo de tu plan: desconecta alguna o escríbenos para ampliarlo.`
+            ? `Ya tienes ${limit} cuentas de Shalom Pro conectadas, el máximo de tu plan: desconecta alguna${limit < PRO_ACCOUNTS_LIMIT.empresarial ? ', pasa al plan Empresarial (hasta ' + PRO_ACCOUNTS_LIMIT.empresarial + ')' : ''} o escríbenos para ampliarlo.`
             : `Tu plan permite 1 cuenta de Shalom Pro conectada y ya tienes una (para cambiarla, reconéctala con ${connectPath(others[0].ref)}). ${MULTI_ACCOUNT_HINT}`,
         );
       }
