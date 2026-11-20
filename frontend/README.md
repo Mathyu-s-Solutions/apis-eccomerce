@@ -76,6 +76,16 @@ Usa la **misma base Neon** que el backend (Prisma). No corre migraciones: el
 dueño del esquema es `backend/` (ver su README). Si cambias modelos, migra en el
 backend y copia el schema aquí.
 
+Las aplica el CD del backend (`backend-deploy.yml`) al hacer push a `main`, después de su
+CI. Como Vercel compila el frontend en paralelo y más rápido, el **build de producción
+espera** a que la base tenga todas las migraciones de `backend/prisma/migrations`
+([`scripts/wait-for-migrations.mjs`](scripts/wait-for-migrations.mjs), hasta 20 min): así un
+frontend que usa una tabla nueva nunca sale antes que la tabla, y basta un solo push con
+las dos cosas. Si no llegan (p. ej. falló el CI del backend), el build falla y sigue en
+línea la versión anterior. El CI de GitHub y los previews no esperan. Lo que la espera no
+cubre: una migración que **borra o renombra** algo que el frontend en línea todavía usa;
+eso va en dos pasos (primero el código que deja de usarlo, después la migración).
+
 ## Desarrollo
 
 ```bash
