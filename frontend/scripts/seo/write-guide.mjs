@@ -126,7 +126,22 @@ const SUNAT_FIELDS = `Campos del JSON de POST /v1/sunat/documents (mismo formato
 - enviar_en_resumen: true en boletas para no enviarlas en el momento e informarlas después en un resumen diario.
 - total: opcional; si viene se compara con el total calculado (tolerancia de un céntimo).
 - Cabecera x-ruc para elegir la empresa emisora cuando la cuenta tiene más de una. Cabecera Idempotency-Key para reintentar sin duplicar.
-Guías de remisión (POST /v1/sunat/dispatches): documento "guia_remision_remitente" (serie empieza con T) o "guia_remision_transportista"; motivo_de_traslado (catálogo 20), motivo_de_traslado_descripcion, modalidad_de_transporte ("01" público, "02" privado), destinatario_tipo_de_documento y destinatario_numero_de_documento, punto_de_partida_ubigeo / punto_de_partida_direccion, punto_de_llegada_ubigeo / punto_de_llegada_direccion, peso_bruto_total, peso_bruto_unidad_de_medida ("KGM" o "TNE"), numero_de_bultos, conductores[] y vehiculos[] (transporte privado), items[] con descripcion, cantidad y unidad_de_medida.`;
+Guías de remisión (POST /v1/sunat/dispatches): documento "guia_remision_remitente" (serie empieza con T) o "guia_remision_transportista"; motivo_de_traslado (catálogo 20), motivo_de_traslado_descripcion, modalidad_de_transporte ("01" público, "02" privado), destinatario_tipo_de_documento y destinatario_numero_de_documento, punto_de_partida_ubigeo / punto_de_partida_direccion, punto_de_llegada_ubigeo / punto_de_llegada_direccion, peso_bruto_total, peso_bruto_unidad_de_medida ("KGM" o "TNE"), numero_de_bultos, conductores[] y vehiculos[] (transporte privado), items[] con descripcion, cantidad y unidad_de_medida.
+
+Respuestas: todas tienen la forma { "success": true|false, "message": "...", "payload": {...} }; los errores devuelven además un código HTTP (400 dato inválido, 401 key inválida, 403 key de otra API, 404 no encontrado, 429 cuota agotada).
+Estado de un comprobante en la API (payload.estado): "PENDIENTE" (todavía sin respuesta de SUNAT; la API vuelve a consultar sola), "ACEPTADO", "RECHAZADO" o "ANULADO" (dado de baja). Al emitir, payload trae estado, hash, xml, cdr y pdf { ticket, a4 }.
+
+POST /v1/sunat/status (estado, XML, CDR y PDF de algo ya emitido): { "documento": "factura" | "boleta" | "nota_credito" | "nota_debito" | "guia_remision_remitente" | "guia_remision_transportista" | "resumen_diario" | "comunicacion_baja", "serie": "F001", "numero": 123 }. Para resúmenes y bajas la serie es "RC-AAAAMMDD" o "RA-AAAAMMDD".
+
+POST /v1/sunat/voided (comunicación de baja de facturas y sus notas): { "motivo": "ERROR EN LOS DATOS DEL CLIENTE", "documento_afectado": { "documento": "factura", "serie": "F001", "numero": 123 } }. motivo es opcional (por defecto "ANULACIÓN DE OPERACIÓN"); en vez de documento_afectado se puede mandar documentos_afectados: [ ... ] con hasta 100. fecha_de_emision (AAAA-MM-DD) dentro de cada documento solo hace falta si el comprobante no se emitió con esta API. Solo se da de baja un comprobante ACEPTADO.
+
+POST /v1/sunat/daily-summary (resumen diario de boletas y sus notas): { "documentos_afectados": [ { "documento": "boleta", "serie": "B001", "numero": 45, "accion_resumen": "adicionar" } ] }, con hasta 500. documento es "boleta", "nota_credito" o "nota_debito" y la serie empieza con B. accion_resumen es "adicionar" (informar), "modificar" o "anular"; OJO: si no se envía, la acción es "anular". Para anular, la boleta tiene que estar ACEPTADA.
+
+GET /v1/sunat/ruc/{ruc}: antes de consultar valida que el RUC tenga 11 dígitos y un dígito verificador correcto (si no, 400); si no está en el padrón, 404. payload: { ruc, razon_social, estado, condicion, tipo_contribuyente, direccion_fiscal, ubigeo, departamento, provincia, distrito, nombre_comercial (null), actividades_economicas (null), fecha_padron }. Sale del padrón reducido que SUNAT publica cada día; de las personas naturales SUNAT no publica el domicilio.
+GET /v1/sunat/dni/{dni}: solo personas con RUC. payload: { dni, nombre_completo, ruc, estado, condicion }.
+POST /v1/sunat/cpe/validez (validez de un comprobante de cualquier emisor): { "ruc_emisor": "20100066603", "documento": "factura", "serie": "F001", "numero": 123, "fecha_de_emision": "2026-11-05", "total": "118.00" }. documento: factura, boleta, liquidacion_de_compra, nota_credito, nota_debito, recibo_honorarios o nota_credito_recibo; total es obligatorio para comprobantes electrónicos. payload: { ruc_emisor, tipo_documento, serie, numero, fecha_de_emision, estado_comprobante ("NO EXISTE" | "ACEPTADO" | "ANULADO" | "AUTORIZADO" | "NO AUTORIZADO"), estado_ruc, condicion_domicilio, valido (true solo si está aceptado), observaciones [] }.
+
+Empresas: POST /v1/sunat/companies { ruc, razon_social, direccion, ubigeo } la registra en beta (puede emitir de prueba sin certificado). Para pasar a producción ("ambiente": "produccion") hacen falta sol_usuario (usuario secundario SOL), sol_clave y certificado (el .pfx/.p12 en base64) con certificado_clave; las guías de remisión en producción usan además api_client_id y api_client_secret (credenciales de API de SUNAT). GET /v1/sunat/companies dice por empresa listo_para_produccion y faltantes_para_produccion.`;
 
 function brandFacts(brand) {
   const lines = [
@@ -179,6 +194,8 @@ Cómo escribir:
 - Las primeras dos o tres oraciones responden la búsqueda. Después, el detalle.
 - Secciones con ## y ### (sin # de primer nivel: el título va aparte). Pasos numerados cuando haya un procedimiento. Tablas cuando comparen opciones.
 - Ejemplos de código completos con curl o JavaScript (fetch), o PHP si la guía es sobre WooCommerce, usando solo los endpoints y campos de los datos del producto, la URL base tal como aparece y la key en la variable $MATHYU_API_KEY.
+- Cada ejemplo tiene que poder ejecutarse tal cual: cuerpos JSON completos y reales, sin marcadores como "<JSON…>", sin variables que no declares. Si los datos del producto no traen el cuerpo exacto de un endpoint, explica el paso con texto y no pongas ese bloque de código.
+- En comandos de varias líneas, cada línea termina con una sola barra invertida (\\).
 - Termina con una sección "## Preguntas frecuentes" de 3 a 5 preguntas reales (cada una con ###) y respuestas cortas.
 - Entre 1200 y 1800 palabras.
 
@@ -355,13 +372,29 @@ function checkGuide(guide, topic, guides) {
 
   const { prefixes, routes } = apiRoutes(topic.site);
   const seen = new Set();
-  for (const [raw] of body.matchAll(/\/v1\/[A-Za-z0-9_\-/{}.]+/g)) {
-    const p = raw.replace(/[./]+$/, '');
-    if (seen.has(p) || prefixes.has(p) || p.startsWith('/v1/sunat/files/')) continue;
+  for (const m of body.matchAll(/\/v1\/[A-Za-z0-9_\-/{}.]+/g)) {
+    let p = m[0].replace(/\.+$/, '');
+    // `/v1/sunat/ruc/${ruc}`, `/v1/sunat/ruc/:ruc` o `/v1/sunat/ruc/<ruc>`: la ruta sigue con un
+    // parámetro que el patrón no captura; se completa para no marcar como inexistente una ruta real.
+    const next = body[m.index + m[0].length];
+    if (p.endsWith('/') || (next && '$:<'.includes(next))) p = `${p.replace(/\/+$/, '')}/{param}`;
+    p = p.replace(/\/+$/, '');
+    if (seen.has(p) || prefixes.has(p) || p.startsWith('/v1/sunat/files')) continue;
     seen.add(p);
     if (!routes.some((r) => r.test(p))) issues.push(`La ruta ${p} no existe en la API: usa solo los endpoints de los datos del producto.`);
   }
+  if (/<[^>\n]*(JSON|definido en|según la documentación|tu payload)[^>\n]*>/i.test(body)) {
+    issues.push('Hay un marcador en lugar de un valor real (por ejemplo "<JSON …>"): usa el cuerpo exacto de los datos del producto o quita ese bloque de código.');
+  }
   return issues;
+}
+
+/**
+ * Arreglos mecánicos que no vale la pena pedirle al modelo: barras invertidas dobles al final
+ * de las líneas de un comando (el JSON escapado de más) y espacios sobrantes.
+ */
+function sanitize(guide) {
+  return { ...guide, body_markdown: guide.body_markdown.replace(/[ \t]\\\\[ \t]*$/gm, ' \\').trim() };
 }
 
 async function writeGuide(topic, guides) {
@@ -388,7 +421,7 @@ async function writeGuide(topic, guides) {
   }
 
   // Escribir → chequear → revisar → corregir, hasta que pase o se acaben las vueltas.
-  let guide = await ask(GuideSchema, user);
+  let guide = sanitize(await ask(GuideSchema, user));
   let issues = [];
   for (let round = 0; ; round++) {
     const fixed = checkGuide(guide, topic, guides);
@@ -401,9 +434,11 @@ async function writeGuide(topic, guides) {
     console.log(`  Revisión ${round + 1}: ${issues.length ? `${issues.length} problemas` : 'aprobada'}`);
     issues.forEach((i) => console.log(`    - ${i}`));
     if (!issues.length || round === MAX_REVISIONS) break;
-    guide = await ask(
-      GuideSchema,
-      [user, '', 'Esta es tu guía anterior:', '<guia>', JSON.stringify(guide), '</guia>', '', 'Corrige estos problemas y devuelve la guía completa:', ...issues.map((i) => `- ${i}`)].join('\n'),
+    guide = sanitize(
+      await ask(
+        GuideSchema,
+        [user, '', 'Esta es tu guía anterior:', '<guia>', JSON.stringify(guide), '</guia>', '', 'Corrige estos problemas y devuelve la guía completa:', ...issues.map((i) => `- ${i}`)].join('\n'),
+      ),
     );
   }
   const publish = issues.length === 0;

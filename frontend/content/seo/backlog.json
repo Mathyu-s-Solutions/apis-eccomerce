@@ -9,9 +9,7 @@
     "slug": "consultar-ruc-por-api",
     "site": "sunat",
     "keyword": "consulta ruc api",
-    "angle": "Cómo validar un RUC (dígito verificador) y traer razón social, estado, condición y domicilio fiscal desde el padrón de SUNAT por API antes de emitir una factura; ejemplo en un formulario de checkout.",
-    "skip": true,
-    "review": "pendiente en su rama"
+    "angle": "Cómo validar un RUC (dígito verificador) y traer razón social, estado, condición y domicilio fiscal desde el padrón de SUNAT por API antes de emitir una factura; ejemplo en un formulario de checkout."
   },
   {
     "slug": "migrar-de-apisunat",
@@ -23,17 +21,13 @@
     "slug": "resumen-diario-de-boletas",
     "site": "sunat",
     "keyword": "resumen diario de boletas sunat",
-    "angle": "Qué es el resumen diario, cuándo conviene informar boletas por resumen en lugar de enviarlas una por una y cómo hacerlo con el endpoint /daily-summary y el campo enviar_en_resumen.",
-    "skip": true,
-    "review": "pendiente en su rama"
+    "angle": "Qué es el resumen diario, cuándo conviene informar boletas por resumen en lugar de enviarlas una por una y cómo hacerlo con el endpoint /daily-summary y el campo enviar_en_resumen."
   },
   {
     "slug": "anular-factura-electronica",
     "site": "sunat",
     "keyword": "cómo anular una factura electrónica",
-    "angle": "Las dos formas de anular: comunicación de baja (/voided) y nota de crédito con motivo 01; cuándo usar cada una y ejemplos con la API.",
-    "skip": true,
-    "review": "pendiente en su rama"
+    "angle": "Las dos formas de anular: comunicación de baja (/voided) y nota de crédito con motivo 01; cuándo usar cada una y ejemplos con la API."
   },
   {
     "slug": "que-es-el-cdr-de-sunat",
