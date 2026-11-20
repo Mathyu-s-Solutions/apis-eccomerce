@@ -27,6 +27,7 @@ model User {
   webhook       Webhook?
   tracking      TrackingSubscription[]
   deliveries    WebhookDelivery[]
+  profile       ClientProfile?
 
   @@map("users")
 }
@@ -108,6 +109,17 @@ model PlanUsage {
 
   @@id([userId, product, period])
   @@map("plan_usage")
+}
+
+// Datos del cliente que solo ve el admin: su WhatsApp (por ahí suele pagar) y notas.
+model ClientProfile {
+  userId    String   @id @map("user_id")
+  phone     String?
+  note      String?
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("client_profiles")
 }
 
 model Webhook {

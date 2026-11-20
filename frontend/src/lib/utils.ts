@@ -18,21 +18,27 @@ export function formatSoles(n: number): string {
   }).format(n);
 }
 
+/**
+ * Node y el navegador separan "10:40 p. m." con espacios Unicode distintos (U+202F, U+00A0):
+ * una fecha renderizada en el servidor y luego en el cliente no coincidiría (error de hidratación).
+ */
+const plainSpaces = (s: string) => s.replace(/[\u00a0\u202f]/g, ' ');
+
 export function formatDate(d: Date | string): string {
-  return new Intl.DateTimeFormat('es-PE', {
+  return plainSpaces(new Intl.DateTimeFormat('es-PE', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
     timeZone: 'America/Lima',
-  }).format(new Date(d));
+  }).format(new Date(d)));
 }
 
 export function formatDateTime(d: Date | string): string {
-  return new Intl.DateTimeFormat('es-PE', {
+  return plainSpaces(new Intl.DateTimeFormat('es-PE', {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
     timeZone: 'America/Lima',
-  }).format(new Date(d));
+  }).format(new Date(d)));
 }

@@ -129,6 +129,51 @@ export interface PaymentItem {
   product: Product;
   plan: string;
   monthlyLimit: number | null;
+  /** Meses que paga (los que registra el admin pueden ser varios); sin el campo, uno. */
+  months?: number;
+}
+
+/**
+ * Algo que se compra: `plan:<api>:<plan>` (el plan de una API) o `bundle:<pack>`.
+ * Lo usan el admin al registrar un pago o asignar un plan, y el formulario del cliente.
+ */
+export interface Purchase {
+  value: string;
+  /** "Pack Couriers" o "Shalom Básico". */
+  name: string;
+  /** Precio de un mes en soles. */
+  pricedPen: number;
+  bundle?: Bundle;
+  items: { product: Product; plan: string }[];
+}
+
+export function purchaseOf(value: string): Purchase | undefined {
+  const [kind, a, b] = value.split(':');
+  if (kind === 'bundle') {
+    const bundle = getBundle(a);
+    return bundle && { value, name: bundle.name, pricedPen: bundle.pricedPen, bundle, items: bundle.items };
+  }
+  if (kind === 'plan' && isProduct(a)) {
+    const plan = getPlan(a, b);
+    return plan && plan.id !== 'free' ? { value, name: `${PRODUCT_NAME[a]} ${plan.name}`, pricedPen: plan.pricedPen, items: [{ product: a, plan: plan.id }] } : undefined;
+  }
+  return undefined;
+}
+
+/** Todo lo que se puede comprar: los packs y los planes de pago de cada API. */
+export function allPurchases(): Purchase[] {
+  return [
+    ...BUNDLES.map((b) => purchaseOf(`bundle:${b.id}`)!),
+    ...PRODUCTS.flatMap((p) => PLANS[p].filter((plan) => plan.pricedPen > 0).map((plan) => purchaseOf(`plan:${p}:${plan.id}`)!)),
+  ];
+}
+
+/** La compra con la que se renueva lo que ya tiene: su pack completo, o el plan de esa API. */
+export function renewalPurchase(subs: { product: string; plan: string }[], product?: string): string | undefined {
+  const groups = groupByBundle(subs).filter((g) => !product || g.subs.some((s) => s.product === product));
+  const g = groups.find((x) => x.bundle) ?? groups.find((x) => x.subs[0].plan !== 'free');
+  if (!g) return undefined;
+  return g.bundle ? `bundle:${g.bundle.id}` : `plan:${g.subs[0].product}:${g.subs[0].plan}`;
 }
 
 /**

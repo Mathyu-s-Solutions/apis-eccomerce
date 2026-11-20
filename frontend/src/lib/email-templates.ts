@@ -31,7 +31,7 @@ export function paymentReceivedEmail({ user, purchase, method, operationCode }: 
     <p style="margin:16px 0 0">Revisa que el monto haya llegado y apruébalo en el admin: al aprobarlo se activa su plan.</p>`;
   return {
     subject: `Pago por validar: S/ ${purchase.amountPen} de ${user.email} — ${purchase.name}`,
-    html: emailLayout({ title: 'Nuevo pago por validar', body, action: { label: 'Validar en el admin', href: panelUrl('/admin') } }),
+    html: emailLayout({ title: 'Nuevo pago por validar', body, action: { label: 'Validar en el admin', href: panelUrl('/admin/payments') } }),
   };
 }
 

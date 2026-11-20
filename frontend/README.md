@@ -16,6 +16,35 @@ según el dominio, el **sitio central** (todas las APIs) y la landing de cada AP
   el comprobante adjunto y valida desde el admin; al aprobar, se activan por un mes
   los planes comprados (si es el mismo plan y sigue vigente, se suma un mes). El
   admin también puede asignar o quitar un plan a mano.
+
+## Panel de admin (`/admin`)
+
+Entra quien está en `ADMIN_EMAILS` (o tiene `role = admin`). Cada lectura de
+[`src/lib/admin.ts`](src/lib/admin.ts) vuelve a verificar que sea admin: el layout no
+protege las páginas (se renderizan en paralelo), y las rutas de `/api/admin` hacen lo mismo.
+
+| Página | Qué se hace |
+|---|---|
+| **Resumen** | Ingresos del mes (y los últimos 6), recurrente estimado, pagos por validar, planes que vencen en 7 días o vencieron hace poco (con "Recordar" por WhatsApp y "Renovar") y clientes en prueba que ya usaron 70% o más de su cuota (posibles ventas). |
+| **Pagos** | Validar comprobantes (vista previa, aprobar en un clic, rechazar con motivo que le llega por correo), filtrar, buscar por cliente o N° de operación y exportar a CSV. |
+| **Clientes** | Todos, con su plan y consumo del mes; filtros (de pago, vencen en 7 días, vencidos, en prueba) y "Nuevo cliente" para alguien que aún no se registra. |
+| **Ficha de un cliente** | Por API: renovar o activar con un pago, asignar un plan sin pago (cortesía), extender días, ajustar la cuota (la del plan, o la de prueba si no tiene plan), reiniciar el consumo del mes y quitar el plan. Además su WhatsApp y notas internas (`client_profiles`), sus pagos, su consumo de 6 meses y sus API keys (el admin puede desactivar una, no reactivarla: pudo revocarla el cliente). |
+
+**Registrar pago** (botón arriba a la derecha, en todo el admin) es para cuando el
+cliente paga por fuera, p. ej. Yape por WhatsApp: se elige el cliente (o se escribe un
+correo nuevo y se crea la cuenta; al entrar con ese correo la encuentra con su plan), el
+plan o pack, los meses (1, 3, 6 o 12), el monto, el N° de operación y, opcional, la captura
+(se puede pegar con Ctrl+V). Queda aprobado, activa o renueva el plan con la misma regla
+que un comprobante (`renewedExpiry` en `src/lib/renewal.ts`) y, si se marca, le llega el
+correo de pago confirmado.
+
+- **Cuota de prueba a medida:** sin plan de pago, subirle la cuota crea una fila
+  `subscriptions` con `plan = 'free'` y esa cuota, sin vencimiento. El backend la respeta
+  (`quotaScope`) y la sigue tratando como prueba (RUC/DNI cobran, límites de seguimiento
+  del plan gratis); el cron de vencimientos no la avisa. Volver a la estándar borra la fila.
+- **Cuota del plan a medida:** se conserva al renovar el mismo plan (con un pago registrado
+  o con un comprobante aprobado); al cambiar de plan, rige la del catálogo.
+
 ## Correos (Resend)
 
 Salen de `avisos@mathyusolutions.com`; el dominio está verificado en Resend

@@ -77,9 +77,9 @@ export function paymentLabel(payment: { product: string; plan: string }): string
 }
 
 /**
- * Activa los planes de un pago aprobado. Cada uno vale un mes y se renueva el
- * mismo día del mes: si es el mismo plan, el vencimiento pasa al mes siguiente
- * (aunque haya vencido); si es otro, empieza hoy. Ver renewal.ts.
+ * Activa los planes de un pago aprobado. Cada uno vale un mes (o los `months` que
+ * pagó) y se renueva el mismo día del mes: si es el mismo plan, el vencimiento se
+ * corre esos meses (aunque haya vencido); si es otro, empieza hoy. Ver renewal.ts.
  */
 export async function grantPlans(
   tx: Prisma.TransactionClient,
@@ -90,11 +90,13 @@ export async function grantPlans(
   for (const item of items) {
     const where = { userId_product: { userId, product: item.product } };
     const current = await tx.subscription.findUnique({ where });
-    const expiresAt = renewedExpiry(current, item.plan, now);
+    const expiresAt = renewedExpiry(current, item.plan, now, item.months ?? 1);
+    // Mismo plan: conserva su cuota (el admin pudo ajustarla); otro plan, la del pago (catálogo).
+    const monthlyLimit = current?.plan === item.plan ? current.monthlyLimit : item.monthlyLimit;
     await tx.subscription.upsert({
       where,
-      create: { userId, product: item.product, plan: item.plan, monthlyLimit: item.monthlyLimit, expiresAt },
-      update: { plan: item.plan, monthlyLimit: item.monthlyLimit, expiresAt },
+      create: { userId, product: item.product, plan: item.plan, monthlyLimit, expiresAt },
+      update: { plan: item.plan, monthlyLimit, expiresAt },
     });
   }
 }

@@ -1,102 +1,64 @@
 import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/current-user';
+import { forbidden, getAdmin, isUniqueViolation, registerPayment } from '@/lib/admin';
 import { notifyPaymentReviewed } from '@/lib/payment-notices';
-import { getBundle, getPlan, isProduct, PAYMENT_METHODS, type PaymentItem } from '@/lib/plans';
-import { grantPlans, paymentItems, paymentLabel } from '@/lib/subscriptions';
+import { PAYMENT_METHODS } from '@/lib/plans';
 
-export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  if (!user?.isAdmin) return NextResponse.json({ message: 'Prohibido' }, { status: 403 });
+const MAX_BYTES = 5 * 1024 * 1024;
+const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
-  const status = new URL(request.url).searchParams.get('status') ?? undefined;
-  const payments = await prisma.payment.findMany({
-    where: status ? { status } : undefined,
-    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
-    omit: { proofData: true },
-    include: { user: { select: { email: true, name: true } } },
-    take: 200,
-  });
+const schema = z
+  .object({
+    userId: z.string().trim().min(1).optional(),
+    email: z.string().trim().toLowerCase().email().optional(),
+    name: z.string().trim().max(80).optional(),
+    // `plan:<api>:<plan>` o `bundle:<pack>`.
+    purchase: z.string().trim().min(1),
+    months: z.coerce.number().int().min(1).max(12),
+    amountPen: z.coerce.number().int().min(0).max(100_000),
+    method: z.string().refine((m) => Object.hasOwn(PAYMENT_METHODS, m)),
+    operationCode: z.string().trim().max(40).optional(),
+    note: z.string().trim().max(300).optional(),
+    // "1": le llega el correo de pago confirmado.
+    notify: z.enum(['0', '1']).default('1'),
+  })
+  .refine((d) => d.userId || d.email, { message: 'Falta el cliente' });
 
-  return NextResponse.json({
-    payments: payments.map((p) => ({
-      id: p.id, product: p.product, plan: p.plan, label: paymentLabel(p), items: paymentItems(p), amountPen: p.amountPen,
-      monthlyLimit: p.monthlyLimit, method: p.method, operationCode: p.operationCode,
-      status: p.status, note: p.note, createdAt: p.createdAt, reviewedAt: p.reviewedAt,
-      // Los que registra el admin a mano no traen comprobante.
-      hasProof: p.proofMime !== '',
-      userEmail: p.user.email, userName: p.user.name,
-    })),
-  });
-}
-
-const schema = z.object({
-  userId: z.string().min(1),
-  // Una API ("olva": renueva el plan que tiene) o un pack ("bundle:couriers-basico").
-  product: z.string().trim().min(1),
-  method: z.string().refine((m) => Object.hasOwn(PAYMENT_METHODS, m)),
-  amountPen: z.number().int().min(0).max(100_000),
-  operationCode: z.string().trim().max(40).optional(),
-});
-
-// Pago que el cliente hizo por fuera (Yape directo, transferencia, efectivo…):
-// queda aprobado en su historial y renueva sus planes un mes, como al aprobar
-// un comprobante (mismo día de vencimiento, ver renewal.ts).
+// Pago hecho por fuera (Yape/Plin por WhatsApp, transferencia, efectivo): queda
+// aprobado y activa o renueva el plan o pack esos meses. Multipart: el comprobante es opcional.
 export async function POST(request: Request) {
-  const admin = await getCurrentUser();
-  if (!admin?.isAdmin) return NextResponse.json({ message: 'Prohibido' }, { status: 403 });
+  const admin = await getAdmin();
+  if (!admin) return forbidden();
 
-  const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ message: 'Datos inválidos' }, { status: 400 });
-  const { userId, product, method, amountPen, operationCode } = parsed.data;
-
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: { subscriptions: true } });
-  if (!user) return NextResponse.json({ message: 'No existe ese cliente' }, { status: 404 });
-
-  const bundle = product.startsWith('bundle:') ? getBundle(product.slice('bundle:'.length)) : undefined;
-  let purchase: { product: string; plan: string; items: { product: PaymentItem['product']; plan: string }[] };
-  if (bundle) {
-    purchase = { product: 'bundle', plan: bundle.id, items: bundle.items };
-  } else if (isProduct(product)) {
-    const current = user.subscriptions.find((s) => s.product === product);
-    if (!current) return NextResponse.json({ message: 'El cliente no tiene un plan en esa API: asígnaselo primero' }, { status: 400 });
-    purchase = { product, plan: current.plan, items: [{ product, plan: current.plan }] };
-  } else {
-    return NextResponse.json({ message: 'API o pack inválido' }, { status: 400 });
+  const form = await request.formData().catch(() => null);
+  if (!form) return NextResponse.json({ message: 'Formulario inválido' }, { status: 400 });
+  const fields = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string' && v !== ''));
+  const parsed = schema.safeParse(fields);
+  if (!parsed.success) {
+    const noClient = parsed.error.issues.some((i) => i.path.length === 0);
+    return NextResponse.json({ message: noClient ? 'Elige un cliente o escribe su correo' : 'Datos inválidos' }, { status: 400 });
   }
 
-  // La cuota que ya tiene si sigue en el mismo plan (pudo asignarse a mano); si no, la del catálogo.
-  const items: PaymentItem[] = purchase.items.map((i) => {
-    const current = user.subscriptions.find((s) => s.product === i.product);
-    return { ...i, monthlyLimit: current?.plan === i.plan ? current.monthlyLimit : (getPlan(i.product, i.plan)?.monthlyLimit ?? null) };
-  });
+  const file = form.get('proof');
+  let proof: { mime: string; data: Uint8Array<ArrayBuffer> } | undefined;
+  if (file instanceof File && file.size > 0) {
+    if (file.size > MAX_BYTES) return NextResponse.json({ message: 'El comprobante supera los 5 MB' }, { status: 400 });
+    if (!ALLOWED.includes(file.type)) return NextResponse.json({ message: 'Formato no permitido (JPG, PNG, WEBP o PDF)' }, { status: 400 });
+    proof = { mime: file.type, data: new Uint8Array(await file.arrayBuffer()) };
+  }
 
-  const now = new Date();
-  const payment = await prisma.$transaction(async (tx) => {
-    const created = await tx.payment.create({
-      data: {
-        userId,
-        product: purchase.product,
-        plan: purchase.plan,
-        amountPen,
-        monthlyLimit: bundle ? null : items[0].monthlyLimit,
-        items: items as unknown as object[],
-        method,
-        operationCode: operationCode || null,
-        proofMime: '',
-        proofData: new Uint8Array(0),
-        status: 'approved',
-        reviewedBy: admin.email,
-        reviewedAt: now,
-      },
-    });
-    await grantPlans(tx, userId, items, now);
-    return created;
-  });
+  const { notify, ...input } = parsed.data;
+  let result: Awaited<ReturnType<typeof registerPayment>>;
+  try {
+    result = await registerPayment(admin, { ...input, proof });
+  } catch (err) {
+    if (isUniqueViolation(err)) return NextResponse.json({ message: 'Ese correo acaba de crear su cuenta: búscalo en la lista y vuelve a intentarlo' }, { status: 409 });
+    throw err;
+  }
+  if ('error' in result) return NextResponse.json({ message: result.error }, { status: 400 });
 
   // Al cliente: confirmamos el pago y hasta cuándo quedan sus planes.
-  after(() => notifyPaymentReviewed(payment.id));
+  if (notify === '1') after(() => notifyPaymentReviewed(result.paymentId));
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, userId: result.userId, created: result.created });
 }
