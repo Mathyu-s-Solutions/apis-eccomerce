@@ -12,13 +12,14 @@ import {
 } from 'playwright';
 import { CONFIG_TOKEN, type AppConfig } from '../../../config/configuration';
 import { UpstreamError } from '../../../common/errors/upstream.error';
-import { CaptchaProvider } from './captcha.provider';
+import { CaptchaProvider, type CaptchaSite } from './captcha.provider';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
 interface Slot {
   page: Page;
+  site: CaptchaSite;
   navigatedAt: number;
   busy: boolean;
 }
@@ -33,7 +34,9 @@ interface Slot {
  * Validado en scripts/probes/captcha-probe.mjs.
  *
  * Mantiene un pool de páginas calientes sobre /rastrea; re-navega cada pageTtlMs
- * y relanza el navegador si Chromium se cae.
+ * y relanza el navegador si Chromium se cae. El login de Shalom Pro usa el mismo
+ * site key pero se resuelve en pro.shalom.pe/login, en una página aparte que se
+ * abre la primera vez que se pide (los logins son pocos: la sesión se guarda).
  */
 @Injectable()
 export class PlaywrightCaptchaProvider
@@ -50,15 +53,15 @@ export class PlaywrightCaptchaProvider
     super();
   }
 
-  async getToken(action: string): Promise<string> {
+  async getToken(action: string, site: CaptchaSite = 'web'): Promise<string> {
     try {
-      return await this.generate(action);
+      return await this.generate(action, site);
     } catch (err) {
       // Un reintento tras relanzar: cubre browser caído o página muerta.
       this.logger.warn(`Captcha falló (${action}), relanzo y reintento: ${String(err)}`);
       await this.teardown();
       try {
-        return await this.generate(action);
+        return await this.generate(action, site);
       } catch (err2) {
         throw new UpstreamError('shalom-captcha', `No se pudo generar el token reCAPTCHA (${action})`, {
           status: 502,
@@ -68,9 +71,9 @@ export class PlaywrightCaptchaProvider
     }
   }
 
-  private async generate(action: string): Promise<string> {
+  private async generate(action: string, site: CaptchaSite): Promise<string> {
     await this.ensureBrowser();
-    const slot = await this.acquireSlot();
+    const slot = await this.acquireSlot(site);
     try {
       await this.ensureFresh(slot);
       const token = await slot.page.evaluate(
@@ -133,14 +136,15 @@ export class PlaywrightCaptchaProvider
     this.slots = [];
     for (let i = 0; i < captcha.poolSize; i++) {
       const page = await this.context.newPage();
-      await this.navigate(page);
-      this.slots.push({ page, navigatedAt: Date.now(), busy: false });
+      await this.navigate(page, 'web');
+      this.slots.push({ page, site: 'web', navigatedAt: Date.now(), busy: false });
     }
   }
 
-  private async navigate(page: Page): Promise<void> {
-    const { webBase, captcha } = this.config.shalom;
-    await page.goto(`${webBase}/rastrea`, {
+  private async navigate(page: Page, site: CaptchaSite): Promise<void> {
+    const { webBase, proBase, captcha } = this.config.shalom;
+    const url = site === 'pro' ? `${proBase}/login` : `${webBase}/rastrea`;
+    await page.goto(url, {
       waitUntil: 'domcontentloaded',
       timeout: captcha.navTimeoutMs,
     });
@@ -151,26 +155,32 @@ export class PlaywrightCaptchaProvider
         { timeout: captcha.navTimeoutMs },
       )
       .catch(() => {
-        throw new Error('grecaptcha no apareció tras navegar a /rastrea');
+        throw new Error(`grecaptcha no apareció tras navegar a ${url}`);
       });
   }
 
   private async ensureFresh(slot: Slot): Promise<void> {
     const stale = Date.now() - slot.navigatedAt > this.config.shalom.captcha.pageTtlMs;
     if (stale || slot.page.isClosed()) {
-      await this.navigate(slot.page);
+      await this.navigate(slot.page, slot.site);
       slot.navigatedAt = Date.now();
     }
   }
 
-  /** Semáforo simple: espera a que se libere un slot del pool. */
-  private async acquireSlot(): Promise<Slot> {
+  /** Semáforo simple: espera a que se libere un slot del pool de ese sitio. */
+  private async acquireSlot(site: CaptchaSite): Promise<Slot> {
     const deadline = Date.now() + this.config.shalom.captcha.tokenTimeoutMs + 5000;
     for (;;) {
-      const free = this.slots.find((s) => !s.busy);
+      const free = this.slots.find((s) => s.site === site && !s.busy);
       if (free) {
         free.busy = true;
         return free;
+      }
+      // La página de Shalom Pro se abre la primera vez (navigatedAt 0: ensureFresh navega).
+      if (site === 'pro' && this.context && !this.slots.some((s) => s.site === 'pro')) {
+        const slot: Slot = { page: await this.context.newPage(), site, navigatedAt: 0, busy: true };
+        this.slots.push(slot);
+        return slot;
       }
       if (Date.now() > deadline) {
         throw new UpstreamError('shalom-captcha', 'Todas las páginas del pool están ocupadas', {

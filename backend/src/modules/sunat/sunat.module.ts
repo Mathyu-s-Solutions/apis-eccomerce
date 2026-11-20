@@ -13,7 +13,7 @@ import { DocumentsService } from './documents.service';
 import { FilesController } from './files.controller';
 import { PdfService } from './pdf/pdf.service';
 import { PortalController } from './portal.controller';
-import { SecretBox } from './secret-box';
+import { SecretBox } from '../../common/crypto/secret-box';
 import { SunatController } from './sunat.controller';
 import { BillServiceClient } from './transport/bill-service';
 import { GreApiClient } from './transport/gre-api';

@@ -81,4 +81,6 @@ servicio aparte se justifica desde el inicio, por madurez de ecosistema.
      autenticado con OIDC que refresca guías activas y dispara webhooks. Intervalo
      ≥ 30 min: cada ejecución despierta Neon y consume horas de cómputo gratis.
 7. **SUNAT**: padrón RUC primero, luego emisión en beta.
-8. **Registro de envíos**: Olva (carrito OAuth) y Shalom Pro (instancias por cliente).
+8. **Registro de envíos**: Shalom Pro (hecho, sin probar con cuenta real): la cuenta de
+   pro.shalom.pe de cada cliente, cifrada, y `POST /v1/shalom/shipments` (ver README →
+   Guías de Shalom). Pendiente: Olva (carrito OAuth).

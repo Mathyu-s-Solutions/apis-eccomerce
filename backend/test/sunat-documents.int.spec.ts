@@ -9,7 +9,7 @@ import { CompanySchema } from '../src/modules/sunat/dto/company.dto';
 import { SaleDocumentSchema } from '../src/modules/sunat/dto/document.dto';
 import { DailySummarySchema, VoidedSchema } from '../src/modules/sunat/dto/operations.dto';
 import { SunatInputError } from '../src/modules/sunat/errors';
-import { SecretBox } from '../src/modules/sunat/secret-box';
+import { SecretBox } from '../src/common/crypto/secret-box';
 import { testCertificate } from '../src/modules/sunat/signing/test-certificate';
 import { type BillServiceClient, SunatFault, SunatUnavailable } from '../src/modules/sunat/transport/bill-service';
 import type { GreApiClient } from '../src/modules/sunat/transport/gre-api';

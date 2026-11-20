@@ -39,6 +39,8 @@ export const envSchema = z.object({
     ),
 
   SHALOM_WEB_BASE: z.string().url().default('https://shalom.com.pe'),
+  // Portal Shalom Pro: con la cuenta del cliente se crean guías a su nombre.
+  SHALOM_PRO_BASE: z.string().url().default('https://pro.shalom.pe'),
   SHALOM_RECAPTCHA_SITEKEY: z
     .string()
     .default('6LeGp5EtAAAAADF5427odqjDKEoxPudnerojGTt2'),

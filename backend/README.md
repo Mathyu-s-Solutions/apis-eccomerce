@@ -181,6 +181,33 @@ carga), `packages` (sobre, XXS a L), `leadTime` y `distanceKm`; con `homeDeliver
 `homeDelivery` (recargo a domicilio por tamaño, de `tarifa/reparto`, sin captcha). Se valida que
 el origen despache y el destino reciba (y acepte aéreo) antes de gastar un captcha.
 
+### Guías de Shalom (Shalom Pro)
+
+Las guías se crean con la cuenta de **Shalom Pro** (pro.shalom.pe) del cliente, como en
+su formulario "Envía ya": la guía sale a nombre del titular de la cuenta (remitente) y
+se paga en la agencia (`payer: "sender"`) o al recogerla (`payer: "recipient"`).
+Necesita BD, `SUNAT_SECRETS_KEY` (cifra la contraseña y la sesión) y el captcha en
+`playwright` (el login resuelve un reCAPTCHA en pro.shalom.pe). Solo keys con dueño.
+
+1. `PUT /v1/shalom/pro/account {"email","password"}`: entra en Shalom Pro para probar
+   la contraseña y la guarda cifrada (`shalom_pro_accounts`). `GET` la muestra sin la
+   contraseña; `DELETE` la borra.
+2. `POST /v1/shalom/shipments` (1 consulta): `origin` y `destination` (code de
+   `/agencies`), `air`, `package` (`envelope`, `xxs`…`l` o `custom` con `weightKg` o
+   medidas), `quantity`, `payer`, `recipient` (`document`, `name`, apellidos salvo RUC,
+   `phone`), y opcionales `senderPhone`, `securityCode` (si falta se genera),
+   `referralGuides` y `declaration`. Valida la ruta con las agencias de Shalom Pro, pide
+   la tarifa y registra la guía. Devuelve `orderNumber` + `orderCode` (ya quedan en el
+   caché de guías: el rastreo no gasta captcha), `securityCode`, `oseId` y `price`.
+3. `GET /v1/shalom/shipments/{oseId}/label` y `/ticket`: rótulo y ticket en PDF, solo
+   de guías que ese cliente creó con la API (`shalom_pro_shipments`). Los `ose_id` son
+   correlativos: así la API no sirve para pedir PDFs de guías ajenas.
+
+La sesión (cookies de Laravel Sanctum con "recordarme") se reutiliza; si Shalom
+responde 401 se vuelve a entrar con la contraseña guardada (un captcha) y se reintenta
+una vez. Para revisar las respuestas con una cuenta real sin crear guías:
+`SHALOM_PRO_EMAIL=… SHALOM_PRO_PASSWORD=… node scripts/probes/shalom-pro-probe.mjs`.
+
 ### Webhooks y guías vigiladas
 
 1. `PUT /v1/webhooks {"url":"https://…"}`: el webhook es de la cuenta (una key con

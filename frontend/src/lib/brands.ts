@@ -137,7 +137,7 @@ export const BRANDS: Record<BrandId, Brand> = {
       { icon: 'Building2', title: 'Agencias', description: 'Más de 550 agencias con horarios y coordenadas: la más cercana a un punto (y con servicio aéreo), y departamentos, provincias y distritos.' },
       { icon: 'Calculator', title: 'Cotización', description: 'Tarifa entre dos agencias, terrestre o aérea: mínimo, precio por tamaño de caja, tiempo de llegada y recargo a domicilio.' },
       { icon: 'Webhook', title: 'Webhooks', description: 'Vigilamos tus guías y te avisamos con un webhook firmado cuando cambian de estado, sin hacer polling.' },
-      { icon: 'Gauge', title: 'Un panel para todo', description: 'La cuota de tu plan, compartida por todas tus keys, y tus otras APIs en el mismo panel.' },
+      { icon: 'Truck', title: 'Crea guías', description: 'Registra envíos con tu cuenta de Shalom Pro desde tu tienda y descarga el rótulo y el ticket en PDF.' },
       { icon: 'ShieldCheck', title: 'Estable y monitoreado', description: 'Nos encargamos de los cambios en Shalom para que tu integración no se rompa.' },
     ],
     docs: [
@@ -169,10 +169,32 @@ export const BRANDS: Record<BrandId, Brand> = {
           { method: 'POST', path: '/quote', summary: 'Cotiza entre dos agencias (air: aéreo, homeDelivery: a domicilio)', cost: '1 consulta' },
         ],
       },
+      {
+        title: 'Guías (Shalom Pro)',
+        description:
+          'Crea guías a tu nombre con tu cuenta de pro.shalom.pe: conéctala una vez (la contraseña se guarda cifrada) y registra envíos que pagas en la agencia o paga el destinatario.',
+        endpoints: [
+          { method: 'PUT', path: '/pro/account', summary: 'Conecta tu cuenta de Shalom Pro (email y password)', cost: 'gratis' },
+          { method: 'GET', path: '/pro/account', summary: 'Cuenta conectada (sin la contraseña)', cost: 'gratis' },
+          { method: 'DELETE', path: '/pro/account', summary: 'Desconecta la cuenta y borra sus credenciales', cost: 'gratis' },
+          { method: 'POST', path: '/shipments', summary: 'Crea una guía: agencias, tamaño, destinatario y quién paga', cost: '1 consulta' },
+          { method: 'GET', path: '/shipments/{oseId}/label', summary: 'Rótulo en PDF para la caja', cost: 'gratis' },
+          { method: 'GET', path: '/shipments/{oseId}/ticket', summary: 'Ticket del envío en PDF', cost: 'gratis' },
+        ],
+      },
       WEBHOOKS_DOCS,
     ],
     quickstart: [
       { label: 'Rastrear una guía', code: curl('/v1/shalom', 'POST', '/track', '{"orderNumber":"12345678","orderCode":"AB12"}') },
+      {
+        label: 'Crear una guía Lima → Arequipa',
+        code: curl(
+          '/v1/shalom',
+          'POST',
+          '/shipments',
+          '{"origin":"220","destination":"7","package":"xs","recipient":{"document":"12345678","name":"MARIA","paternalSurname":"PEREZ","maternalSurname":"GOMEZ","phone":"987654321"}}',
+        ),
+      },
       { label: 'Buscar agencias en Arequipa', code: curl('/v1/shalom', 'GET', '/agencies?department=AREQUIPA') },
       { label: 'Cotizar Lima → Arequipa (aéreo)', code: curl('/v1/shalom', 'POST', '/quote', '{"origin":"220","destination":"7","air":true}') },
     ],

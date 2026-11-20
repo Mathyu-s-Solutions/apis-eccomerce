@@ -52,13 +52,26 @@ Scripts de prueba: [scripts/probes/shalom-probe.mjs](../scripts/probes/shalom-pr
 
 > ⚠️ Los `ose_id` son secuenciales y `rastrea/estados` no pide autenticación. **No enumerar.** Usar solo ids de guías que nuestros clientes nos den.
 
-### 1.2 Shalom Pro: pro.shalom.pe (Laravel + jQuery)
+### 1.2 Shalom Pro: pro.shalom.pe (SPA en Vue + Laravel Sanctum)
 
 Para registrar envíos, generar rótulos y tickets se necesita la **cuenta Shalom Pro del cliente**. Esto es lo que shalom-api llama "instancias": guardan las credenciales de cada cliente y mantienen una sesión logueada, con navegador headless para pasar el reCAPTCHA v3 del login.
 
-- Login: `POST https://pro.shalom.pe/login` (form) con `_token` (CSRF de Laravel, sale del HTML), `recaptcha_token`, `email`, `password` y `remember`. Devuelve una cookie de sesión.
-- Rutas vistas en `pro.shalom.pe/js/app.js` (sin probar, necesitan cuenta): `/envia_ya/terminals`, `/envia_ya/tariff/calculate`, `/envia_ya/service_order/save`, `/envia_ya/service_order/count`, `/envios/prelist`, `/rotulo/token`, `/service_order/pdf/`, `/person/search`, `/orden/buscar`, `/orden/validar`, `/ubigeo/{departamentos,provincias,distritos}`.
-- Según la doc de shalom-api, también existen `POST /ticket-pdf/token` + `GET /ticket-pdf/<ose_id>` (voucher) y `POST /rotulo/token` (etiqueta).
+**Actualizado el 2026-11-19** (leyendo el bundle de Vite, `/assets/index-*.js` y sus chunks): el portal dejó de ser Laravel + jQuery con formularios. Ahora es una SPA y la API cuelga de `/api/v1`:
+
+- Sesión Sanctum en modo SPA ✅: `GET /sanctum/csrf-cookie` da `XSRF-TOKEN` y `enviashalom_session` (1 h). Cada llamada lleva esas cookies, `X-XSRF-TOKEN` (la cookie decodificada), `X-Requested-With: XMLHttpRequest` y `Accept: application/json`. Sin sesión, `GET /api/v1/auth/me` da 401 ✅. Con 419 su front pide otra cookie CSRF y reintenta.
+- Login: `POST /api/v1/auth/login` con JSON `{ email, password, remember, recaptcha_token }`. El reCAPTCHA v3 usa el **mismo site key** que shalom.com.pe, con `action: "login"`. Lo resolvemos en una página de pro.shalom.pe, porque el token lleva el dominio donde se generó.
+- Respuestas: `{ success, message, data }`.
+- Flujo "Envía ya" (`FormEnvio-*.js`), sin probar con cuenta:
+  - `GET /auth/me` → `data.person` (`document`, `name`, `last_name`, `sur_name`, `phone`) o `data.company` (`number_document`, `legal_name`, `phone`). Es el remitente.
+  - `POST /envia_ya/terminals` → `Map[]` con `ter_id` (el mismo `code` de las agencias públicas), `origen`, `destino`, `ter_habilitado_OS`, `ter_aereo` y `origenes_aereos`. El destino aéreo va como `"0" + ter_id`.
+  - `POST /envia_ya/products` → `data[]` (`id`, `title`: Sobre, Caja Paquete XXS…L, Otra Medida).
+  - `POST /envia_ya/tariff/calculate { origin, destiny, width, height, length, weight }` → `tariff.{sobre, cajapaquetexxs…l}` y `price` (otra medida).
+  - `POST /service-orders/recipients/search { document }` → `uuid`. Si no existe, `POST /service-orders/recipients/save { document, first_name, last_name, surname, email, phone }`.
+  - `POST /envia_ya/service_order/save` → `{ guia, serie, codigo, ose_id, precio }`. Campos: `origen`, `destino`, `tipo_pago` (REMITENTE/DESTINATARIO), `tipo_producto`, `tipo_producto_json`, `cantidad`, medidas, `costo`, `destinatario_uuid`, `remitente_*`, `garantia*`, `grrs`, `clave` (4 dígitos, sin repetidos ni consecutivos), `aereo`, `servicio_cobranza*` y `declaracion_jurada`.
+  - `POST /rotulo/token { ose_id }` → `{ url }` del rótulo. `POST /ticket-pdf/token { ose_id }` → `{ token }`, y el PDF está en `GET /api/v1/ticket-pdf/<ose_id>?token=…`.
+- Otras rutas vistas: envíos masivos (`/service-orders/import`, `/service-orders/send`), historial (`/service-orders/shipments/history`), pagos (`/payment/*`, Openpay, Yape) y autogestión (cambio de destino, retención, clave).
+
+Implementado en `backend/src/modules/shalom/pro/`. Para verificar las respuestas con una cuenta real sin crear guías: `scripts/probes/shalom-pro-probe.mjs`.
 
 ---
 

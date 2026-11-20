@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ubigeoNames } from './core/ubigeos';
 import type { CompanyDto } from './dto/company.dto';
 import { SunatInputError } from './errors';
-import { SecretBox } from './secret-box';
+import { SecretBox } from '../../common/crypto/secret-box';
 import { type CertificateInfo, type SigningCertificate, certificateInfo, parseCertificate } from './signing/certificate';
 import { testCertificate } from './signing/test-certificate';
 import { BETA_SOL, type SolCredentials, type SunatEnvironment } from './transport/bill-service';

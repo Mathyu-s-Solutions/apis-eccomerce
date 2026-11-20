@@ -6,8 +6,9 @@ const VERSION = 'v1';
 
 /**
  * Cifra en reposo las credenciales de los clientes (clave SOL, certificado,
- * secreto de la API de SUNAT) con AES-256-GCM. La llave sale de
- * SUNAT_SECRETS_KEY y no vive en la base de datos.
+ * secreto de la API de SUNAT, contraseña y sesión de Shalom Pro) con
+ * AES-256-GCM. La llave sale de SUNAT_SECRETS_KEY (la comparten SUNAT y
+ * Shalom) y no vive en la base de datos.
  */
 @Injectable()
 export class SecretBox {

@@ -43,6 +43,7 @@ export interface AppConfig {
   };
   shalom: {
     webBase: string;
+    proBase: string;
     recaptchaSiteKey: string;
     captchaProvider: Env['SHALOM_CAPTCHA_PROVIDER'];
     captcha: {
@@ -95,6 +96,7 @@ export function buildConfig(env: Env): AppConfig {
     },
     shalom: {
       webBase: env.SHALOM_WEB_BASE,
+      proBase: env.SHALOM_PRO_BASE,
       recaptchaSiteKey: env.SHALOM_RECAPTCHA_SITEKEY,
       captchaProvider: env.SHALOM_CAPTCHA_PROVIDER,
       captcha: {

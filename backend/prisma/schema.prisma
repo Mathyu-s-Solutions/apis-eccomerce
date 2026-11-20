@@ -202,6 +202,35 @@ model ShalomGuide {
   @@map("shalom_guides")
 }
 
+// Cuenta de Shalom Pro (pro.shalom.pe) de un cliente del portal: con ella se
+// crean guías a su nombre. Una por cliente. La contraseña y las cookies de la
+// sesión van cifradas con SUNAT_SECRETS_KEY (AES-256-GCM): nunca en claro.
+model ShalomProAccount {
+  userId    String   @id @map("user_id")
+  email     String
+  password  String
+  session   String?
+  // Remitente que devolvió Shalom al conectar (nombre y documento, sin la clave).
+  sender    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("shalom_pro_accounts")
+}
+
+// Guías creadas por la API con Shalom Pro: el rótulo y el ticket solo se
+// entregan al cliente que creó la guía (los ose_id son correlativos: así la API
+// no sirve para pedir PDFs de guías ajenas).
+model ShalomProShipment {
+  oseId       String   @id @map("ose_id")
+  userId      String   @map("user_id")
+  orderNumber String   @map("order_number")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("shalom_pro_shipments")
+}
+
 // Correos automáticos ya enviados, para no mandar dos veces el mismo aviso
 // (p. ej. "plan-expired:<subscription id>:<expiresAt>"). Lo escribe el portal.
 model SentEmail {
