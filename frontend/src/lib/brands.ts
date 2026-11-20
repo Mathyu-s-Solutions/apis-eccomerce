@@ -237,7 +237,7 @@ export const BRANDS: Record<BrandId, Brand> = {
       { icon: 'Building2', title: 'Agencias y ubigeos', description: 'Todas las oficinas de Olva, la más cercana a un punto y departamentos, provincias y distritos.' },
       { icon: 'Calculator', title: 'Cotización', description: 'Calcula el costo de un envío por ubigeo de origen y destino.' },
       { icon: 'Webhook', title: 'Webhooks', description: 'Vigilamos tus guías y te avisamos con un webhook firmado cuando cambian de estado.' },
-      { icon: 'Gauge', title: 'Un panel para todo', description: 'La cuota de tu plan, compartida por todas tus keys, y tus otras APIs en el mismo panel.' },
+      { icon: 'Truck', title: 'Registra envíos', description: 'Crea el envío desde tu tienda (PagoEfectivo, pago en tienda o en destino) y descarga el rótulo en PDF, sin cuenta de Olva.' },
     ],
     docs: [
       {
@@ -268,9 +268,30 @@ export const BRANDS: Record<BrandId, Brand> = {
           { method: 'POST', path: '/quote', summary: 'Cotiza un envío por ubigeo', cost: '1 consulta' },
         ],
       },
+      {
+        title: 'Envíos',
+        description:
+          'Registra envíos como en registrodeenvios.olvacourier.com, sin cuenta de Olva: pagas con un código de PagoEfectivo, al dejar el paquete en la tienda o paga el destinatario. Devuelve el pedido de preventa y el rótulo.',
+        endpoints: [
+          { method: 'GET', path: '/shipments/origins', summary: 'Sedes de origen y cómo se puede pagar en cada una', cost: 'gratis' },
+          { method: 'GET', path: '/shipments/destinations', summary: 'Tiendas de recojo o distritos a domicilio (origin, type, payment)', cost: 'gratis' },
+          { method: 'GET', path: '/shipments/categories', summary: 'Categorías de contenido del paquete', cost: 'gratis' },
+          { method: 'POST', path: '/shipments', summary: 'Registra un envío: remitente, destinatario, destino y paquete', cost: '1 consulta' },
+          { method: 'GET', path: '/shipments/{cartId}/label', summary: 'Rótulo en PDF', cost: 'gratis' },
+        ],
+      },
       WEBHOOKS_DOCS,
     ],
     quickstart: [
+      {
+        label: 'Registrar un envío Lima → tienda de Arequipa',
+        code: curl(
+          '/v1/olva',
+          'POST',
+          '/shipments',
+          '{"origin":"43","payment":"pagoefectivo","sender":{"documentType":"ruc","document":"20123456789","firstNames":"MI TIENDA SAC","phone":"987654321","email":"ventas@mitienda.pe"},"recipient":{"documentType":"dni","document":"12345678","firstNames":"MARIA","lastName":"PEREZ GOMEZ","phone":"912345678"},"destination":{"type":"store","officeId":"500"},"package":{"weightKg":1.5,"lengthCm":30,"widthCm":20,"heightCm":10,"categoryId":227,"declaredValue":120}}',
+        ),
+      },
       { label: 'Cotizar Lima → Arequipa', code: curl('/v1/olva', 'POST', '/quote', '{"origin":"150101","destination":"040101","shipmentType":1,"weight":0.5}') },
       { label: 'Rastrear una guía', code: curl('/v1/olva', 'POST', '/track', '{"orderNumber":"1234567890","orderCode":"26"}') },
     ],

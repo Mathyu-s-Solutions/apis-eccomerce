@@ -121,6 +121,24 @@ Backend: `https://service-registro-envios-prod.olvacourier.com`. Es el flujo de 
 
 Esto coincide con la descripción de `POST /shipments` en olva-api.lat: "remitente → origen → pago → item → tarifa → confirmación → rótulo".
 
+**Actualizado el 2026-11-19** (front del 2026-11-15, chunks `main-*.js` y `chunk-*.js`). Escrituras sin probar en vivo:
+
+- Su interceptor manda `X-Recaptcha-Token` en cada ruta, con su `action` (`cart_store`, `cart_origin_update`, `cart_who_pays_update`, `cart_item_store`, `price_show`, `shipping_pin_update`, `payment_tienda`, `shipping_label_show`, `person_lookup`, `geo_address`…). Si el error menciona captcha, recaptcha o score, reintenta con un token nuevo: **el servidor sí lo valida**. El script Enterprise (`recaptcha/enterprise.js?render=<key>`) se carga recién en la primera acción.
+- Sin captcha responden ✅: `/v1/token`, sedes, categorías, destinos, persona y `GET /v1/geo/address?address=&ubigeo=` (devuelve coordenadas, `polygon` como "AQP013", `office` y `dangerous`; 404 si no ubica la dirección).
+- `GET /v1/shipping-records/headquarters` ✅ → 23 sedes de origen, con `payment_modalities[].code`: `ONLINE` (Niubiz o PagoEfectivo), `DESTINATION` (paga el destinatario) y `STORE` (pago en tienda, solo en algunas sedes).
+- `GET /v1/shipping-records/destinations?mode=store|home&ubigeo_code=<origen>&modality=<pago>` ✅ → tiendas (`office_id`, `delivery_type: "O"`, `is_agent`; con pago en destino su front quita los agentes) o distritos a domicilio (`ubigeo_id` interno, `delivery_type: "D"`).
+- Pasos:
+  1. `POST /v1/cart { shipment_modality: "package", person }` → `session_id`. `person` lleva los datos del remitente más campos internos que salen de `GET /v1/person/{dni|ruc|ce|pas}/{n}?role=sender`: `employee_id`, `discount_shipments_count`, `rounding_factor`, `package_headquarter_code`, `tax_affectation_type_id` y `person_legal_area`.
+  2. `PUT …/origin` con la sede, y `PUT …/who-pays { who_pays }`.
+  3. `POST …/item { who_receive, destination, service: { return_charge, delivery_type }, what_send }`. En `what_send` va `shipment_type: 2`, peso y medidas, `article_id`, `declared_value`, `custom_size`/`size_id` e `insurance_accepted`. Los tamaños estándar están en `GET /v1/shipping-records/cart/{uuid}/standard-sizes?id_sede_origen=&tipo_entrega=DOMICILIO|TIENDA&id_ubigeo_destino=`.
+  4. `GET /v1/price/{uuid}`.
+  5. Si se recoge en tienda, `PUT /v1/shipping-records/cart/{uuid}/pin { pin }`.
+  6. Con `STORE` o `DESTINATION`, `POST /v1/cart/{uuid}/payment/tienda {}`. Con `ONLINE` + PagoEfectivo, `POST …/payment/pagoefectivo { email }`; el CIP queda en `cart.pagoefectivo_result.cip_code` y `cip_url`. Niubiz abre su formulario de tarjeta. ✅ Hay pago online en las 23 sedes, pago en destino en 18 y pago en tienda en 16 (Lima no).
+- Resultado ✅ (prueba real del 2026-11-20, pago en destino): `payment/tienda` → `{ success, presale_id, nro_pedido, remitos: "3123602-26--" }`. El carrito queda con `nroPedidoPreventa`, `presale_result` y `remito_list`. `remitos` es el **tracking** (número y emisión) que imprime el rótulo ("TRACKING 3123602-26"). Recién creado, el rastreo de Olva responde 404; aparecería cuando reciben el paquete (sin confirmar). El rótulo sale de `GET …/label` → `{ filename, mime_type, pdf_base64 }`. El precio sale de `GET /v1/price/{uuid}` → `data.total_amount`.
+- Errores vistos en la prueba: `article_id` 0 → «El tipo de artículo no está disponible» (hay que mandar una categoría real); `who_receive.email` con un pago que no es en destino → «El correo del destinatario solo corresponde a pago en destino»; PagoEfectivo con un correo `.example` → 502 «Error del proveedor».
+
+Implementado en `backend/src/modules/olva/shipments/`.
+
 ---
 
 ## 3. SUNAT (apisunat.pe)

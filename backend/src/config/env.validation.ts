@@ -32,6 +32,10 @@ export const envSchema = z.object({
 
   OLVA_WP_BASE: z.string().url().default('https://www.olvacourier.com'),
   OLVA_TRACKING_BASE: z.string().url().default('https://reports.olvaexpress.pe'),
+  // Registro de envíos de Olva (flujo de invitado de registrodeenvios.olvacourier.com).
+  OLVA_REGISTRO_API: z.string().url().default('https://service-registro-envios-prod.olvacourier.com'),
+  OLVA_REGISTRO_WEB: z.string().url().default('https://registrodeenvios.olvacourier.com'),
+  OLVA_RECAPTCHA_SITEKEY: z.string().default('6Lfa4NosAAAAADgRBeI_fElqt1l4bmxfDCLX2Typ'),
   OLVA_TRACKING_APIKEY: z
     .string()
     .default(

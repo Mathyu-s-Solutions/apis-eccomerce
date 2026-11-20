@@ -231,6 +231,19 @@ model ShalomProShipment {
   @@map("shalom_pro_shipments")
 }
 
+// Envíos de Olva creados por la API (registro web de Olva, flujo de invitado):
+// el rótulo solo se entrega al cliente que creó el envío.
+model OlvaShipment {
+  cartId      String   @id @map("cart_id")
+  userId      String   @map("user_id")
+  // Número de pedido de preventa de Olva.
+  orderNumber String?  @map("order_number")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("olva_shipments")
+}
+
 // Correos automáticos ya enviados, para no mandar dos veces el mismo aviso
 // (p. ej. "plan-expired:<subscription id>:<expiresAt>"). Lo escribe el portal.
 model SentEmail {

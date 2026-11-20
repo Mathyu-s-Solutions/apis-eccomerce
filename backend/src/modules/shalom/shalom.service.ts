@@ -13,7 +13,7 @@ import { UpstreamError } from '../../common/errors/upstream.error';
 import { CONFIG_TOKEN, type AppConfig } from '../../config/configuration';
 import { ShalomWebClient } from './shalom-web.client';
 import { guideKey, ShalomGuideCache } from './shalom-guide-cache';
-import { CAPTCHA_PROVIDER, type CaptchaProvider } from './captcha/captcha.provider';
+import { CAPTCHA_PROVIDER, type CaptchaProvider } from '../../common/captcha/captcha.provider';
 import { mapShalomAgency, mapShalomStatus, type ShalomSearch } from './shalom.mapper';
 
 const HOUR = 60 * 60 * 1000;

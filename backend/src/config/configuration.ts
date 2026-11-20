@@ -34,6 +34,9 @@ export interface AppConfig {
     wpBase: string;
     trackingBase: string;
     trackingApiKey: string;
+    registroApi: string;
+    registroWeb: string;
+    recaptchaSiteKey: string;
   };
   publicUrl?: string;
   sunat: {
@@ -87,6 +90,9 @@ export function buildConfig(env: Env): AppConfig {
       wpBase: env.OLVA_WP_BASE,
       trackingBase: env.OLVA_TRACKING_BASE,
       trackingApiKey: env.OLVA_TRACKING_APIKEY,
+      registroApi: env.OLVA_REGISTRO_API,
+      registroWeb: env.OLVA_REGISTRO_WEB,
+      recaptchaSiteKey: env.OLVA_RECAPTCHA_SITEKEY,
     },
     publicUrl: env.PUBLIC_API_URL?.replace(/\/+$/, ''),
     sunat: {

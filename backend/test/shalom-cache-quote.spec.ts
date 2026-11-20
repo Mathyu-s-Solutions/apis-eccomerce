@@ -5,7 +5,7 @@ import type { PrismaService } from '../src/prisma/prisma.service';
 import { guideKey, ShalomGuideCache } from '../src/modules/shalom/shalom-guide-cache';
 import { ShalomService } from '../src/modules/shalom/shalom.service';
 import type { ShalomWebClient } from '../src/modules/shalom/shalom-web.client';
-import type { CaptchaProvider } from '../src/modules/shalom/captcha/captcha.provider';
+import type { CaptchaProvider } from '../src/common/captcha/captcha.provider';
 
 /** Shalom simulado: cuenta las llamadas a cada ruta y los captchas. */
 function fakeShalom() {

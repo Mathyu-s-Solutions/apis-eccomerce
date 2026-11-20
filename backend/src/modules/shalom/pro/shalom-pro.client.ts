@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { UpstreamError } from '../../../common/errors/upstream.error';
 import { CONFIG_TOKEN, type AppConfig } from '../../../config/configuration';
-import { CAPTCHA_PROVIDER, type CaptchaProvider } from '../captcha/captcha.provider';
+import { CAPTCHA_PROVIDER, type CaptchaProvider } from '../../../common/captcha/captcha.provider';
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';

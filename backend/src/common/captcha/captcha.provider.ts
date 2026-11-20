@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 
 /**
- * Resuelve un token de reCAPTCHA v3 para una `action` del sitio de Shalom.
+ * Resuelve un token de reCAPTCHA (v3 o Enterprise) para una `action` de Shalom u Olva.
  * Implementaciones futuras: pool de navegadores Playwright con IP peruana,
  * o un servicio externo de resolución. Ver docs/investigacion-upstreams.md §5.
  */
@@ -13,14 +13,17 @@ export abstract class CaptchaProvider {
   abstract getToken(action: string, site?: CaptchaSite): Promise<string>;
 }
 
-/** web = shalom.com.pe (rastreo, tarifas); pro = pro.shalom.pe (login de Shalom Pro). */
-export type CaptchaSite = 'web' | 'pro';
+/**
+ * web = shalom.com.pe (rastreo, tarifas); pro = pro.shalom.pe (login de Shalom Pro);
+ * olva = registrodeenvios.olvacourier.com (reCAPTCHA Enterprise del registro de envíos).
+ */
+export type CaptchaSite = 'web' | 'pro' | 'olva';
 
 export const CAPTCHA_PROVIDER = Symbol('CAPTCHA_PROVIDER');
 
 /**
  * Proveedor por defecto: no resuelve captcha. Las operaciones que lo requieren
- * (rastrea/buscar, tarifa/mostrar, login de Shalom Pro) devuelven 501 hasta
+ * (rastreo y tarifas de Shalom, login de Shalom Pro, registro de Olva) devuelven 501 hasta
  * configurar un proveedor real.
  */
 @Injectable()

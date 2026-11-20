@@ -208,6 +208,40 @@ responde 401 se vuelve a entrar con la contraseña guardada (un captcha) y se re
 una vez. Para revisar las respuestas con una cuenta real sin crear guías:
 `SHALOM_PRO_EMAIL=… SHALOM_PRO_PASSWORD=… node scripts/probes/shalom-pro-probe.mjs`.
 
+### Envíos de Olva (registro web)
+
+Olva no necesita cuenta del cliente: se usa el flujo de invitado de
+registrodeenvios.olvacourier.com (token `client_credentials` de 15 min). Cada paso
+lleva un **reCAPTCHA Enterprise** con su `action`, resuelto por el mismo Chromium del
+captcha de Shalom (`CaptchaModule`, en `src/common/captcha/`) en una página de
+registrodeenvios. Necesita BD y `SHALOM_CAPTCHA_PROVIDER=playwright`. Solo keys con dueño.
+
+1. Catálogos (gratis): `GET /v1/olva/shipments/origins` (sedes y formas de pago),
+   `GET /v1/olva/shipments/destinations?origin=&type=store|home&payment=store|destination|pagoefectivo`
+   (tiendas con `officeId` o distritos a domicilio con `ubigeo`) y `/categories`.
+2. `POST /v1/olva/shipments` (1 consulta): `origin`, `payment` (`store`: pagas al dejarlo
+   en la tienda, solo en 16 de 23 sedes y no en Lima; `destination`: paga el destinatario;
+   `pagoefectivo`: devuelve un código CIP y su enlace para pagar), `sender` (con email), `recipient`,
+   `destination` (`store` + `officeId`, o `home` + `ubigeo`, `address`, `reference`) y
+   `package` (peso y medidas en cm, `categoryId`, `declaredValue` hasta S/ 500). Hace los
+   pasos del registro: carrito → origen → quién paga → paquete (a domicilio se geocodifica
+   con Olva) → precio → clave (`pin`, si se recoge en tienda) → pago (tienda, destino o
+   CIP). Devuelve `orderNumber` (N° de registro), `tracking` (`{ orderNumber, orderCode }`,
+   el "TRACKING 3123602-26" del rótulo: sirve tal cual para `/v1/olva/track` y los
+   webhooks; Olva lo muestra en su rastreo cuando recibe el paquete), `cartId`, `total`,
+   el `pin` y, con PagoEfectivo, `pagoEfectivo.cip` y `pagoEfectivo.url`.
+
+   Probado en vivo el 2026-11-20 con la identidad de prueba de Olva (DNI 00000000), Lima →
+   Tienda Parra (Arequipa), pago en destino: N° de registro 202600808086, tracking
+   3123602-26, S/ 12.00 y rótulo en PDF. Con PagoEfectivo todo pasó hasta el pago, que
+   respondió 502 «Error del proveedor» (probablemente por el correo de prueba `.example`):
+   falta confirmarlo con un correo real.
+3. `GET /v1/olva/shipments/{cartId}/label`: rótulo en PDF, solo de envíos que ese cliente
+   creó (`olva_shipments`).
+
+Pendiente: pago con tarjeta (Niubiz, pide el formulario de la tarjeta), tamaños estándar
+y declaración jurada (valor declarado de más de S/ 500).
+
 ### Webhooks y guías vigiladas
 
 1. `PUT /v1/webhooks {"url":"https://…"}`: el webhook es de la cuenta (una key con
