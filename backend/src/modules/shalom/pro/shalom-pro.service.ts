@@ -1,11 +1,14 @@
 import { randomInt } from 'node:crypto';
-import { BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Prisma, type ShalomProAccount } from '../../../../generated/prisma';
+import type { ApiKeyRecord } from '../../../auth/api-key.store';
+import { quotaScope } from '../../../auth/plan-quota';
 import { TtlCache } from '../../../common/cache/ttl-cache';
 import { SecretBox } from '../../../common/crypto/secret-box';
 import { UpstreamError } from '../../../common/errors/upstream.error';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
+  DEFAULT_PRO_ACCOUNT,
   documentType,
   SHALOM_DECLARATIONS,
   type ShalomPackage,
@@ -30,6 +33,8 @@ export interface ProSender {
 }
 
 export interface ShalomProAccountView {
+  /** Identificador de la cuenta ("default" = la de PUT /shalom/pro/account). */
+  account: string;
   email: string;
   sender: ProSender | null;
   connectedAt: string;
@@ -40,6 +45,8 @@ export interface ShalomProAccountView {
 type Terminal = Record<string, any>;
 
 export interface ShalomShipment {
+  /** Cuenta de Shalom Pro con la que se creó. */
+  account: string;
   /** Número de guía: con `orderCode` sirve para POST /track. */
   orderNumber: string;
   series: string | null;
@@ -189,8 +196,28 @@ export function buildServiceOrder(i: {
   };
 }
 
+/** Cuentas de Shalom Pro conectadas a la vez: una, o varias (una por negocio) con el plan Empresarial. */
+export const PRO_ACCOUNTS_LIMIT = { base: 1, empresarial: 100 } as const;
+
+export function proAccountsLimit(key: ApiKeyRecord, now = new Date()): number {
+  const scope = quotaScope(key, 'shalom', now);
+  return scope.kind === 'plan' && scope.plan === 'empresarial' ? PRO_ACCOUNTS_LIMIT.empresarial : PRO_ACCOUNTS_LIMIT.base;
+}
+
+const MULTI_ACCOUNT_HINT =
+  'Varias cuentas (una por negocio, eligiendo con cuál crear cada guía) son del plan Empresarial; si no, crea otra cuenta en el panel para cada negocio.';
+
+/** Ruta con la que se conecta (o reconecta) una cuenta. */
+function connectPath(ref: string): string {
+  return ref === DEFAULT_PRO_ACCOUNT ? 'PUT /v1/shalom/pro/account' : `PUT /v1/shalom/pro/accounts/${ref}`;
+}
+
+/** Sesiones en memoria: una por cuenta de cada cliente (el ref no lleva "/"). */
+const sessionKey = (a: { userId: string; ref: string }): string => `${a.userId}/${a.ref}`;
+
 function view(account: ShalomProAccount): ShalomProAccountView {
   return {
+    account: account.ref,
     email: account.email,
     sender: (account.sender as unknown as ProSender | null) ?? null,
     connectedAt: account.createdAt.toISOString(),
@@ -209,7 +236,9 @@ function view(account: ShalomProAccount): ShalomProAccountView {
 @Injectable()
 export class ShalomProService {
   private readonly logger = new Logger(ShalomProService.name);
-  private readonly sessions = new Map<string, CookieJar>();
+  // La sesión de cada cuenta, con la contraseña cifrada con la que se abrió: si la
+  // cuenta se reconecta (en esta u otra instancia) cambia y no se usa la sesión vieja.
+  private readonly sessions = new Map<string, { jar: CookieJar; stamp: string }>();
   private readonly logins = new Map<string, Promise<CookieJar>>();
   // Agencias de Shalom Pro: las mismas para todas las cuentas.
   private readonly terminalsCache = new TtlCache<Terminal[]>(6 * HOUR);
@@ -231,9 +260,24 @@ export class ShalomProService {
 
   // ─── Cuenta ────────────────────────────────────────────────────────────────
 
-  /** Entra con la cuenta (comprueba la contraseña) y la guarda cifrada. */
-  async connect(userId: string, dto: ShalomProAccountDto): Promise<ShalomProAccountView> {
+  /**
+   * Entra con la cuenta (comprueba la contraseña) y la guarda cifrada con su
+   * identificador. Una cuenta nueva cuenta contra el límite del plan; reconectar
+   * una que ya existe (otra contraseña u otro correo) siempre se puede.
+   */
+  async connect(userId: string, dto: ShalomProAccountDto, ref: string = DEFAULT_PRO_ACCOUNT, limit: number = PRO_ACCOUNTS_LIMIT.base): Promise<ShalomProAccountView> {
     const db = this.db();
+    const where = { userId_ref: { userId, ref } };
+    if (!(await db.shalomProAccount.findUnique({ where, select: { ref: true } }))) {
+      const others = await db.shalomProAccount.findMany({ where: { userId }, select: { ref: true }, orderBy: { createdAt: 'asc' }, take: limit });
+      if (others.length >= limit) {
+        throw new ForbiddenException(
+          limit > 1
+            ? `Ya tienes ${limit} cuentas de Shalom Pro conectadas, el máximo de tu plan: desconecta alguna o escríbenos para ampliarlo.`
+            : `Tu plan permite 1 cuenta de Shalom Pro conectada y ya tienes una (para cambiarla, reconéctala con ${connectPath(others[0].ref)}). ${MULTI_ACCOUNT_HINT}`,
+        );
+      }
+    }
     const jar = await this.client.login(dto.email, dto.password);
     let sender: ProSender | null;
     try {
@@ -248,41 +292,76 @@ export class ShalomProService {
       session: this.seal(jar),
       sender: sender ? (sender as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
     };
-    const account = await db.shalomProAccount.upsert({ where: { userId }, create: { userId, ...data }, update: data });
-    this.sessions.set(userId, jar);
-    this.productsCache.delete(userId);
+    const account = await db.shalomProAccount.upsert({ where, create: { userId, ref, ...data }, update: data });
+    this.sessions.set(sessionKey(account), { jar, stamp: account.password });
+    this.productsCache.delete(sessionKey(account));
     return view(account);
   }
 
-  async account(userId: string): Promise<ShalomProAccountView> {
-    return view(await this.find(userId));
+  /** Las cuentas conectadas, de la primera a la última. */
+  async accounts(userId: string): Promise<ShalomProAccountView[]> {
+    const rows = await this.db().shalomProAccount.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } });
+    return rows.map(view);
+  }
+
+  async account(userId: string, ref: string = DEFAULT_PRO_ACCOUNT): Promise<ShalomProAccountView> {
+    return view(await this.find(userId, ref));
   }
 
   /** Borra la cuenta guardada y cierra la sesión en Shalom (sin esperar). */
-  async disconnect(userId: string): Promise<void> {
-    const account = await this.find(userId);
-    const jar = this.sessions.get(userId) ?? this.restore(userId, account);
-    this.sessions.delete(userId);
-    await this.db().shalomProAccount.delete({ where: { userId } });
+  async disconnect(userId: string, ref: string = DEFAULT_PRO_ACCOUNT): Promise<void> {
+    const account = await this.find(userId, ref);
+    const key = sessionKey(account);
+    const jar = this.cached(account) ?? this.restore(account);
+    this.sessions.delete(key);
+    this.productsCache.delete(key);
+    await this.db().shalomProAccount.delete({ where: { userId_ref: { userId, ref } } });
     if (jar) void this.client.request(jar, 'POST', '/auth/logout').catch(() => undefined);
   }
 
-  private async find(userId: string): Promise<ShalomProAccount> {
-    const account = await this.db().shalomProAccount.findUnique({ where: { userId } });
+  private async find(userId: string, ref: string): Promise<ShalomProAccount> {
+    const account = await this.db().shalomProAccount.findUnique({ where: { userId_ref: { userId, ref } } });
     if (!account) {
-      throw new NotFoundException('Primero conecta tu cuenta de Shalom Pro: PUT /v1/shalom/pro/account con tu correo y contraseña de pro.shalom.pe.');
+      throw new NotFoundException(
+        ref === DEFAULT_PRO_ACCOUNT
+          ? 'Primero conecta tu cuenta de Shalom Pro: PUT /v1/shalom/pro/account con tu correo y contraseña de pro.shalom.pe.'
+          : `No hay una cuenta de Shalom Pro conectada como "${ref}": conéctala con ${connectPath(ref)} (GET /v1/shalom/pro/accounts lista las tuyas).`,
+      );
     }
     return account;
+  }
+
+  /** La cuenta con la que se crea una guía: la de `account` o, si hay una sola, esa. */
+  private async choose(userId: string, ref: string | undefined, limit: number): Promise<ShalomProAccount> {
+    const db = this.db();
+    const count = await db.shalomProAccount.count({ where: { userId } });
+    if (count > limit) {
+      throw new ForbiddenException(
+        `Tienes ${count} cuentas de Shalom Pro conectadas y tu plan permite ${limit}. ` +
+          (limit > 1 ? 'Desconecta las que sobran' : `${MULTI_ACCOUNT_HINT} Renueva el plan o desconecta las que sobran`) +
+          ' con DELETE /v1/shalom/pro/accounts/{account}.',
+      );
+    }
+    if (ref) return this.find(userId, ref);
+    if (count > 1) {
+      const refs = await db.shalomProAccount.findMany({ where: { userId }, select: { ref: true }, orderBy: { createdAt: 'asc' }, take: 10 });
+      throw new BadRequestException(
+        `Tienes ${count} cuentas de Shalom Pro conectadas: indica con cuál crear la guía en \`account\` (${refs.map((r) => r.ref).join(', ')}${count > refs.length ? ', …' : ''}).`,
+      );
+    }
+    const only = count === 1 ? await db.shalomProAccount.findFirst({ where: { userId } }) : null;
+    return only ?? this.find(userId, DEFAULT_PRO_ACCOUNT);
   }
 
   // ─── Guías ─────────────────────────────────────────────────────────────────
 
   /** Registra la guía en Shalom Pro. Devuelve el número de guía, la clave y el ose_id. */
-  async createShipment(userId: string, dto: ShalomShipmentDto): Promise<ShalomShipment> {
+  async createShipment(userId: string, dto: ShalomShipmentDto, limit: number = PRO_ACCOUNTS_LIMIT.base): Promise<ShalomShipment> {
+    const account = await this.choose(userId, dto.account, limit);
     const securityCode = dto.securityCode ?? generateSecurityCode();
-    const { saved, origin, destination, recipient } = await this.withSession(userId, async (jar) => {
+    const { saved, origin, destination, recipient } = await this.withSession(account, async (jar) => {
       const { origin, destination } = this.route(await this.terminals(jar), dto);
-      const product = this.product(await this.products(userId, jar), dto.package);
+      const product = this.product(await this.products(sessionKey(account), jar), dto.package);
       const price = await this.tariff(jar, origin, destination, dto);
       const sender = senderOf(await this.client.call(jar, 'GET', '/auth/me'));
       if (!sender?.document || !sender.name) {
@@ -307,8 +386,9 @@ export class ShalomProService {
     const orderNumber = str(data.guia);
     const orderCode = str(data.codigo) || null;
     // La guía ya existe en Shalom: si esto falla no se lanza (un reintento duplicaría la guía).
+    const record = { userId, orderNumber, accountRef: account.ref };
     await this.prisma.shalomProShipment
-      .upsert({ where: { oseId }, create: { oseId, userId, orderNumber }, update: { userId, orderNumber } })
+      .upsert({ where: { oseId }, create: { oseId, ...record }, update: record })
       .catch((err) => this.logger.error(`No se registró la guía ${orderNumber} (ose_id ${oseId}) de ${userId}: ${String(err)}`));
     // Así el rastreo de esta guía no gasta captcha (se guarda un hash, no la clave).
     if (orderCode) {
@@ -317,6 +397,7 @@ export class ShalomProService {
         .catch((err) => this.logger.warn(`No se guardó la guía ${orderNumber} en el caché: ${String(err)}`));
     }
     return {
+      account: account.ref,
       orderNumber,
       series: str(data.serie) || null,
       orderCode,
@@ -340,11 +421,18 @@ export class ShalomProService {
   /**
    * PDF del rótulo (etiqueta para la caja) o del ticket (comprobante). Solo de
    * guías que este cliente creó con la API: no se le pide a Shalom un ose_id ajeno.
+   * Se piden con la cuenta con la que se creó la guía.
    */
   async document(userId: string, oseId: string, kind: 'label' | 'ticket'): Promise<ProFile> {
-    const own = await this.db().shalomProShipment.findUnique({ where: { oseId } });
+    const db = this.db();
+    const own = await db.shalomProShipment.findUnique({ where: { oseId } });
     if (own?.userId !== userId) throw new NotFoundException('No encontramos esa guía entre las que creaste con la API (oseId de POST /v1/shalom/shipments).');
-    return this.withSession(userId, async (jar) => {
+    const account = await db.shalomProAccount.findUnique({ where: { userId_ref: { userId, ref: own.accountRef } } });
+    if (!account) {
+      const which = own.accountRef === DEFAULT_PRO_ACCOUNT ? 'tu cuenta de Shalom Pro' : `la cuenta de Shalom Pro "${own.accountRef}"`;
+      throw new NotFoundException(`La guía se creó con ${which}, que ya no está conectada: vuelve a conectarla con ${connectPath(own.accountRef)} para descargar su rótulo y ticket.`);
+    }
+    return this.withSession(account, async (jar) => {
       if (kind === 'label') {
         const body = await this.client.call(jar, 'POST', '/rotulo/token', { ose_id: Number(oseId) });
         const url = pick(body, (l) => typeof l.url === 'string' && !!l.url)?.url as string | undefined;
@@ -371,9 +459,9 @@ export class ShalomProService {
     );
   }
 
-  private products(userId: string, jar: CookieJar): Promise<Array<Record<string, any>>> {
+  private products(key: string, jar: CookieJar): Promise<Array<Record<string, any>>> {
     return this.productsCache.get(
-      userId,
+      key,
       async () => {
         const body = await this.client.call(jar, 'POST', '/envia_ya/products');
         if (Array.isArray(body)) return body;
@@ -459,15 +547,14 @@ export class ShalomProService {
   // ─── Sesión ────────────────────────────────────────────────────────────────
 
   /** Corre `fn` con la sesión de la cuenta; si Shalom la cerró (401), entra de nuevo y reintenta una vez. */
-  private async withSession<T>(userId: string, fn: (jar: CookieJar) => Promise<T>): Promise<T> {
-    const account = await this.find(userId);
-    const jar = this.sessions.get(userId) ?? this.restore(userId, account) ?? (await this.login(userId, account));
+  private async withSession<T>(account: ShalomProAccount, fn: (jar: CookieJar) => Promise<T>): Promise<T> {
+    const jar = this.cached(account) ?? this.restore(account) ?? (await this.login(account));
     try {
       return await fn(jar);
     } catch (err) {
       if (!(err instanceof ShalomProSessionExpired)) throw err;
     }
-    const fresh = await this.login(userId, account);
+    const fresh = await this.login(account);
     try {
       return await fn(fresh);
     } catch (err) {
@@ -478,37 +565,45 @@ export class ShalomProService {
     }
   }
 
+  /** Sesión en memoria, si es de la conexión vigente de la cuenta. */
+  private cached(account: ShalomProAccount): CookieJar | null {
+    const entry = this.sessions.get(sessionKey(account));
+    return entry?.stamp === account.password ? entry.jar : null;
+  }
+
   /** Login con la contraseña guardada (uno a la vez por cuenta) y guarda la sesión nueva. */
-  private login(userId: string, account: ShalomProAccount): Promise<CookieJar> {
-    const pending = this.logins.get(userId);
+  private login(account: ShalomProAccount): Promise<CookieJar> {
+    const key = sessionKey(account);
+    const pending = this.logins.get(key);
     if (pending) return pending;
+    const { userId, ref } = account;
     const run = (async () => {
-      this.sessions.delete(userId);
+      this.sessions.delete(key);
       let jar: CookieJar;
       try {
         jar = await this.client.login(account.email, this.secrets.open(account.password));
       } catch (err) {
         if (err instanceof UpstreamError && err.getStatus() === 400) {
-          throw new UpstreamError(SHALOM_PRO, `${err.message} Si cambiaste la contraseña, vuelve a conectar la cuenta con PUT /v1/shalom/pro/account.`, { status: 400 });
+          throw new UpstreamError(SHALOM_PRO, `${err.message} Si cambiaste la contraseña, vuelve a conectar la cuenta con ${connectPath(ref)}.`, { status: 400 });
         }
         throw err;
       }
-      this.sessions.set(userId, jar);
+      this.sessions.set(key, { jar, stamp: account.password });
       await this.prisma.shalomProAccount
-        .update({ where: { userId }, data: { session: this.seal(jar) } })
-        .catch((err) => this.logger.warn(`No se guardó la sesión de Shalom Pro de ${userId}: ${String(err)}`));
+        .update({ where: { userId_ref: { userId, ref } }, data: { session: this.seal(jar) } })
+        .catch((err) => this.logger.warn(`No se guardó la sesión de Shalom Pro de ${key}: ${String(err)}`));
       return jar;
-    })().finally(() => this.logins.delete(userId));
-    this.logins.set(userId, run);
+    })().finally(() => this.logins.delete(key));
+    this.logins.set(key, run);
     return run;
   }
 
   /** Sesión guardada en la BD (otra instancia pudo abrirla). */
-  private restore(userId: string, account: ShalomProAccount): CookieJar | null {
+  private restore(account: ShalomProAccount): CookieJar | null {
     if (!account.session) return null;
     try {
       const jar = new CookieJar(JSON.parse(this.secrets.open(account.session)) as Record<string, string>);
-      this.sessions.set(userId, jar);
+      this.sessions.set(sessionKey(account), { jar, stamp: account.password });
       return jar;
     } catch {
       return null;

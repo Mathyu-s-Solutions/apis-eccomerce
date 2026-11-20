@@ -215,10 +215,13 @@ model ShalomGuide {
 }
 
 // Cuenta de Shalom Pro (pro.shalom.pe) de un cliente del portal: con ella se
-// crean guías a su nombre. Una por cliente. La contraseña y las cookies de la
-// sesión van cifradas con SUNAT_SECRETS_KEY (AES-256-GCM): nunca en claro.
+// crean guías a su nombre. Una por cliente; con el plan Empresarial, varias (una
+// por negocio), cada una con el identificador que elija (`ref`; "default" es la de
+// PUT /shalom/pro/account). La contraseña y las cookies de la sesión van cifradas
+// con SUNAT_SECRETS_KEY (AES-256-GCM): nunca en claro.
 model ShalomProAccount {
-  userId    String   @id @map("user_id")
+  userId    String   @map("user_id")
+  ref       String   @default("default")
   email     String
   password  String
   session   String?
@@ -227,6 +230,7 @@ model ShalomProAccount {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@id([userId, ref])
   @@map("shalom_pro_accounts")
 }
 
@@ -237,6 +241,8 @@ model ShalomProShipment {
   oseId       String   @id @map("ose_id")
   userId      String   @map("user_id")
   orderNumber String   @map("order_number")
+  // Cuenta con la que se creó (su `ref`): el rótulo y el ticket se piden con su sesión.
+  accountRef  String   @default("default") @map("account_ref")
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([userId])

@@ -19,7 +19,7 @@ export const PLANS: Record<Product, Plan[]> = {
   shalom: [
     { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 20, features: ['20 consultas/mes para probar', 'Agencias sin costo', 'Soporte por correo'] },
     { id: 'basico', name: 'Básico', pricedPen: 25, monthlyLimit: null, highlight: true, features: ['Consultas ilimitadas (uso razonable)', 'Rastreo, lote, agencias y cotización', 'Webhooks de estado', 'Soporte prioritario'] },
-    { id: 'empresarial', name: 'Empresarial', pricedPen: 399, monthlyLimit: null, features: ['Todo lo del Básico', 'Integración a medida', 'Soporte dedicado y SLA'] },
+    { id: 'empresarial', name: 'Empresarial', pricedPen: 399, monthlyLimit: null, features: ['Todo lo del Básico', 'Varias cuentas de Shalom Pro (una por negocio)', 'Integración a medida', 'Soporte dedicado y SLA'] },
   ],
   olva: [
     { id: 'free', name: 'Prueba', pricedPen: 0, monthlyLimit: 20, features: ['20 consultas/mes para probar', 'Agencias sin costo', 'Soporte por correo'] },

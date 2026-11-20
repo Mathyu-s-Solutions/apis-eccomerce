@@ -7,6 +7,13 @@ export const ShalomProAccountSchema = z.object({
 });
 export type ShalomProAccountDto = z.infer<typeof ShalomProAccountSchema>;
 
+/** Cuenta de PUT /shalom/pro/account (la única, salvo con varias conectadas). */
+export const DEFAULT_PRO_ACCOUNT = 'default';
+
+/** Identificador de una cuenta de Shalom Pro que elige el cliente (p. ej. el id de su negocio). */
+export const PRO_ACCOUNT_REF = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
+export const PRO_ACCOUNT_REF_HINT = 'account: el identificador de la cuenta de Shalom Pro (letras, números, "_", "." o "-"; hasta 64)';
+
 /** Tamaños de Shalom: los mismos de POST /quote, más `custom` (otra medida, por peso o volumen). */
 export const SHALOM_PACKAGES = ['envelope', 'xxs', 'xs', 's', 'm', 'l', 'custom'] as const;
 export type ShalomPackage = (typeof SHALOM_PACKAGES)[number];
@@ -38,6 +45,8 @@ const measure = (max: number) => z.number().positive().max(max).optional();
 
 export const ShalomShipmentSchema = z
   .object({
+    /** Con qué cuenta de Shalom Pro se crea (su identificador); hace falta si hay varias conectadas. */
+    account: z.string().trim().regex(PRO_ACCOUNT_REF, PRO_ACCOUNT_REF_HINT).optional(),
     origin: agencyCode('origin'),
     destination: agencyCode('destination'),
     air: z.boolean().optional(),

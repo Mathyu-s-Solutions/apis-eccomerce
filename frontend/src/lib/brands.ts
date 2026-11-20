@@ -172,12 +172,15 @@ export const BRANDS: Record<BrandId, Brand> = {
       {
         title: 'Guías (Shalom Pro)',
         description:
-          'Crea guías a tu nombre con tu cuenta de pro.shalom.pe: conéctala una vez (la contraseña se guarda cifrada) y registra envíos que pagas en la agencia o paga el destinatario.',
+          'Crea guías a tu nombre con tu cuenta de pro.shalom.pe: conéctala una vez (la contraseña se guarda cifrada) y registra envíos que pagas en la agencia o paga el destinatario. Con el plan Empresarial conectas varias cuentas (una por negocio) y eliges cuál en cada guía.',
         endpoints: [
           { method: 'PUT', path: '/pro/account', summary: 'Conecta tu cuenta de Shalom Pro (email y password)', cost: 'gratis' },
           { method: 'GET', path: '/pro/account', summary: 'Cuenta conectada (sin la contraseña)', cost: 'gratis' },
           { method: 'DELETE', path: '/pro/account', summary: 'Desconecta la cuenta y borra sus credenciales', cost: 'gratis' },
-          { method: 'POST', path: '/shipments', summary: 'Crea una guía: agencias, tamaño, destinatario y quién paga', cost: '1 consulta' },
+          { method: 'PUT', path: '/pro/accounts/{account}', summary: 'Empresarial: conecta una cuenta por negocio, con tu identificador', cost: 'gratis' },
+          { method: 'GET', path: '/pro/accounts', summary: 'Empresarial: cuentas conectadas', cost: 'gratis' },
+          { method: 'DELETE', path: '/pro/accounts/{account}', summary: 'Empresarial: desconecta una de las cuentas', cost: 'gratis' },
+          { method: 'POST', path: '/shipments', summary: 'Crea una guía: agencias, tamaño, destinatario, quién paga (y account, si tienes varias)', cost: '1 consulta' },
           { method: 'GET', path: '/shipments/{oseId}/label', summary: 'Rótulo en PDF para la caja', cost: 'gratis' },
           { method: 'GET', path: '/shipments/{oseId}/ticket', summary: 'Ticket del envío en PDF', cost: 'gratis' },
         ],

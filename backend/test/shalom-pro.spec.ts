@@ -1,12 +1,20 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 import { SecretBox } from '../src/common/crypto/secret-box';
+import type { ApiKeyRecord } from '../src/auth/api-key.store';
 import type { AppConfig } from '../src/config/configuration';
 import type { PrismaService } from '../src/prisma/prisma.service';
 import { ShalomShipmentSchema, type ShalomShipmentDto } from '../src/modules/shalom/dto/shalom-pro.dto';
 import { guideKey, ShalomGuideCache } from '../src/modules/shalom/shalom-guide-cache';
 import { CookieJar, type ShalomProClient, ShalomProSessionExpired } from '../src/modules/shalom/pro/shalom-pro.client';
-import { buildServiceOrder, generateSecurityCode, senderOf, ShalomProService } from '../src/modules/shalom/pro/shalom-pro.service';
+import {
+  buildServiceOrder,
+  generateSecurityCode,
+  PRO_ACCOUNTS_LIMIT,
+  proAccountsLimit,
+  senderOf,
+  ShalomProService,
+} from '../src/modules/shalom/pro/shalom-pro.service';
 
 const shipment = (over: Record<string, unknown> = {}): ShalomShipmentDto =>
   ShalomShipmentSchema.parse({
@@ -63,6 +71,14 @@ describe('ShalomShipmentSchema', () => {
     expect(errors({ declaration: 'clothes' })).toEqual(['declaration']);
     expect(errors({ declaration: 'clothes', referralGuides: [{ series: 'T001', number: '45' }] })).toEqual([]);
     expect(errors({ destination: '220' })).toEqual(['destination']);
+  });
+
+  it('acepta el identificador de la cuenta (id del negocio) y rechaza otros caracteres', () => {
+    expect(errors({ account: 'tienda-2' })).toEqual([]);
+    expect(errors({ account: 'a1b2.c3_D4' })).toEqual([]);
+    expect(errors({ account: 'a/b' })).toEqual(['account']);
+    expect(errors({ account: '-x' })).toEqual(['account']);
+    expect(errors({ account: 'x'.repeat(65) })).toEqual(['account']);
   });
 
   it('genera claves válidas', () => {
@@ -134,7 +150,7 @@ describe('buildServiceOrder', () => {
 
 /** Shalom Pro simulado: rutas de /api/v1 y conteo de logins. */
 function fakePro(opts: { recipientExists?: boolean; expireFirst?: string } = {}) {
-  const calls: Array<{ path: string; body: unknown }> = [];
+  const calls: Array<{ path: string; body: unknown; session?: string }> = [];
   let logins = 0;
   let expire = opts.expireFirst;
   const routes: Record<string, (body: any) => unknown> = {
@@ -154,8 +170,8 @@ function fakePro(opts: { recipientExists?: boolean; expireFirst?: string } = {})
     '/rotulo/token': () => ({ url: 'https://pro.shalom.pe/storage/rotulo-999001.pdf' }),
     '/ticket-pdf/token': () => ({ success: true, message: '', data: { token: 'tk' } }),
   };
-  const respond = (path: string, body: unknown) => {
-    calls.push({ path, body });
+  const respond = (path: string, body: unknown, jar?: CookieJar) => {
+    calls.push({ path, body, session: jar?.get('enviashalom_session') });
     if (expire === path) {
       expire = undefined;
       throw new ShalomProSessionExpired();
@@ -169,19 +185,23 @@ function fakePro(opts: { recipientExists?: boolean; expireFirst?: string } = {})
       logins++;
       return new CookieJar({ enviashalom_session: `s${logins}`, 'XSRF-TOKEN': 'x' });
     },
-    call: async (_jar: CookieJar, _m: string, path: string, body?: unknown) => respond(path, body),
-    request: async (_jar: CookieJar, _m: string, path: string, body?: unknown) => {
-      const res = respond(path, body) as { success?: boolean };
+    call: async (jar: CookieJar, _m: string, path: string, body?: unknown) => respond(path, body, jar),
+    request: async (jar: CookieJar, _m: string, path: string, body?: unknown) => {
+      const res = respond(path, body, jar) as { success?: boolean };
       return { status: res.success === false ? 404 : 200, body: res };
     },
-    download: async (_jar: CookieJar, url: string) => {
-      calls.push({ path: 'download', body: url });
+    download: async (jar: CookieJar, url: string) => {
+      calls.push({ path: 'download', body: url, session: jar.get('enviashalom_session') });
       return { data: Buffer.from('%PDF-1.4'), contentType: 'application/pdf' };
     },
   } as unknown as ShalomProClient;
 
+  // Cuentas por `${userId}/${ref}`, como la llave (user_id, ref) de la tabla.
   const rows = new Map<string, any>();
   const shipments = new Map<string, any>();
+  let seq = 0;
+  const id = (where: any) => `${where.userId_ref.userId}/${where.userId_ref.ref}`;
+  const ofUser = (userId: string) => [...rows.values()].filter((r) => r.userId === userId).sort((a, b) => a.createdAt - b.createdAt);
   const prisma = {
     enabled: true,
     shalomProShipment: {
@@ -192,19 +212,22 @@ function fakePro(opts: { recipientExists?: boolean; expireFirst?: string } = {})
       findUnique: async ({ where }: any) => shipments.get(where.oseId) ?? null,
     },
     shalomProAccount: {
-      findUnique: async ({ where }: any) => rows.get(where.userId) ?? null,
+      findUnique: async ({ where }: any) => rows.get(id(where)) ?? null,
+      findFirst: async ({ where }: any) => ofUser(where.userId)[0] ?? null,
+      findMany: async ({ where, take }: any) => ofUser(where.userId).slice(0, take),
+      count: async ({ where }: any) => ofUser(where.userId).length,
       upsert: async ({ where, create, update }: any) => {
-        const now = new Date();
-        const row = rows.has(where.userId) ? { ...rows.get(where.userId), ...update, updatedAt: now } : { ...create, createdAt: now, updatedAt: now };
-        rows.set(where.userId, row);
+        const now = new Date(Date.UTC(2026, 10, 20) + seq++);
+        const row = rows.has(id(where)) ? { ...rows.get(id(where)), ...update, updatedAt: now } : { ...create, createdAt: now, updatedAt: now };
+        rows.set(id(where), row);
         return row;
       },
       update: async ({ where, data }: any) => {
-        const row = { ...rows.get(where.userId), ...data };
-        rows.set(where.userId, row);
+        const row = { ...rows.get(id(where)), ...data };
+        rows.set(id(where), row);
         return row;
       },
-      delete: async ({ where }: any) => rows.delete(where.userId),
+      delete: async ({ where }: any) => rows.delete(id(where)),
     },
   } as unknown as PrismaService;
   const secrets = new SecretBox({ sunat: { secretsKey: 'k'.repeat(32) } } as unknown as AppConfig);
@@ -218,7 +241,7 @@ describe('ShalomProService', () => {
     const pro = fakePro();
     const view = await pro.service.connect('user-1', { email: 'ventas@tienda.pe', password: 'secreta' });
     expect(view).toMatchObject({ email: 'ventas@tienda.pe', sender: { document: '44556677', name: 'JUAN' } });
-    const row = pro.rows.get('user-1');
+    const row = pro.rows.get('user-1/default');
     expect(row.password).not.toContain('secreta');
     expect(pro.secrets.open(row.password)).toBe('secreta');
     expect(JSON.parse(pro.secrets.open(row.session))).toEqual({ enviashalom_session: 's1', 'XSRF-TOKEN': 'x' });
@@ -234,6 +257,7 @@ describe('ShalomProService', () => {
     await pro.service.connect('user-1', { email: 'ventas@tienda.pe', password: 'secreta' });
     const result = await pro.service.createShipment('user-1', shipment({ securityCode: '4821' }));
     expect(result).toMatchObject({
+      account: 'default',
       orderNumber: '87654321',
       series: 'B001',
       orderCode: 'XK29',
@@ -277,7 +301,7 @@ describe('ShalomProService', () => {
     const result = await pro.service.createShipment('user-1', shipment());
     expect(result.oseId).toBe('999001');
     expect(pro.logins()).toBe(2);
-    expect(JSON.parse(pro.secrets.open(pro.rows.get('user-1').session))).toMatchObject({ enviashalom_session: 's2' });
+    expect(JSON.parse(pro.secrets.open(pro.rows.get('user-1/default').session))).toMatchObject({ enviashalom_session: 's2' });
   });
 
   it('valida la ruta con las agencias de Shalom Pro antes de registrar', async () => {
@@ -309,7 +333,82 @@ describe('ShalomProService', () => {
     const pro = fakePro();
     await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' });
     await pro.service.disconnect('user-1');
-    expect(pro.rows.has('user-1')).toBe(false);
+    expect(pro.rows.has('user-1/default')).toBe(false);
     await expect(pro.service.account('user-1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('con un plan que no es Empresarial: reconecta la misma cuenta, pero no conecta otra', async () => {
+    const pro = fakePro();
+    await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' });
+    await pro.service.connect('user-1', { email: 'otra@b.pe', password: 'y' });
+    expect(pro.rows.get('user-1/default').email).toBe('otra@b.pe');
+    await expect(pro.service.connect('user-1', { email: 'c@d.pe', password: 'z' }, 'tienda-2', PRO_ACCOUNTS_LIMIT.base)).rejects.toThrow(/plan Empresarial/);
+    // Se rechaza antes de entrar a Shalom (sin captcha).
+    expect(pro.logins()).toBe(2);
+  });
+
+  it('con varias cuentas crea cada guía con la que se indica y pide sus PDFs con la misma', async () => {
+    const pro = fakePro();
+    const limit = PRO_ACCOUNTS_LIMIT.empresarial;
+    await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' }, 'tienda-a', limit);
+    await pro.service.connect('user-1', { email: 'b@b.pe', password: 'y' }, 'tienda-b', limit);
+    expect((await pro.service.accounts('user-1')).map((a) => [a.account, a.email])).toEqual([
+      ['tienda-a', 'a@b.pe'],
+      ['tienda-b', 'b@b.pe'],
+    ]);
+
+    await expect(pro.service.createShipment('user-1', shipment(), limit)).rejects.toThrow(/indica con cuál.*tienda-a, tienda-b/);
+    await expect(pro.service.createShipment('user-1', shipment({ account: 'tienda-c' }), limit)).rejects.toBeInstanceOf(NotFoundException);
+
+    const b = await pro.service.createShipment('user-1', shipment({ account: 'tienda-b' }), limit);
+    expect(b.account).toBe('tienda-b');
+    expect(pro.calls.find((c) => c.path === '/envia_ya/service_order/save')?.session).toBe('s2');
+
+    pro.calls.length = 0;
+    await pro.service.document('user-1', b.oseId, 'label');
+    expect(pro.calls.find((c) => c.path === '/rotulo/token')?.session).toBe('s2');
+    expect(pro.logins()).toBe(2);
+
+    // Si se desconecta la cuenta de la guía, sus PDFs piden reconectarla (no usan otra cuenta).
+    await pro.service.disconnect('user-1', 'tienda-b');
+    await expect(pro.service.document('user-1', b.oseId, 'ticket')).rejects.toThrow(/tienda-b.*PUT \/v1\/shalom\/pro\/accounts\/tienda-b/);
+    // Con una sola cuenta conectada ya no hace falta `account`.
+    expect((await pro.service.createShipment('user-1', shipment(), limit)).account).toBe('tienda-a');
+  });
+
+  it('sin el plan Empresarial no crea guías si quedaron varias cuentas conectadas', async () => {
+    const pro = fakePro();
+    await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' }, 'tienda-a', PRO_ACCOUNTS_LIMIT.empresarial);
+    await pro.service.connect('user-1', { email: 'b@b.pe', password: 'y' }, 'tienda-b', PRO_ACCOUNTS_LIMIT.empresarial);
+    await expect(pro.service.createShipment('user-1', shipment({ account: 'tienda-a' }), PRO_ACCOUNTS_LIMIT.base)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(pro.paths()).not.toContain('/envia_ya/service_order/save');
+  });
+
+  it('si la cuenta se reconectó en otra instancia, usa la sesión nueva', async () => {
+    const pro = fakePro();
+    await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' });
+    const row = pro.rows.get('user-1/default');
+    pro.rows.set('user-1/default', {
+      ...row,
+      email: 'nueva@b.pe',
+      password: pro.secrets.seal('z'),
+      session: pro.secrets.seal(JSON.stringify({ enviashalom_session: 'de-otra-instancia', 'XSRF-TOKEN': 'x' })),
+    });
+    await pro.service.createShipment('user-1', shipment());
+    expect(pro.calls.find((c) => c.path === '/envia_ya/service_order/save')?.session).toBe('de-otra-instancia');
+  });
+});
+
+describe('proAccountsLimit', () => {
+  const key = (plans: ApiKeyRecord['plans']): ApiKeyRecord => ({ id: 'k', prefix: 'mk_', name: 'k', monthlyLimit: null, enabled: true, product: 'all', userId: 'user-1', plans });
+  const now = new Date('2026-11-20T12:00:00Z');
+
+  it('varias cuentas solo con Shalom Empresarial vigente', () => {
+    expect(proAccountsLimit(key({ shalom: { plan: 'empresarial', monthlyLimit: null, expiresAt: null } }), now)).toBe(PRO_ACCOUNTS_LIMIT.empresarial);
+    expect(proAccountsLimit(key({ shalom: { plan: 'empresarial', monthlyLimit: null, expiresAt: new Date('2026-12-20') } }), now)).toBe(PRO_ACCOUNTS_LIMIT.empresarial);
+    expect(proAccountsLimit(key({ shalom: { plan: 'empresarial', monthlyLimit: null, expiresAt: new Date('2026-11-01') } }), now)).toBe(1);
+    expect(proAccountsLimit(key({ shalom: { plan: 'basico', monthlyLimit: null, expiresAt: null } }), now)).toBe(1);
+    expect(proAccountsLimit(key({ olva: { plan: 'empresarial', monthlyLimit: null, expiresAt: null } }), now)).toBe(1);
+    expect(proAccountsLimit(key({}), now)).toBe(1);
   });
 });

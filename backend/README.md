@@ -201,11 +201,23 @@ Necesita BD, `SUNAT_SECRETS_KEY` (cifra la contraseña y la sesión) y el captch
    caché de guías: el rastreo no gasta captcha), `securityCode`, `oseId` y `price`.
 3. `GET /v1/shalom/shipments/{oseId}/label` y `/ticket`: rótulo y ticket en PDF, solo
    de guías que ese cliente creó con la API (`shalom_pro_shipments`). Los `ose_id` son
-   correlativos: así la API no sirve para pedir PDFs de guías ajenas.
+   correlativos: así la API no sirve para pedir PDFs de guías ajenas. Se piden con la
+   cuenta con la que se creó la guía (`account_ref`).
 
-La sesión (cookies de Laravel Sanctum con "recordarme") se reutiliza; si Shalom
-responde 401 se vuelve a entrar con la contraseña guardada (un captcha) y se reintenta
-una vez. Para revisar las respuestas con una cuenta real sin crear guías:
+**Varias cuentas (plan Empresarial)**: una plataforma con varios negocios conecta una
+cuenta de Shalom Pro por negocio, cada una con el identificador que elige:
+`PUT /v1/shalom/pro/accounts/{account}` (y `GET`/`DELETE`; `GET /v1/shalom/pro/accounts`
+las lista). En `POST /v1/shalom/shipments` manda `account`; si hay una sola conectada no
+hace falta. La de `PUT /v1/shalom/pro/account` es `default`. Con Shalom Empresarial vigente
+se pueden conectar hasta 100 (`PRO_ACCOUNTS_LIMIT`); con los demás planes, 1 (se puede
+reconectar con otro correo, pero no agregar otra). Si el plan vence con varias conectadas,
+no se crean guías hasta renovarlo o desconectar las que sobran; los PDFs de guías ya
+creadas se siguen entregando.
+
+La sesión (cookies de Laravel Sanctum con "recordarme") se reutiliza, una por cuenta; si
+Shalom responde 401 se vuelve a entrar con la contraseña guardada (un captcha) y se
+reintenta una vez. Si la cuenta se reconecta en otra instancia, la sesión en memoria se
+descarta (se compara la contraseña cifrada guardada) y se toma la de la BD. Para revisar las respuestas con una cuenta real sin crear guías:
 `SHALOM_PRO_EMAIL=… SHALOM_PRO_PASSWORD=… node scripts/probes/shalom-pro-probe.mjs`.
 
 ### Envíos de Olva (registro web)
