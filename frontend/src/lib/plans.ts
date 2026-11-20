@@ -144,6 +144,11 @@ export interface PaymentItem {
   monthlyLimit: number | null;
   /** Meses que paga (los que registra el admin pueden ser varios); sin el campo, uno. */
   months?: number;
+  /**
+   * Cambio a un plan mayor a mitad del periodo (lib/upgrade.ts): vence en esta fecha
+   * (ISO), la de sus planes actuales (más los meses extra), en vez de renovarse.
+   */
+  expiresAt?: string;
 }
 
 /**

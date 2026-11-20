@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Check, ExternalLink, FileText, Loader2, X } from 'lucide-react';
 import type { PaymentView } from '@/lib/admin';
 import { paymentMethodLabel, PRODUCT_NAME, getPlan } from '@/lib/plans';
-import { formatDateTime, formatSoles, cn } from '@/lib/utils';
+import { formatDate, formatDateTime, formatSoles, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge, Input } from '@/components/ui/primitives';
@@ -18,10 +18,12 @@ const STATUS: Record<string, { label: string; tone: 'warning' | 'success' | 'dan
   rejected: { label: 'Rechazado', tone: 'danger' },
 };
 
-/** "Shalom Básico + Olva Básico · 3 meses" */
+/** "Shalom Básico + Olva Básico · 3 meses", o "… · cambio de plan hasta el 20 dic. 2026". */
 function itemsText(p: PaymentView): string {
   const months = p.items[0]?.months ?? 1;
   const plans = p.items.map((i) => `${PRODUCT_NAME[i.product]} ${getPlan(i.product, i.plan)?.name ?? i.plan}`).join(' + ');
+  const until = p.items.find((i) => i.expiresAt)?.expiresAt;
+  if (until) return `${plans} · cambio de plan hasta el ${formatDate(until)}`;
   return `${plans} · ${months} ${months === 1 ? 'mes' : 'meses'}`;
 }
 

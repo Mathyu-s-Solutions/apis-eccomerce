@@ -7,6 +7,7 @@ import { ArrowRight, Check, CheckCircle2, ImagePlus, Loader2, Plus, Search, User
 import { activatedMessage } from '@/lib/admin-messages';
 import { allPurchases, getPlan, PAYMENT_METHODS, PRODUCT_NAME, PRODUCTS, purchaseOf, renewalPurchase, type Purchase } from '@/lib/plans';
 import { renewedExpiry } from '@/lib/renewal';
+import { upgradeQuote, upgradeTotal } from '@/lib/upgrade';
 import { formatDate, formatSoles } from '@/lib/utils';
 import { formatPhone } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
@@ -89,6 +90,8 @@ function RegisterPaymentForm({ client: fixed, initialPurchase, onClose }: { clie
   const [note, setNote] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [notify, setNotify] = useState(true);
+  // Cambio a un plan mayor: cobra la diferencia y mantiene su vencimiento (lib/upgrade.ts).
+  const [prorate, setProrate] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ userId: string; until: string | null; name: string | null; email: string; phone: string | null; what: string } | null>(null);
@@ -105,8 +108,13 @@ function RegisterPaymentForm({ client: fixed, initialPurchase, onClose }: { clie
     return () => { alive = false; };
   }, [fixed]);
 
-  // Monto sugerido: precio de lista × meses, hasta que el admin lo cambie.
-  const suggested = purchase ? purchase.pricedPen * months : 0;
+  // Si ya tiene un plan y pasa a uno mayor: la diferencia por los días que le quedan.
+  const subs = client?.subs ?? [];
+  const quote = purchase && client ? upgradeQuote(subs.map((s) => ({ ...s, expiresAt: s.expiresAt ? new Date(s.expiresAt) : null })), purchase, now) : null;
+  const upgrade = quote && prorate && purchase ? upgradeTotal(quote, purchase, months) : null;
+
+  // Monto sugerido: precio de lista × meses (o el del cambio de plan), hasta que el admin lo cambie.
+  const suggested = upgrade ? upgrade.amountPen : purchase ? purchase.pricedPen * months : 0;
   const amountValue = amountTouched ? amount : purchase ? String(suggested) : '';
 
   // Vista previa de la captura; la URL se libera al cambiarla o al cerrar.
@@ -143,10 +151,9 @@ function RegisterPaymentForm({ client: fixed, initialPurchase, onClose }: { clie
   }
 
   // Hasta cuándo queda cada API, con la misma regla que el servidor.
-  const subs = client?.subs ?? [];
   const result = purchase?.items.map((i) => {
     const current = subs.find((s) => s.product === i.product);
-    const until = renewedExpiry(current ? { plan: current.plan, expiresAt: current.expiresAt ? new Date(current.expiresAt) : null } : null, i.plan, now, months);
+    const until = upgrade ? upgrade.expiresAt : renewedExpiry(current ? { plan: current.plan, expiresAt: current.expiresAt ? new Date(current.expiresAt) : null } : null, i.plan, now, months);
     const replaces = current && current.plan !== i.plan && current.plan !== 'free' && (!current.expiresAt || new Date(current.expiresAt) > now)
       ? `${PRODUCT_NAME[i.product]} ${getPlan(i.product, current.plan)?.name ?? current.plan}`
       : null;
@@ -175,6 +182,7 @@ function RegisterPaymentForm({ client: fixed, initialPurchase, onClose }: { clie
       if (operationCode.trim()) fd.set('operationCode', operationCode.trim());
       if (note.trim()) fd.set('note', note.trim());
       fd.set('notify', notify ? '1' : '0');
+      fd.set('prorate', upgrade ? '1' : '0');
       if (file) fd.set('proof', file);
       const res = await fetch('/api/admin/payments', { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
@@ -321,6 +329,16 @@ function RegisterPaymentForm({ client: fixed, initialPurchase, onClose }: { clie
           <Segmented label="Meses" value={months} onChange={setMonths} options={MONTHS.map((m) => ({ value: m, label: String(m) }))} className="sm:w-48" />
         </div>
       </div>
+
+      {quote && (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" checked={prorate} onChange={(e) => setProrate(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]" />
+          <span>
+            Cambio de plan: cobrar solo la diferencia por los {quote.days} {quote.days === 1 ? 'día' : 'días'} que le quedan ({formatSoles(quote.amountPen)}) y mantener su vencimiento del {formatDate(quote.expiresAt)}.
+            {months > 1 && ` Los ${months - 1} ${months === 2 ? 'mes extra va' : 'meses extra van'} a precio de lista.`}
+          </span>
+        </label>
+      )}
 
       {/* Cómo pagó */}
       <div className="grid gap-4 sm:grid-cols-[140px_1fr]">

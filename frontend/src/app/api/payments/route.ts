@@ -1,8 +1,10 @@
 import { after, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/current-user';
-import { getBundle, getPlan, PRODUCT_NAME, type PaymentItem } from '@/lib/plans';
+import { getBundle, getPlan, PRODUCT_NAME, purchaseOf, type PaymentItem } from '@/lib/plans';
 import { paymentLabel } from '@/lib/subscriptions';
+import { upgradeQuote } from '@/lib/upgrade';
+import { formatDate } from '@/lib/utils';
 import { notifyOwner } from '@/lib/email';
 import { paymentReceivedEmail } from '@/lib/email-templates';
 
@@ -18,10 +20,10 @@ export async function GET() {
     orderBy: { createdAt: 'desc' },
     select: {
       id: true, product: true, plan: true, amountPen: true, method: true,
-      operationCode: true, status: true, note: true, createdAt: true, reviewedAt: true,
+      operationCode: true, status: true, note: true, createdAt: true, reviewedAt: true, items: true,
     },
   });
-  return NextResponse.json({ payments: payments.map((p) => ({ ...p, label: paymentLabel(p) })) });
+  return NextResponse.json({ payments: payments.map(({ items, ...p }) => ({ ...p, label: paymentLabel({ ...p, items }) })) });
 }
 
 // Registro de un pago (Yape/Plin) con su comprobante: el plan de una API
@@ -56,6 +58,21 @@ export async function POST(request: Request) {
     const items: PaymentItem[] = [{ product: product as PaymentItem['product'], plan: plan.id, monthlyLimit: plan.monthlyLimit }];
     purchase = { product, plan: plan.id, name: `${PRODUCT_NAME[items[0].product]} ${plan.name}`, amountPen: plan.pricedPen, monthlyLimit: plan.monthlyLimit, items };
   }
+  // Si ya tiene un plan y pasa a uno mayor, paga la diferencia por los días que le
+  // quedan y mantiene su vencimiento (lib/upgrade.ts). El monto lo pone el servidor.
+  const chosen = purchaseOf(bundleId ? `bundle:${bundleId}` : `plan:${product}:${planId}`);
+  const subs = await prisma.subscription.findMany({ where: { userId: user.id }, select: { product: true, plan: true, expiresAt: true } });
+  const quote = chosen ? upgradeQuote(subs, chosen) : null;
+  if (quote) {
+    const expiresAt = quote.expiresAt.toISOString();
+    purchase = {
+      ...purchase,
+      name: `Cambio a ${purchase.name}: diferencia por ${quote.days} ${quote.days === 1 ? 'día' : 'días'}, vence el ${formatDate(quote.expiresAt)}`,
+      amountPen: quote.amountPen,
+      items: purchase.items.map((i) => ({ ...i, expiresAt })),
+    };
+  }
+
   if (!(proof instanceof File) || proof.size === 0) {
     return NextResponse.json({ message: 'Sube la foto del comprobante' }, { status: 400 });
   }

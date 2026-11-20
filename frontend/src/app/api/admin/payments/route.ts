@@ -21,6 +21,8 @@ const schema = z
     note: z.string().trim().max(300).optional(),
     // "1": le llega el correo de pago confirmado.
     notify: z.enum(['0', '1']).default('1'),
+    // "1": si es un cambio a un plan mayor, cobra la diferencia y mantiene su vencimiento.
+    prorate: z.enum(['0', '1']).default('0'),
   })
   .refine((d) => d.userId || d.email, { message: 'Falta el cliente' });
 
@@ -47,10 +49,10 @@ export async function POST(request: Request) {
     proof = { mime: file.type, data: new Uint8Array(await file.arrayBuffer()) };
   }
 
-  const { notify, ...input } = parsed.data;
+  const { notify, prorate, ...input } = parsed.data;
   let result: Awaited<ReturnType<typeof registerPayment>>;
   try {
-    result = await registerPayment(admin, { ...input, proof });
+    result = await registerPayment(admin, { ...input, proof, prorate: prorate === '1' });
   } catch (err) {
     if (isUniqueViolation(err)) return NextResponse.json({ message: 'Ese correo acaba de crear su cuenta: búscalo en la lista y vuelve a intentarlo' }, { status: 409 });
     throw err;

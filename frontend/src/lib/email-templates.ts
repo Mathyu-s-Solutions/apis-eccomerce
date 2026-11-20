@@ -1,4 +1,5 @@
 import 'server-only';
+import type { Prisma } from '@prisma/client';
 import { emailLayout, escapeHtml, limaDate, panelUrl } from './email';
 import { freePlan, getPlan, groupByBundle, paymentMethodLabel, PRODUCT_NAME, PRODUCTS } from './plans';
 import { paymentLabel } from './subscriptions';
@@ -38,7 +39,7 @@ export function paymentReceivedEmail({ user, purchase, method, operationCode }: 
 /** Al cliente: revisamos su pago. Aprobado: hasta cuándo quedan sus planes. Rechazado: el motivo. */
 export function paymentReviewedEmail({ name, payment, plans }: {
   name: string | null;
-  payment: { product: string; plan: string; amountPen: number; method: string; status: string; note: string | null };
+  payment: { product: string; plan: string; amountPen: number; method: string; status: string; note: string | null; items?: Prisma.JsonValue };
   /** Planes que activó el pago, con su nuevo vencimiento (null = no vence). */
   plans: { product: string; plan: string; expiresAt: Date | null }[];
 }): EmailContent {

@@ -18,6 +18,7 @@ import {
   type Product,
 } from './plans';
 import { grantPlans, paymentItems, paymentLabel } from './subscriptions';
+import { upgradeQuote, upgradeTotal } from './upgrade';
 
 /**
  * Datos del panel de admin. Las páginas son del servidor y leen de aquí; las
@@ -416,6 +417,8 @@ export interface RegisterPaymentInput {
   operationCode?: string;
   note?: string;
   proof?: { mime: string; data: Uint8Array<ArrayBuffer> };
+  /** Si es un cambio a un plan mayor: cobra la diferencia y mantiene su vencimiento (lib/upgrade.ts). */
+  prorate?: boolean;
 }
 
 /**
@@ -442,11 +445,15 @@ export async function registerPayment(admin: CurrentUser, input: RegisterPayment
     if (!user) return { error: 'No existe ese cliente' } as const;
     const client = user;
 
+    // Cambio a un plan mayor a mitad del periodo: todos vencen cuando vencían sus planes (más los meses extra).
+    const quote = input.prorate ? upgradeQuote(client.subscriptions, purchase, now) : null;
+    const until = quote ? upgradeTotal(quote, purchase, input.months).expiresAt.toISOString() : null;
+
     // Si sigue en el mismo plan conserva su cuota (pudo ajustarse a mano); si no, la del catálogo.
     const items: PaymentItem[] = purchase.items.map((i) => {
       const current = client.subscriptions.find((s) => s.product === i.product);
       const monthlyLimit = current?.plan === i.plan ? current.monthlyLimit : (getPlan(i.product, i.plan)?.monthlyLimit ?? null);
-      return { ...i, monthlyLimit, ...(input.months > 1 ? { months: input.months } : {}) };
+      return { ...i, monthlyLimit, ...(input.months > 1 ? { months: input.months } : {}), ...(until ? { expiresAt: until } : {}) };
     });
 
     const payment = await tx.payment.create({

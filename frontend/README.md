@@ -38,6 +38,18 @@ plan o pack, los meses (1, 3, 6 o 12), el monto, el N° de operación y, opciona
 que un comprobante (`renewedExpiry` en `src/lib/renewal.ts`) y, si se marca, le llega el
 correo de pago confirmado.
 
+**Cambio a un plan mayor** (`src/lib/upgrade.ts`): si el cliente ya tiene un plan pagado
+vigente en esas APIs (todas vencen el mismo día) y elige un plan o pack que cuesta más que
+lo que paga hoy por ellas, paga solo la diferencia por los días que le quedan (en soles
+enteros, hacia arriba) y sus planes siguen venciendo ese día: no se renuevan. Un pack que
+tiene se reparte entre sus APIs según el precio de lista. Ej.: Pack Couriers (S/ 45) →
+Pack Plataforma (S/ 65) el primer día del periodo = S/ 20. En "Pagos y planes" el cliente
+ve ese monto y el servidor lo vuelve a calcular al subir el comprobante; el pago guarda el
+vencimiento en `items[].expiresAt` y `grantPlans` lo usa al aprobarlo. En "Registrar
+pago" va marcado "Cambio de plan" (se puede desmarcar para la regla de siempre); con más
+de un mes, los meses extra van a precio de lista. Renovar lo mismo, bajar de plan, planes
+sin vencimiento o con vencimientos distintos siguen la regla de siempre.
+
 - **Cuota de prueba a medida:** sin plan de pago, subirle la cuota crea una fila
   `subscriptions` con `plan = 'free'` y esa cuota, sin vencimiento. El backend la respeta
   (`quotaScope`) y la sigue tratando como prueba (RUC/DNI cobran, límites de seguimiento

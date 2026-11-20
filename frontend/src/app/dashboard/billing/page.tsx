@@ -1,33 +1,43 @@
 import { getCurrentUser } from '@/lib/current-user';
-import { BUNDLES, PLANS, PRODUCT_NAME, PRODUCTS, bundleListPrice, isProduct } from '@/lib/plans';
+import { BUNDLES, PLANS, PRODUCT_NAME, PRODUCTS, bundleListPrice, isProduct, purchaseOf } from '@/lib/plans';
 import { getAccountPlans } from '@/lib/subscriptions';
+import { upgradeQuote } from '@/lib/upgrade';
 import { formatDate, formatSoles } from '@/lib/utils';
 import { Badge, Card } from '@/components/ui/primitives';
 import { PaymentForm, type PaymentChoice } from '@/components/dashboard/payment-form';
 import { PaymentHistory } from '@/components/dashboard/payment-history';
 
-/** Lo que se puede pagar: los packs y el plan de pago de cada API. */
-function choices(): PaymentChoice[] {
-  const bundles: PaymentChoice[] = BUNDLES.map((b) => {
+type Sub = { product: string; plan: string; expiresAt: Date | null };
+
+/**
+ * Lo que se puede pagar: los packs y el plan de pago de cada API. Si ya tiene un
+ * plan y elige uno mayor, paga hoy la diferencia por los días que le quedan
+ * (lib/upgrade.ts, la misma cuenta que hace /api/payments).
+ */
+function choices(subs: Sub[], now: Date): PaymentChoice[] {
+  const bundles = BUNDLES.map((b) => {
     const list = bundleListPrice(b);
-    return {
-      value: `bundle:${b.id}`,
-      group: 'Packs',
-      label: `${b.name}: ${b.items.map((i) => PRODUCT_NAME[i.product]).join(' + ')} — ${formatSoles(b.pricedPen)}/mes${list > b.pricedPen ? ` (ahorras ${formatSoles(list - b.pricedPen)})` : ''}`,
-      amountPen: b.pricedPen,
-    };
+    return choice(`bundle:${b.id}`, 'Packs', `${b.name}: ${b.items.map((i) => PRODUCT_NAME[i.product]).join(' + ')}`, b.pricedPen, list > b.pricedPen ? ` (ahorras ${formatSoles(list - b.pricedPen)})` : '', subs, now);
   });
-  const plans: PaymentChoice[] = PRODUCTS.flatMap((product) =>
+  const plans = PRODUCTS.flatMap((product) =>
     PLANS[product]
       .filter((p) => p.pricedPen > 0)
-      .map((p) => ({
-        value: `plan:${product}:${p.id}`,
-        group: PRODUCT_NAME[product],
-        label: `${PRODUCT_NAME[product]} ${p.name} — ${formatSoles(p.pricedPen)}/mes`,
-        amountPen: p.pricedPen,
-      })),
+      .map((p) => choice(`plan:${product}:${p.id}`, PRODUCT_NAME[product], `${PRODUCT_NAME[product]} ${p.name}`, p.pricedPen, '', subs, now)),
   );
   return [...bundles, ...plans];
+}
+
+function choice(value: string, group: string, name: string, pricedPen: number, savings: string, subs: Sub[], now: Date): PaymentChoice {
+  const purchase = purchaseOf(value);
+  const quote = purchase ? upgradeQuote(subs, purchase, now) : null;
+  if (!quote) return { value, group, label: `${name} — ${formatSoles(pricedPen)}/mes${savings}`, amountPen: pricedPen };
+  return {
+    value,
+    group,
+    label: `${name} — ${formatSoles(quote.amountPen)} hoy (cambio de plan), luego ${formatSoles(pricedPen)}/mes`,
+    amountPen: quote.amountPen,
+    upgrade: { days: quote.days, until: formatDate(quote.expiresAt), monthlyPen: pricedPen },
+  };
 }
 
 export default async function BillingPage({
@@ -37,8 +47,9 @@ export default async function BillingPage({
 }) {
   const user = (await getCurrentUser())!;
   const { product, plan, bundle } = await searchParams;
-  const accountPlans = await getAccountPlans(user.id);
-  const all = choices();
+  const now = new Date();
+  const accountPlans = await getAccountPlans(user.id, now);
+  const all = choices(accountPlans.map((p) => ({ product: p.product, plan: p.plan.id, expiresAt: p.expiresAt })), now);
 
   // Lo que viene elegido desde una landing o el resumen: un pack, un plan, o la API.
   const wanted = bundle
@@ -54,6 +65,7 @@ export default async function BillingPage({
         <h1 className="text-2xl font-bold tracking-tight">Pagos y planes</h1>
         <p className="mt-1 text-[var(--muted)]">
           Cada API tiene su plan y su precio. Paga con Yape o Plin: validamos tu comprobante y el plan queda activo hasta el mismo día del mes siguiente.
+          Si ya tienes un plan y pasas a uno mayor, pagas solo la diferencia por los días que te quedan.
         </p>
       </div>
 

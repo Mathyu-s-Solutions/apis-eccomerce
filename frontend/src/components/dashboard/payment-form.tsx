@@ -16,7 +16,10 @@ export interface PaymentChoice {
   value: string;
   group: string;
   label: string;
+  /** Lo que paga hoy: el precio del mes o, en un cambio de plan, la diferencia. */
   amountPen: number;
+  /** Cambio a un plan mayor a mitad del periodo (lib/upgrade.ts). */
+  upgrade?: { days: number; until: string; monthlyPen: number };
 }
 
 interface Props {
@@ -107,6 +110,13 @@ export function PaymentForm({ choices, initial, number, payName }: Props) {
             </a>
           </div>
         </div>
+
+        {choice?.upgrade && (
+          <Alert>
+            <b>Cambio de plan:</b> pagas {formatSoles(choice.amountPen)}, la diferencia por los {choice.upgrade.days} {choice.upgrade.days === 1 ? 'día' : 'días'} que le quedan a tu plan actual.
+            Tus planes siguen venciendo el {choice.upgrade.until}; desde ese día, {formatSoles(choice.upgrade.monthlyPen)} al mes.
+          </Alert>
+        )}
 
         <div>
           <Label htmlFor="op">Número de operación (opcional)</Label>

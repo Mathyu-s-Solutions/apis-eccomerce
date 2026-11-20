@@ -68,18 +68,24 @@ export function paymentItems(payment: { product: string; plan: string; monthlyLi
   return isProduct(payment.product) ? [{ product: payment.product, plan: payment.plan, monthlyLimit: payment.monthlyLimit }] : [];
 }
 
-/** Texto de lo que compra un pago: "Pack Couriers" o "Shalom · Básico". */
-export function paymentLabel(payment: { product: string; plan: string }): string {
-  if (payment.product === 'bundle') return getBundle(payment.plan)?.name ?? payment.plan;
+/** Es un cambio de plan a mitad del periodo (paga la diferencia y mantiene su vencimiento). */
+export function isUpgrade(payment: { items?: Prisma.JsonValue }): boolean {
+  return Array.isArray(payment.items) && payment.items.some((i) => !!(i as { expiresAt?: unknown } | null)?.expiresAt);
+}
+
+/** Texto de lo que compra un pago: "Pack Couriers", "Shalom · Básico" o "Cambio a Pack Plataforma". */
+export function paymentLabel(payment: { product: string; plan: string; items?: Prisma.JsonValue }): string {
   const plan = getPlan(payment.product, payment.plan);
   const product = isProduct(payment.product) ? PRODUCT_NAME[payment.product] : payment.product;
-  return `${product} · ${plan?.name ?? payment.plan}`;
+  const label = payment.product === 'bundle' ? (getBundle(payment.plan)?.name ?? payment.plan) : `${product} · ${plan?.name ?? payment.plan}`;
+  return isUpgrade(payment) ? `Cambio a ${label}` : label;
 }
 
 /**
  * Activa los planes de un pago aprobado. Cada uno vale un mes (o los `months` que
  * pagó) y se renueva el mismo día del mes: si es el mismo plan, el vencimiento se
  * corre esos meses (aunque haya vencido); si es otro, empieza hoy. Ver renewal.ts.
+ * Un cambio de plan a mitad del periodo trae su vencimiento (`expiresAt`, lib/upgrade.ts).
  */
 export async function grantPlans(
   tx: Prisma.TransactionClient,
@@ -90,7 +96,7 @@ export async function grantPlans(
   for (const item of items) {
     const where = { userId_product: { userId, product: item.product } };
     const current = await tx.subscription.findUnique({ where });
-    const expiresAt = renewedExpiry(current, item.plan, now, item.months ?? 1);
+    const expiresAt = item.expiresAt ? new Date(item.expiresAt) : renewedExpiry(current, item.plan, now, item.months ?? 1);
     // Mismo plan: conserva su cuota (el admin pudo ajustarla); otro plan, la del pago (catálogo).
     const monthlyLimit = current?.plan === item.plan ? current.monthlyLimit : item.monthlyLimit;
     await tx.subscription.upsert({
