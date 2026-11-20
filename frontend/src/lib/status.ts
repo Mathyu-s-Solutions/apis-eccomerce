@@ -289,7 +289,8 @@ export function buildStatus(site: SiteId, checks: StatusChecks | null, health: A
     if (component.id === 'api') {
       // La API se mira en vivo; el worker es el que guarda los chequeos.
       if (!health.ok) return { component, level: 'down', detail: health.detail, latencyMs: null, uptime, days };
-      if (checks && stale) {
+      // Solo si el worker ya corrió alguna vez: antes del primer chequeo no hay nada atrasado.
+      if (checks && last && stale) {
         return { component, level: 'degraded', detail: 'Responde, pero el monitoreo no corre: los webhooks pueden demorar', latencyMs: health.latencyMs, uptime, days };
       }
       return { component, level: 'up', detail: null, latencyMs: health.latencyMs, uptime, days };
