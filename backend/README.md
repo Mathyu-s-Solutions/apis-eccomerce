@@ -354,6 +354,25 @@ duplican) y se libera si Resend falla, para reintentarlo en el siguiente tick.
 Sin `RESEND_API_KEY` no se manda nada. Los avisos de pagos y vencimiento de planes
 los manda el portal (ver `frontend/README.md`).
 
+## Registro de requests
+
+Cada request de un cliente a la API queda en `api_requests` 30 días
+(`src/common/request-log/`), para el panel de admin: cliente, key (prefijo), API, método,
+la ruta con sus parámetros (`/v1/sunat/dni/:dni`, nunca el DNI), status, tiempo, cuota
+cobrada y, si falló, el mensaje que recibió el cliente (en una validación, qué campo y por
+qué) y el upstream (`shalom`, `olva`…). **Nunca los cuerpos ni la query string**: llevan la
+clave de las guías de Shalom y datos de personas.
+
+- Es un hook `onSend` de Fastify (se engancha en `main.ts`): ve también lo que se frena
+  antes del controller, como el límite por minuto (429) o una ruta que no existe (404), y
+  busca la key para saber de quién es. Sin key o con una inválida no se registra.
+- El guard deja la key y la API en la request, `QuotaInterceptor` lo cobrado y
+  `AllExceptionsFilter` el error (`logProps`).
+- No demora la respuesta: el insert empieza antes de enviarla y no se espera.
+- Topes, por la base del plan gratis de Neon (0,5 GB): 60 por minuto y 2.000 al día por
+  key, y 5.000 al día por instancia. Una fila son ~300 bytes: el peor caso son ~90 MB; el
+  uso normal, cientos de filas al mes. El worker borra lo de más de 30 días.
+
 ## Página de estado
 
 El mismo worker prueba, en paralelo con lo demás, la API y cada servicio del que

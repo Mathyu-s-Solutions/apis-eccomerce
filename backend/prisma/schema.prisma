@@ -34,6 +34,7 @@ model User {
   deliveries    WebhookDelivery[]
   sunatCompanies SunatCompany[]
   profile       ClientProfile?
+  apiRequests   ApiRequest[]
 
   @@map("users")
 }
@@ -392,4 +393,34 @@ model StatusCheck {
   @@id([component, checkedAt])
   @@index([checkedAt])
   @@map("status_checks")
+}
+
+// Registro de los requests a la API (30 días), para el panel de admin: qué endpoint llamó
+// cada cliente, con qué status y qué error recibió. Sin cuerpos: llevan la clave de las
+// guías de Shalom y datos de personas. Lo escribe src/common/request-log.
+model ApiRequest {
+  id         String   @id @default(cuid())
+  // null: key sin dueño (creada a mano).
+  userId     String?  @map("user_id")
+  apiKeyId   String   @map("api_key_id")
+  keyPrefix  String   @map("key_prefix")
+  // shalom | olva | sunat (null: webhooks, cuenta…)
+  product    String?
+  method     String
+  // La ruta con sus parámetros (/v1/shalom/shipments/:oseId/label), no la URL.
+  route      String
+  status     Int
+  durationMs Int      @map("duration_ms")
+  // Cuota que se le cobró.
+  units      Int      @default(0)
+  // El mensaje de error que recibió el cliente (4xx y 5xx).
+  error      String?
+  // Si el error vino de un courier o de SUNAT: shalom | olva | sunat…
+  upstream   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("api_requests")
 }

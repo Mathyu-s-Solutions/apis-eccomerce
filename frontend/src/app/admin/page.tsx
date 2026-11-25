@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { ArrowRight, TrendingDown, TrendingUp } from 'lucide-react';
-import { clientOption, getOverview } from '@/lib/admin';
+import { clientOption, getOverview, getRecentFailures } from '@/lib/admin';
 import { renewalMessage, upgradeMessage } from '@/lib/admin-messages';
 import { getPlan, PRODUCT_NAME, purchaseOf } from '@/lib/plans';
 import { relativeExpiry } from '@/lib/renewal';
 import { cn, formatDate, formatNumber, formatSoles } from '@/lib/utils';
 import { Badge, Card } from '@/components/ui/primitives';
 import { ApiName, Avatar, Empty, PageHeader, StatTile, WhatsAppLink } from '@/components/admin/parts';
+import { RecentFailures } from '@/components/admin/api-usage';
 import { PaymentCard } from '@/components/admin/payment-card';
 import { RegisterPaymentButton } from '@/components/admin/register-payment';
 import { RevenueChart } from '@/components/admin/revenue-chart';
@@ -21,9 +22,11 @@ function SectionTitle({ title, href, link }: { title: string; href?: string; lin
   );
 }
 
+const FAILURE_HOURS = 24;
+
 export default async function AdminHome() {
   const now = new Date();
-  const o = await getOverview(now);
+  const [o, failures] = await Promise.all([getOverview(now), getRecentFailures(FAILURE_HOURS)]);
   // En minúscula: es-PE da "Noviembre" para el mes solo.
   const month = new Intl.DateTimeFormat('es-PE', { month: 'long', timeZone: 'America/Lima' }).format(now).toLowerCase();
   const delta = o.revenue.month - o.revenue.prevMonth;
@@ -65,6 +68,11 @@ export default async function AdminHome() {
           </Card>
         </section>
       )}
+
+      <section>
+        <SectionTitle title={`Fallas de la API (últimas ${FAILURE_HOURS} h)`} href="/status" link="Página de estado" />
+        <RecentFailures groups={failures} hours={FAILURE_HOURS} />
+      </section>
 
       <div className="grid gap-8 xl:grid-cols-2">
         <section className="min-w-0">

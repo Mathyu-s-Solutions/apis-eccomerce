@@ -233,6 +233,167 @@ export const getClient = cache(async (id: string): Promise<ClientDetail | null> 
   };
 });
 
+// ---------- Requests a la API (api_requests, 30 días) ----------
+
+/** Días que guarda el backend (src/common/request-log). */
+export const REQUEST_LOG_DAYS = 30;
+
+export interface EndpointStat {
+  method: string;
+  route: string;
+  product: string | null;
+  total: number;
+  errors: number;
+  units: number;
+  avgMs: number;
+  lastAt: string;
+  /** El último error de este endpoint. */
+  lastError: { status: number; message: string | null; at: string } | null;
+}
+
+export interface RequestRow {
+  id: string;
+  at: string;
+  method: string;
+  route: string;
+  product: string | null;
+  status: number;
+  durationMs: number;
+  units: number;
+  error: string | null;
+  upstream: string | null;
+  keyPrefix: string;
+}
+
+export interface ClientRequests {
+  total: number;
+  errors: number;
+  endpoints: EndpointStat[];
+  /** Los últimos requests, con el filtro aplicado. */
+  recent: RequestRow[];
+}
+
+export interface RequestFilter {
+  route?: string;
+  errorsOnly?: boolean;
+}
+
+const RECENT_LIMIT = 100;
+
+/** Qué endpoints usa un cliente, cuántos le fallan y sus últimos requests. */
+export async function getClientRequests(userId: string, filter: RequestFilter = {}): Promise<ClientRequests> {
+  await assertAdmin();
+  const since = new Date(Date.now() - REQUEST_LOG_DAYS * 86_400_000);
+  const where = { userId, createdAt: { gte: since } };
+  const [all, failed, lastErrors, recent] = await Promise.all([
+    prisma.apiRequest.groupBy({
+      by: ['method', 'route', 'product'],
+      where,
+      _count: { _all: true },
+      _sum: { units: true },
+      _avg: { durationMs: true },
+      _max: { createdAt: true },
+    }),
+    prisma.apiRequest.groupBy({ by: ['method', 'route'], where: { ...where, status: { gte: 400 } }, _count: { _all: true } }),
+    prisma.$queryRaw<{ method: string; route: string; status: number; error: string | null; createdAt: Date }[]>`
+      SELECT DISTINCT ON (method, route) method, route, status, error, created_at AS "createdAt"
+      FROM api_requests
+      WHERE user_id = ${userId} AND created_at >= ${since} AND status >= 400
+      ORDER BY method, route, created_at DESC`,
+    prisma.apiRequest.findMany({
+      where: { ...where, ...(filter.route ? { route: filter.route } : {}), ...(filter.errorsOnly ? { status: { gte: 400 } } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_LIMIT,
+    }),
+  ]);
+  const id = (r: { method: string; route: string }) => `${r.method} ${r.route}`;
+  const errorsBy = new Map(failed.map((f) => [id(f), f._count._all]));
+  const lastBy = new Map(lastErrors.map((e) => [id(e), e]));
+  const endpoints = all
+    .map((e): EndpointStat => {
+      const last = lastBy.get(id(e));
+      return {
+        method: e.method,
+        route: e.route,
+        product: e.product,
+        total: e._count._all,
+        errors: errorsBy.get(id(e)) ?? 0,
+        units: e._sum.units ?? 0,
+        avgMs: Math.round(e._avg.durationMs ?? 0),
+        lastAt: (e._max.createdAt ?? since).toISOString(),
+        lastError: last ? { status: last.status, message: last.error, at: last.createdAt.toISOString() } : null,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
+  return {
+    total: endpoints.reduce((s, e) => s + e.total, 0),
+    errors: endpoints.reduce((s, e) => s + e.errors, 0),
+    endpoints,
+    recent: recent.map((r) => ({
+      id: r.id,
+      at: r.createdAt.toISOString(),
+      method: r.method,
+      route: r.route,
+      product: r.product,
+      status: r.status,
+      durationMs: r.durationMs,
+      units: r.units,
+      error: r.error,
+      upstream: r.upstream,
+      keyPrefix: r.keyPrefix,
+    })),
+  };
+}
+
+export interface FailureGroup {
+  method: string;
+  route: string;
+  status: number;
+  error: string | null;
+  upstream: string | null;
+  count: number;
+  clients: number;
+  lastAt: string;
+  /** El cliente del último. */
+  lastClient: { id: string; name: string | null; email: string } | null;
+}
+
+/**
+ * Fallas de todos los clientes en las últimas 24 h: errores del servidor (5xx), de un
+ * courier o SUNAT, y el límite por minuto (429). Sin los 4xx de uso normal (una guía que
+ * no existe, un dato mal escrito), que no son un problema nuestro.
+ */
+export async function getRecentFailures(hours = 24): Promise<FailureGroup[]> {
+  await assertAdmin();
+  const since = new Date(Date.now() - hours * 3_600_000);
+  const rows = await prisma.$queryRaw<
+    { method: string; route: string; status: number; error: string | null; upstream: string | null; count: number; clients: number; lastAt: Date; lastUser: string | null }[]
+  >`
+    SELECT method, route, status, error, max(upstream) AS upstream, count(*)::int AS count,
+           count(DISTINCT user_id)::int AS clients, max(created_at) AS "lastAt",
+           (array_agg(user_id ORDER BY created_at DESC))[1] AS "lastUser"
+    FROM api_requests
+    WHERE created_at >= ${since} AND (status >= 500 OR status = 429 OR (status >= 400 AND upstream IS NOT NULL))
+    GROUP BY method, route, status, error
+    ORDER BY count(*) DESC
+    LIMIT 10`;
+  const ids = [...new Set(rows.map((r) => r.lastUser).filter((u): u is string => !!u))];
+  const users = new Map(
+    (await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, email: true } })).map((u) => [u.id, u]),
+  );
+  return rows.map((r) => ({
+    method: r.method,
+    route: r.route,
+    status: r.status,
+    error: r.error,
+    upstream: r.upstream,
+    count: r.count,
+    clients: r.clients,
+    lastAt: r.lastAt.toISOString(),
+    lastClient: r.lastUser ? (users.get(r.lastUser) ?? null) : null,
+  }));
+}
+
 // ---------- Pagos ----------
 
 function paymentView(p: {

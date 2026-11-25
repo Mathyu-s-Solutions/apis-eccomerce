@@ -207,3 +207,25 @@ model StatusCheck {
   @@index([checkedAt])
   @@map("status_checks")
 }
+
+// Registro de los requests a la API (30 días): lo escribe el backend (src/common/request-log);
+// el admin lo lee en la ficha de cada cliente. Sin cuerpos.
+model ApiRequest {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  apiKeyId   String   @map("api_key_id")
+  keyPrefix  String   @map("key_prefix")
+  product    String?
+  method     String
+  route      String
+  status     Int
+  durationMs Int      @map("duration_ms")
+  units      Int      @default(0)
+  error      String?
+  upstream   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("api_requests")
+}

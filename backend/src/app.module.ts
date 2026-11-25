@@ -8,6 +8,7 @@ import { validateEnv } from './config/env.validation';
 import { AppConfigModule } from './config/config.module';
 import { HttpModule } from './common/http/http.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RequestLogModule } from './common/request-log/request-log.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { OlvaModule } from './modules/olva/olva.module';
@@ -60,6 +61,7 @@ const CLOUD_SEVERITY: Record<string, string> = {
     }),
     HttpModule,
     PrismaModule,
+    RequestLogModule,
     AuthModule,
     HealthModule,
     OlvaModule,

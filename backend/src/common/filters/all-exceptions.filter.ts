@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { logProps } from '../request-log/request-log.props';
 
 /** Normaliza cualquier error a un JSON consistente y lo registra. */
 @Catch()
@@ -31,6 +32,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
             error: 'Internal Server Error',
             message: 'Ocurrió un error inesperado',
           };
+
+    // Para el registro de requests: el error tal como lo recibe el cliente.
+    const { message, upstream, errors } = payload as { message?: unknown; upstream?: unknown; errors?: unknown };
+    // La validación trae qué campo falló y por qué (sin el valor enviado).
+    const fields = Array.isArray(errors)
+      ? errors.map((e: { path?: unknown; message?: unknown }) => `${String(e?.path ?? '') || '(cuerpo)'}: ${String(e?.message ?? '')}`).join('; ')
+      : '';
+    logProps(req).error = {
+      message: (Array.isArray(message) ? message.join('; ') : String(message ?? '')) + (fields ? ` (${fields})` : ''),
+      upstream: typeof upstream === 'string' ? upstream : undefined,
+    };
 
     if (status >= 500) {
       this.logger.error(

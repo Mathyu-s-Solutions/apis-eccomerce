@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Mail } from 'lucide-react';
-import { clientOption, getClient } from '@/lib/admin';
+import { clientOption, getClient, getClientRequests, REQUEST_LOG_DAYS } from '@/lib/admin';
 import { renewalMessage } from '@/lib/admin-messages';
 import { HUB } from '@/lib/brands';
 import { groupByBundle, PRODUCT_NAME, PRODUCTS, purchaseOf, renewalPurchase } from '@/lib/plans';
@@ -11,6 +11,7 @@ import { formatPhone } from '@/lib/whatsapp';
 import { buttonClasses } from '@/components/ui/button';
 import { Badge, Card } from '@/components/ui/primitives';
 import { ApiName, Avatar, Empty, WhatsAppLink } from '@/components/admin/parts';
+import { ClientApiUsage } from '@/components/admin/api-usage';
 import { ClientKeys } from '@/components/admin/client-keys';
 import { ClientPlanCard } from '@/components/admin/client-plan-card';
 import { ClientProfile } from '@/components/admin/client-profile';
@@ -34,8 +35,16 @@ const STATUS = {
   trial: { label: 'En prueba', tone: 'neutral' },
 } as const;
 
-export default async function AdminClientPage({ params }: { params: Promise<{ id: string }> }) {
-  const client = await getClient((await params).id);
+export default async function AdminClientPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ route?: string; errors?: string }>;
+}) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const filter = { route: typeof query.route === 'string' && query.route ? query.route : undefined, errorsOnly: query.errors === '1' };
+  const [client, requests] = await Promise.all([getClient(id), getClientRequests(id, filter)]);
   if (!client) notFound();
   const option = clientOption(client);
 
@@ -94,6 +103,11 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
             <ClientPlanCard key={p} client={option} subs={client.subs} product={p} used={client.used[p] ?? 0} keys={keysFor(p)} />
           ))}
         </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 font-semibold">Uso de la API (últimos {REQUEST_LOG_DAYS} días)</h2>
+        <ClientApiUsage data={requests} filter={filter} base={`/admin/clients/${client.id}`} days={REQUEST_LOG_DAYS} />
       </section>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">

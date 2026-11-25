@@ -7,7 +7,8 @@ import {
   type NestInterceptor,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { catchError, from, type Observable, switchMap, throwError } from 'rxjs';
+import { catchError, from, type Observable, switchMap, tap, throwError } from 'rxjs';
+import { logProps } from '../common/request-log/request-log.props';
 import { API_KEY_STORE, type ApiKeyRecord, type ApiKeyStore } from './api-key.store';
 import { BILLING_COST_KEY, costOf, type CostFn } from './cost.decorator';
 import { REQUEST_KEY_PROP } from './current-key.decorator';
@@ -50,6 +51,10 @@ export class QuotaInterceptor implements NestInterceptor {
     return from(this.store.consume(record, cost, product)).pipe(
       switchMap(() =>
         next.handle().pipe(
+          // Para el registro de requests: lo que se cobró.
+          tap(() => {
+            logProps(req).units = cost;
+          }),
           catchError((err) =>
             from(
               this.store.refund(record, cost, product).catch((e) =>

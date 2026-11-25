@@ -10,6 +10,7 @@ import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { RequestLogService } from './common/request-log/request-log.service';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -22,6 +23,8 @@ async function bootstrap(): Promise<void> {
   app.flushLogs();
 
   await app.register(helmet, { contentSecurityPolicy: false });
+  // Registro de requests para el panel de admin: antes de que Nest registre las rutas.
+  app.get(RequestLogService).attach(app.getHttpAdapter().getInstance());
 
   app.setGlobalPrefix('v1', { exclude: ['health', 'health/ready'] });
   app.enableShutdownHooks();

@@ -8,13 +8,14 @@ import { WebhooksService } from './webhooks.service';
 import { DocumentsService } from '../sunat/documents.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StatusService } from '../status/status.service';
+import { RequestLogService } from '../../common/request-log/request-log.service';
 
 /**
  * Worker: lo llama Cloud Scheduler cada 10 minutos con `x-cron-secret`.
  * Revisa las guías que tocan, manda los webhooks pendientes, reintenta los
  * comprobantes que SUNAT dejó sin responder, manda los avisos por correo
- * (cuota, webhook caído, certificado de SUNAT por vencer) y corre los chequeos
- * de la página de estado.
+ * (cuota, webhook caído, certificado de SUNAT por vencer), corre los chequeos
+ * de la página de estado y poda el registro de requests.
  */
 @ApiExcludeController()
 @Public()
@@ -27,6 +28,7 @@ export class CronController {
     private readonly sunat: DocumentsService,
     private readonly notifications: NotificationsService,
     private readonly status: StatusService,
+    private readonly requestLog: RequestLogService,
   ) {}
 
   @Post('tick')
@@ -46,6 +48,8 @@ export class CronController {
     const sunat = await this.sunat.pollDue();
     // Después de los webhooks: las entregas que murieron en este tick ya cuentan.
     const notifications = await this.notifications.runDue();
-    return { tracking, deliveries, sunat, notifications, status: await status };
+    // El registro de requests del panel de admin guarda 30 días.
+    const requestLog = await this.requestLog.prune().catch(() => -1);
+    return { tracking, deliveries, sunat, notifications, requestLog, status: await status };
   }
 }

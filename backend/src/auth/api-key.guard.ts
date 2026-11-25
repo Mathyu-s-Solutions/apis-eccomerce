@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { logProps } from '../common/request-log/request-log.props';
 import { API_KEY_STORE, type ApiKeyStore } from './api-key.store';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { REQUEST_KEY_PROP } from './current-key.decorator';
@@ -50,6 +51,8 @@ export class ApiKeyGuard implements CanActivate {
       ctx.getHandler(),
       ctx.getClass(),
     ]);
+    // Para el registro de requests, aunque la key no sirva para esta API.
+    Object.assign(logProps(req), { key: record, product });
     if (product && record.product !== 'all' && record.product !== product) {
       const own = PRODUCT_LABEL[record.product as Product] ?? record.product;
       throw new ForbiddenException(
