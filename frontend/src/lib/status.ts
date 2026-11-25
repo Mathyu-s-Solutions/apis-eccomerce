@@ -5,7 +5,7 @@ import { BRANDS, type BrandId, type SiteId } from './brands';
 
 /**
  * Página de estado (/status). El worker del backend prueba la API y cada servicio del que
- * depende cada 20 minutos y guarda el resultado en `status_checks`
+ * depende cada 30 minutos y guarda el resultado en `status_checks`
  * (backend/src/modules/status). Aquí se lee esa tabla directo de Neon —así la página
  * funciona aunque la API esté caída— y se le pregunta a la API si responde ahora.
  */
@@ -14,10 +14,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
 /**
  * Cada cuánto corre el worker (Cloud Scheduler, job `tracking-tick`). Si cambia el job, va
- * aquí también. Hasta el 2026-11-25 eran 10 min: esos días muestran los chequeos caídos con
- * el doble de minutos.
+ * aquí también (y en el SQL de `apiGaps`). Hasta el 2026-11-25 eran 10 min y ese día pasó a
+ * 20 y luego a 30 (a la :00 y :30) por el cómputo de Neon: los días anteriores muestran los
+ * chequeos caídos con más minutos.
  */
-export const INTERVAL_MINUTES = 20;
+export const INTERVAL_MINUTES = 30;
 const INTERVAL_MS = INTERVAL_MINUTES * 60_000;
 /** Sin chequeos más nuevos que esto (3 turnos), el estado actual es desconocido. */
 const STALE_MS = 3 * INTERVAL_MS;
@@ -122,7 +123,7 @@ async function loadChecks(): Promise<StatusChecks> {
         FROM status_checks
         WHERE component = 'api' AND checked_at >= (now() AT TIME ZONE 'UTC') - interval '91 days'
       ) t
-      WHERE prev IS NOT NULL AND checked_at - prev > interval '50 minutes'`, // GAP_MS
+      WHERE prev IS NOT NULL AND checked_at - prev > interval '75 minutes'`, // GAP_MS
   ]);
   return {
     days,

@@ -1,6 +1,6 @@
 /**
  * Chequeos de la página de estado del portal (/status): cada uno hace una consulta real y
- * liviana a un servicio y dice si responde. El worker los corre cada 20 minutos y guarda el
+ * liviana a un servicio y dice si responde. El worker los corre cada 30 minutos y guarda el
  * resultado en `status_checks`.
  */
 

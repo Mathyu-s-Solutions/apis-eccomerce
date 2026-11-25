@@ -65,7 +65,7 @@ Todas las rutas bajo `/v1` requieren la cabecera `x-api-key`.
 | Shalom | `POST /v1/shalom/track/status` (por ose_id) | ✅ con captcha, como `/track` (si no, 501) |
 | Shalom | `POST /v1/shalom/track`, `/track/batch` (hasta 20, 1 por guía) | ✅ con `SHALOM_CAPTCHA_PROVIDER=playwright` (si no, 501) |
 | Shalom | `POST /v1/shalom/quote` (terrestre o aéreo, recargo a domicilio) | ✅ captcha `tarifa_mostrar`, una vez por ruta cada 6 h |
-| Webhooks | `/v1/webhooks`, `/v1/{shalom,olva}/tracking/subscriptions` | ✅ worker cada 20 min (Cloud Scheduler) |
+| Webhooks | `/v1/webhooks`, `/v1/{shalom,olva}/tracking/subscriptions` | ✅ worker cada 30 min (Cloud Scheduler) |
 | Demo | `GET /v1/public/{shalom,olva}/agencies?q=` (sin key, 30/min por IP) | ✅ |
 | SUNAT | `POST /v1/sunat/documents` (factura, boleta, nota de crédito y débito) | ✅ XML UBL 2.1 firmado, `sendBill`, CDR y PDF |
 | SUNAT | `POST /v1/sunat/voided`, `/daily-summary`, `/status`, `GET /documents` | ✅ baja, resumen diario y estado (reintenta los pendientes) |
@@ -290,7 +290,7 @@ y declaración jurada (valor declarado de más de S/ 500).
    se guarda el `ose_id`, **no la clave**, y cada revisión resuelve un captcha. Plan gratis:
    5 guías a la vez por API.
 3. El worker (`POST /v1/internal/cron/tick` con `x-cron-secret`, Cloud Scheduler cada
-   20 min) revisa cada guía según su estado (30 min a 2 h) y, si cambió, manda
+   30 min) revisa cada guía según su estado (30 min a 2 h) y, si cambió, manda
    `tracking.updated` con el seguimiento normalizado (sin datos personales).
 4. Reintentos: 1 min, 5 min, 30 min, 2 h y 12 h; después queda `dead`.
    `GET /v1/webhooks/deliveries` muestra el historial y
@@ -357,7 +357,7 @@ function verify(rawBody, header, secret) {
 
 ## Avisos por correo
 
-El worker (`/v1/internal/cron/tick`, cada 20 min) también manda correos con Resend
+El worker (`/v1/internal/cron/tick`, cada 30 min) también manda correos con Resend
 desde `avisos@mathyusolutions.com` (`src/modules/notifications/`):
 
 | Correo | Cuándo |
@@ -400,7 +400,7 @@ sigue funcionando aunque la API esté caída.
 | Componente | Qué se prueba (sin cuota) |
 |---|---|
 | `api` | `SELECT 1` en la base; si el chequeo llega, la API y el worker corren. Los huecos entre chequeos cuentan como caída. |
-| `shalom-tracking` | El rastreo completo de una guía real, sin cachés: captcha, `rastrea/buscar` y `rastrea/estados` en la misma sesión (un captcha cada 20 min). La guía es `SHALOM_STATUS_GUIDE` (`numero:clave` u ose_id) o, sin ella, la última que alguien rastreó en 30 días. 45 s por intento (puede abrir Chromium). Solo con captcha configurado. |
+| `shalom-tracking` | El rastreo completo de una guía real, sin cachés: captcha, `rastrea/buscar` y `rastrea/estados` en la misma sesión (un captcha cada 30 min, o ninguno si un cliente rastreó hace poco). La guía es `SHALOM_STATUS_GUIDE` (`numero:clave` u ose_id) o, sin ella, la última que alguien rastreó en 30 días. 45 s por intento (puede abrir Chromium). Solo con captcha configurado. |
 | `shalom-web` | Sesión en shalom.com.pe + `agencias/version` (el proxy de agencias y cotización). Sigue en verde aunque el rastreo falle: para eso está `shalom-tracking`. |
 | `shalom-pro` | `GET /sanctum/csrf-cookie` de pro.shalom.pe. |
 | `olva-tracking` | Una guía que no existe: Olva debe responder 404 (con la apikey vencida sería 403). |
@@ -418,7 +418,7 @@ nuevo se agrega aquí, en `COMPONENTS` de `frontend/src/lib/status.ts` (mismo id
 `STATUS_LIVE=1 pnpm test` corre los chequeos contra los servicios reales.
 
 **Alertas al admin** (`status-alerts.ts`): cuando un componente lleva 2 chequeos seguidos
-caído (unos 20 min; una falla suelta no avisa), un correo a `ADMIN_EMAILS` (separados por
+caído (unos 30 min; una falla suelta no avisa), un correo a `ADMIN_EMAILS` (separados por
 `;`; sin ella, `EMAIL_REPLY_TO`) con el motivo público y el error interno. Otro cuando
 vuelve, con cuánto estuvo caído. Varios caídos a la vez van en un solo correo, y cada
 caída se avisa una vez (`sent_emails`). Necesita `RESEND_API_KEY`. Si la API o el worker

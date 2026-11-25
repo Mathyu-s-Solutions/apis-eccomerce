@@ -7,7 +7,7 @@ import type { CheckResult } from './probe';
 
 /** Chequeos seguidos caídos para avisar: uno suelto puede ser un tropiezo de la red. */
 export const CONFIRM_DOWNS = 2;
-/** Cuánta historia se mira para saber desde cuándo está caído (1000 chequeos ≈ 14 días). */
+/** Cuánta historia se mira para saber desde cuándo está caído (1000 chequeos ≈ 20 días). */
 const HISTORY = 1000;
 
 /** Para los correos; los mismos nombres que COMPONENTS en frontend/src/lib/status.ts. */
@@ -86,7 +86,7 @@ export class StatusAlerts {
     const to = this.config.email.adminEmails;
     if (!this.mailer.enabled || !this.prisma.enabled || !to.length) return summary;
     try {
-      // El chequeo anterior de cada componente (corren cada 20 min; margen para uno atrasado).
+      // El chequeo anterior de cada componente (corren cada 30 min; margen para uno atrasado).
       const previous = await this.prisma.statusCheck.findMany({
         where: { checkedAt: { lt: checkedAt, gte: new Date(checkedAt.getTime() - 45 * 60_000) } },
         orderBy: { checkedAt: 'desc' },

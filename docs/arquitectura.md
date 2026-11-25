@@ -82,7 +82,8 @@ servicio aparte se justifica desde el inicio, por madurez de ecosistema.
      ejecución despierta Neon, que en el plan gratis sigue encendido 5 min después:
      con el job cada 10 min la base pasaba encendida ~60% del tiempo (~100 CU-h al mes,
      todo el plan gratis; alerta del 80% el 2026-11-25). Desde entonces corre cada
-     20 min (~50 CU-h al mes).
+     30 min, a la :00 y :30 (coincide con el job de un cliente que consulta a esa hora:
+     la base despierta una vez para los dos), y el compute de Neon va fijo en 0,25 CU.
 7. **SUNAT**: padrón RUC primero, luego emisión en beta.
 8. **Registro de envíos** (hecho; Olva probado en vivo con pago en destino, Shalom Pro en
    uso por clientes desde el 2026-11-20): Shalom Pro, con la cuenta de
