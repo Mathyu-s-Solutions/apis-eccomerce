@@ -78,8 +78,11 @@ servicio aparte se justifica desde el inicio, por madurez de ecosistema.
      `agencias/version` para invalidar).
    - Suscripciones de tracking y entregas de webhooks como tablas en Postgres.
    - Cloud Scheduler (3 jobs gratis por cuenta de facturación) → endpoint interno
-     autenticado con OIDC que refresca guías activas y dispara webhooks. Intervalo
-     ≥ 30 min: cada ejecución despierta Neon y consume horas de cómputo gratis.
+     autenticado con OIDC que refresca guías activas y dispara webhooks. Cada
+     ejecución despierta Neon, que en el plan gratis sigue encendido 5 min después:
+     con el job cada 10 min la base pasaba encendida ~60% del tiempo (~100 CU-h al mes,
+     todo el plan gratis; alerta del 80% el 2026-11-25). Desde entonces corre cada
+     20 min (~50 CU-h al mes).
 7. **SUNAT**: padrón RUC primero, luego emisión en beta.
 8. **Registro de envíos** (hecho; Olva probado en vivo con pago en destino, Shalom Pro en
    uso por clientes desde el 2026-11-20): Shalom Pro, con la cuenta de

@@ -9,6 +9,7 @@ import {
   groupName,
   groupsFor,
   INCIDENT_DAYS,
+  INTERVAL_MINUTES,
   readStatus,
   type ComponentState,
   type Level,
@@ -26,8 +27,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata(site, {
     title: hub ? 'Estado de las APIs' : `Estado de ${site.name}`,
     description: hub
-      ? 'Estado en vivo de las APIs de Shalom, Olva y SUNAT: la API y cada servicio del que dependen, revisados cada 10 minutos, con 90 días de historial.'
-      : `Estado en vivo de ${site.name}: la API y la conexión con ${site.product}, revisadas cada 10 minutos, con 90 días de historial.`,
+      ? `Estado en vivo de las APIs de Shalom, Olva y SUNAT: la API y cada servicio del que dependen, revisados cada ${INTERVAL_MINUTES} minutos, con 90 días de historial.`
+      : `Estado en vivo de ${site.name}: la API y la conexión con ${site.product}, revisadas cada ${INTERVAL_MINUTES} minutos, con 90 días de historial.`,
     path: '/status',
   });
 }
@@ -101,7 +102,7 @@ export default async function StatusPage() {
         title={hub ? 'Estado de las APIs' : `Estado de ${site.name}`}
       >
         <p>
-          Cada 10 minutos probamos la API y {hub ? 'la conexión con Shalom, Olva y SUNAT' : `la conexión con ${site.product}`} con una consulta real, desde
+          Cada {INTERVAL_MINUTES} minutos probamos la API y {hub ? 'la conexión con Shalom, Olva y SUNAT' : `la conexión con ${site.product}`} con una consulta real, desde
           los mismos servidores que atienden tus requests. Aquí ves cómo están ahora y los últimos 90 días.
         </p>
       </PageIntro>
@@ -130,7 +131,7 @@ export default async function StatusPage() {
               ? `Última revisión ${ago(view.lastCheckAt, now)} (${formatDateTime(view.lastCheckAt)}, hora de Lima).`
               : view.noHistory
                 ? `La API ${health.ok ? 'responde' : 'no responde'} ahora; el resto se verá cuando vuelva el historial.`
-                : 'Todavía no hay chequeos guardados: el primero llega en los próximos 10 minutos.'}
+                : `Todavía no hay chequeos guardados: el primero llega en los próximos ${INTERVAL_MINUTES} minutos.`}
           </p>
         </div>
       </section>

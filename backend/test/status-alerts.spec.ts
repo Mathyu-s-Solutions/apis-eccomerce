@@ -7,7 +7,7 @@ import { StatusAlerts } from '../src/modules/status/status-alerts';
 import { UpstreamError } from '../src/common/errors/upstream.error';
 
 const T0 = Date.parse('2026-11-19T15:30:00Z');
-const at = (tick: number) => new Date(T0 + tick * 10 * 60_000);
+const at = (tick: number) => new Date(T0 + tick * 20 * 60_000);
 
 /** status_checks y sent_emails en memoria, con lo que usa StatusAlerts. */
 function setup(opts: { failSend?: boolean } = {}) {
@@ -81,7 +81,7 @@ describe('alertas de la página de estado', () => {
 
     expect(await tick(4, { 'shalom-tracking': 'up', 'olva-tracking': 'up' })).toEqual({ down: [], recovered: ['shalom-tracking'] });
     expect(sent[1].subject).toBe('✅ Volvió: Shalom · Rastreo de guías');
-    expect(sent[1].html).toContain('estuvo caído 30 min');
+    expect(sent[1].html).toContain('estuvo caído 1 h');
     expect(await tick(5, { 'shalom-tracking': 'up', 'olva-tracking': 'up' })).toEqual({ down: [], recovered: [] });
     expect(sent).toHaveLength(2);
   });

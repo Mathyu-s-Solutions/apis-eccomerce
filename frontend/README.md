@@ -179,7 +179,7 @@ endpoints de la doc, dominios; `HUB` es el sitio central) y los planes y packs e
 
 Cada sitio tiene `/status` (link "Estado del servicio" en el footer): la central muestra
 todas las APIs y el sitio de cada API, la plataforma y lo suyo. Los datos son los
-chequeos que el worker del backend guarda cada 10 minutos en `status_checks` (ver
+chequeos que el worker del backend guarda cada 20 minutos en `status_checks` (ver
 "Página de estado" en `backend/README.md`); [`src/lib/status.ts`](src/lib/status.ts) los
 lee **directo de Neon**, así la página responde aunque la API esté caída, y además le
 pregunta a la API por `/health` en el momento (`NEXT_PUBLIC_API_URL`).

@@ -382,7 +382,7 @@ model SunatExchangeRate {
 }
 
 // Página de estado del portal (/status): el worker prueba la API y cada servicio del
-// que depende cada 10 minutos (src/modules/status). Se guardan 90 días; el portal
+// que depende cada 20 minutos (src/modules/status). Se guardan 90 días; el portal
 // lee esta tabla directo, así la página funciona aunque la API esté caída.
 model StatusCheck {
   // api | shalom-web | shalom-tracking | shalom-pro | olva-tracking | olva-web | sunat-cpe | sunat-beta | sunat-api | sunat-padron | sunat-exchange

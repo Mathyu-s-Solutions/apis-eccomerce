@@ -5,19 +5,27 @@ import { BRANDS, type BrandId, type SiteId } from './brands';
 
 /**
  * Página de estado (/status). El worker del backend prueba la API y cada servicio del que
- * depende cada 10 minutos y guarda el resultado en `status_checks`
+ * depende cada 20 minutos y guarda el resultado en `status_checks`
  * (backend/src/modules/status). Aquí se lee esa tabla directo de Neon —así la página
  * funciona aunque la API esté caída— y se le pregunta a la API si responde ahora.
  */
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mathyu.dev';
 
-/** Cada cuánto corre el worker (Cloud Scheduler). */
-const INTERVAL_MS = 10 * 60_000;
-/** Sin chequeos más nuevos que esto, el estado actual es desconocido. */
-const STALE_MS = 30 * 60_000;
-/** Entre dos chequeos de la API, un hueco mayor que esto es que no respondió. */
-const GAP_MS = 25 * 60_000;
+/**
+ * Cada cuánto corre el worker (Cloud Scheduler, job `tracking-tick`). Si cambia el job, va
+ * aquí también. Hasta el 2026-11-25 eran 10 min: esos días muestran los chequeos caídos con
+ * el doble de minutos.
+ */
+export const INTERVAL_MINUTES = 20;
+const INTERVAL_MS = INTERVAL_MINUTES * 60_000;
+/** Sin chequeos más nuevos que esto (3 turnos), el estado actual es desconocido. */
+const STALE_MS = 3 * INTERVAL_MS;
+/**
+ * Entre dos chequeos de la API, un hueco mayor que esto es que no respondió: un turno
+ * perdido se tolera, dos no. El SQL de `apiGaps` repite este valor.
+ */
+const GAP_MS = 2.5 * INTERVAL_MS;
 /** Un día con caídas que suman esto o más va en rojo. */
 export const MAJOR_DOWN_MINUTES = 30;
 export const HISTORY_DAYS = 90;
@@ -114,7 +122,7 @@ async function loadChecks(): Promise<StatusChecks> {
         FROM status_checks
         WHERE component = 'api' AND checked_at >= (now() AT TIME ZONE 'UTC') - interval '91 days'
       ) t
-      WHERE prev IS NOT NULL AND checked_at - prev > interval '25 minutes'`,
+      WHERE prev IS NOT NULL AND checked_at - prev > interval '50 minutes'`, // GAP_MS
   ]);
   return {
     days,

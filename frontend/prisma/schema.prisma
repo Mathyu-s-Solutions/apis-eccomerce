@@ -197,7 +197,7 @@ model SentEmail {
   @@map("sent_emails")
 }
 
-// Chequeos de la página de estado (/status): los escribe el worker del backend cada 10 min.
+// Chequeos de la página de estado (/status): los escribe el worker del backend cada 20 min.
 model StatusCheck {
   component String
   checkedAt DateTime @map("checked_at")

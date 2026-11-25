@@ -11,7 +11,9 @@ import { StatusService } from '../status/status.service';
 import { RequestLogService } from '../../common/request-log/request-log.service';
 
 /**
- * Worker: lo llama Cloud Scheduler cada 10 minutos con `x-cron-secret`.
+ * Worker: lo llama Cloud Scheduler cada 20 minutos con `x-cron-secret` (job `tracking-tick`).
+ * No más seguido: cada tick despierta Neon, que en el plan gratis sigue encendido 5 min
+ * después; cada 10 min se comía las 100 CU-h del mes.
  * Revisa las guías que tocan, manda los webhooks pendientes, reintenta los
  * comprobantes que SUNAT dejó sin responder, manda los avisos por correo
  * (cuota, webhook caído, certificado de SUNAT por vencer), corre los chequeos

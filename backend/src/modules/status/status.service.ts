@@ -54,7 +54,7 @@ async function wsdl(url: string, signal: AbortSignal): Promise<void> {
 const shiftDays = (date: string, days: number) => new Date(Date.parse(`${date}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 /**
- * Página de estado del portal: cada 10 minutos (desde el worker) prueba la API y cada servicio
+ * Página de estado del portal: cada 20 minutos (desde el worker) prueba la API y cada servicio
  * del que depende con una consulta real y liviana, sin captcha ni cuota, y guarda el resultado
  * en `status_checks` (90 días). El portal lee esa tabla directo de la base, así la página sigue
  * respondiendo aunque la API esté caída.

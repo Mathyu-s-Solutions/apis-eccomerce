@@ -28,7 +28,7 @@ export interface NotificationsResult {
 }
 
 /**
- * Avisos por correo que salen del worker (cron cada 10 min): cuota casi agotada,
+ * Avisos por correo que salen del worker (cron cada 20 min): cuota casi agotada,
  * webhook que dejó de recibir y certificado digital de SUNAT por vencer. Cada
  * aviso se anota en `sent_emails` antes de enviarse (así dos ticks a la vez no
  * lo duplican) y se libera si Resend falla, para reintentarlo en el siguiente.
