@@ -650,3 +650,80 @@ export function clientOption(c: ClientRow) {
     subs: c.subs.map((s) => ({ product: s.product, plan: s.plan, monthlyLimit: s.monthlyLimit, expiresAt: s.expiresAt })),
   };
 }
+
+// ---------- Shalom Pro: cuentas conectadas e historial ----------
+
+/** Cuentas de Shalom Pro a la vez por plan (backend: PRO_ACCOUNTS_LIMIT en shalom-pro.service.ts). */
+export const PRO_ACCOUNTS_LIMIT = { base: 1, plataforma: 20, empresarial: 100 } as const;
+/** Ventana en la que se cuentan las cuentas distintas que conectó (para ver si turna negocios). */
+export const PRO_HISTORY_DAYS = 30;
+
+export interface ProAccountView {
+  ref: string;
+  email: string;
+  /** Remitente que devolvió Shalom al conectar (nombre y tipo de documento, sin el número). */
+  sender: string | null;
+  connectedAt: string;
+  /** Letra de la cuenta en el historial (null: conectada antes de que existiera el historial). */
+  label: string | null;
+}
+
+export interface ProConnectionView {
+  at: string;
+  ref: string;
+  action: 'connect' | 'disconnect';
+  /** "A", "B"…: la misma letra es la misma cuenta (por la huella del correo de la cuenta). */
+  label: string;
+}
+
+export interface ClientShalomPro {
+  accounts: ProAccountView[];
+  history: ProConnectionView[];
+  /** Cuentas distintas que conectó en los últimos PRO_HISTORY_DAYS días. */
+  recentDistinct: number;
+}
+
+function senderLabel(sender: Prisma.JsonValue | null): string | null {
+  if (!sender || typeof sender !== 'object' || Array.isArray(sender)) return null;
+  const s = sender as Record<string, unknown>;
+  const name = [s.name, s.paternalSurname].filter((v) => typeof v === 'string' && v.trim()).join(' ');
+  return name ? `${name}${typeof s.documentType === 'string' ? ` (${s.documentType})` : ''}` : null;
+}
+
+/** Sus cuentas de Shalom Pro y el historial de conexiones (solo huellas: sin correos ni documentos). */
+export async function getClientShalomPro(userId: string, now = new Date()): Promise<ClientShalomPro> {
+  await assertAdmin();
+  const [accounts, rows] = await Promise.all([
+    prisma.shalomProAccount.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+    // Sin la tabla todavía (Vercel desplegó antes que la migración del backend): sin historial.
+    prisma.shalomProConnection.findMany({ where: { userId }, orderBy: { createdAt: 'asc' }, take: 1000 }).catch(() => []),
+  ]);
+  const labels = new Map<string, string>();
+  const labelOf = (hash: string) => {
+    if (!labels.has(hash)) labels.set(hash, labels.size < 26 ? String.fromCharCode(65 + labels.size) : `#${labels.size + 1}`);
+    return labels.get(hash)!;
+  };
+  const history: ProConnectionView[] = rows.map((r) => ({
+    at: r.createdAt.toISOString(),
+    ref: r.ref,
+    action: r.action === 'disconnect' ? 'disconnect' : 'connect',
+    label: labelOf(r.accountHash),
+  }));
+  const since = now.getTime() - PRO_HISTORY_DAYS * 86_400_000;
+  const recentDistinct = new Set(rows.filter((r) => r.action === 'connect' && r.createdAt.getTime() >= since).map((r) => r.accountHash)).size;
+  return {
+    accounts: accounts.map((a) => {
+      // La cuenta de ese identificador es la de su última conexión.
+      const last = history.findLast((h) => h.ref === a.ref && h.action === 'connect');
+      return { ref: a.ref, email: a.email, sender: senderLabel(a.sender), connectedAt: a.createdAt.toISOString(), label: last?.label ?? null };
+    }),
+    history: [...history].reverse(),
+    recentDistinct,
+  };
+}
+
+/** Cuántas cuentas de Shalom Pro puede tener conectadas a la vez con su plan de Shalom vigente. */
+export function proAccountsLimit(subs: SubView[]): number {
+  const plan = subs.find((s) => s.product === 'shalom' && s.active)?.plan;
+  return plan === 'plataforma' ? PRO_ACCOUNTS_LIMIT.plataforma : plan === 'empresarial' ? PRO_ACCOUNTS_LIMIT.empresarial : PRO_ACCOUNTS_LIMIT.base;
+}

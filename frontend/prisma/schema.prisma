@@ -223,6 +223,37 @@ model StatusCheck {
 
 // Registro de los requests a la API (30 días): lo escribe el backend (src/common/request-log);
 // el admin lo lee en la ficha de cada cliente. Sin cuerpos.
+// Cuentas de Shalom Pro conectadas (backend/prisma/schema.prisma). Solo lo que muestra el
+// admin: la contraseña y la sesión (cifradas) no se leen desde aquí.
+model ShalomProAccount {
+  userId    String   @map("user_id")
+  ref       String   @default("default")
+  email     String
+  sender    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([userId, ref])
+  @@map("shalom_pro_accounts")
+}
+
+// Historial de las cuentas de Shalom Pro que cada cliente conectó y desconectó: para ver si
+// cambia de negocio en una misma cuenta en vez de usar el plan Plataforma (varias cuentas).
+// Sin credenciales ni datos: solo huellas (HMAC con SUNAT_SECRETS_KEY, que no está en la base)
+// del correo de la cuenta y del documento del remitente, que dicen si es la misma o no.
+model ShalomProConnection {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  ref         String
+  action      String // connect | disconnect
+  accountHash String   @map("account_hash")
+  senderHash  String?  @map("sender_hash")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("shalom_pro_connections")
+}
+
 model ApiRequest {
   id         String   @id @default(cuid())
   userId     String?  @map("user_id")

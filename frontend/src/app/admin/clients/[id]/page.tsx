@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Mail } from 'lucide-react';
-import { clientOption, getClient, getClientRequests, REQUEST_LOG_DAYS } from '@/lib/admin';
+import { clientOption, getClient, getClientRequests, getClientShalomPro, proAccountsLimit, REQUEST_LOG_DAYS } from '@/lib/admin';
 import { renewalMessage } from '@/lib/admin-messages';
 import { HUB } from '@/lib/brands';
 import { groupByBundle, PRODUCT_NAME, PRODUCTS, purchaseOf, renewalPurchase } from '@/lib/plans';
@@ -15,6 +15,7 @@ import { ClientApiUsage } from '@/components/admin/api-usage';
 import { ClientKeys } from '@/components/admin/client-keys';
 import { ClientPlanCard } from '@/components/admin/client-plan-card';
 import { ClientProfile } from '@/components/admin/client-profile';
+import { ClientShalomPro } from '@/components/admin/shalom-pro';
 import { PaymentCard } from '@/components/admin/payment-card';
 import { RegisterPaymentButton } from '@/components/admin/register-payment';
 
@@ -44,7 +45,7 @@ export default async function AdminClientPage({
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const filter = { route: typeof query.route === 'string' && query.route ? query.route : undefined, errorsOnly: query.errors === '1' };
-  const [client, requests] = await Promise.all([getClient(id), getClientRequests(id, filter)]);
+  const [client, requests, shalomPro] = await Promise.all([getClient(id), getClientRequests(id, filter), getClientShalomPro(id)]);
   if (!client) notFound();
   const option = clientOption(client);
 
@@ -109,6 +110,13 @@ export default async function AdminClientPage({
         <h2 className="mb-3 font-semibold">Uso de la API (últimos {REQUEST_LOG_DAYS} días)</h2>
         <ClientApiUsage data={requests} filter={filter} base={`/admin/clients/${client.id}`} days={REQUEST_LOG_DAYS} />
       </section>
+
+      {(shalomPro.accounts.length > 0 || shalomPro.history.length > 0) && (
+        <section>
+          <h2 className="mb-3 font-semibold">Cuentas de Shalom Pro</h2>
+          <ClientShalomPro data={shalomPro} limit={proAccountsLimit(client.subs)} />
+        </section>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <section className="min-w-0">

@@ -232,6 +232,13 @@ reconectar con otro correo, pero no agregar otra). Si el plan vence con varias c
 no se crean guías hasta renovarlo o desconectar las que sobran; los PDFs de guías ya
 creadas se siguen entregando.
 
+Cada conexión y desconexión queda en `shalom_pro_connections` (desde el 25-nov-2026), sin
+credenciales ni datos: solo huellas HMAC (con `SUNAT_SECRETS_KEY`, que no está en la base) del
+correo de la cuenta y del documento del remitente. Dicen si dos conexiones son la misma cuenta
+sin poder recuperarla, y el admin ve en la ficha del cliente cuántas cuentas distintas conectó:
+turnar negocios en una sola cuenta en vez de usar el plan Plataforma se nota ahí. Una cuenta
+conectada antes del historial se anota, con su fecha, en su primer cambio.
+
 La sesión (cookies de Laravel Sanctum con "recordarme") se reutiliza, una por cuenta; si
 Shalom responde 401 se vuelve a entrar con la contraseña guardada (un captcha) y se
 reintenta una vez. Si la cuenta se reconecta en otra instancia, la sesión en memoria se

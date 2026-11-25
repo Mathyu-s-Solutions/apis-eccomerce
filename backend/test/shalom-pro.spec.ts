@@ -199,11 +199,16 @@ function fakePro(opts: { recipientExists?: boolean; expireFirst?: string } = {})
   // Cuentas por `${userId}/${ref}`, como la llave (user_id, ref) de la tabla.
   const rows = new Map<string, any>();
   const shipments = new Map<string, any>();
+  const history: any[] = [];
   let seq = 0;
   const id = (where: any) => `${where.userId_ref.userId}/${where.userId_ref.ref}`;
   const ofUser = (userId: string) => [...rows.values()].filter((r) => r.userId === userId).sort((a, b) => a.createdAt - b.createdAt);
   const prisma = {
     enabled: true,
+    shalomProConnection: {
+      create: async ({ data }: any) => history.push({ createdAt: new Date(), ...data }),
+      count: async ({ where }: any) => history.filter((h) => h.userId === where.userId && h.ref === where.ref).length,
+    },
     shalomProShipment: {
       upsert: async ({ where, create }: any) => {
         shipments.set(where.oseId, create);
@@ -233,7 +238,7 @@ function fakePro(opts: { recipientExists?: boolean; expireFirst?: string } = {})
   const secrets = new SecretBox({ sunat: { secretsKey: 'k'.repeat(32) } } as unknown as AppConfig);
   const guides = new ShalomGuideCache({ enabled: false } as unknown as PrismaService);
   const service = new ShalomProService(client, prisma, secrets, guides);
-  return { service, calls, rows, secrets, guides, logins: () => logins, paths: () => calls.map((c) => c.path) };
+  return { service, calls, rows, history, secrets, guides, logins: () => logins, paths: () => calls.map((c) => c.path) };
 }
 
 describe('ShalomProService', () => {
@@ -335,6 +340,27 @@ describe('ShalomProService', () => {
     await pro.service.disconnect('user-1');
     expect(pro.rows.has('user-1/default')).toBe(false);
     await expect(pro.service.account('user-1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('historial de cuentas: cada conexión y desconexión, con huellas (sin correo ni documento)', async () => {
+    const pro = fakePro();
+    await pro.service.connect('user-1', { email: 'a@b.pe', password: 'x' });
+    // Una cuenta conectada antes de que existiera el historial.
+    pro.history.length = 0;
+    const since = pro.rows.get('user-1/default').createdAt;
+    await pro.service.connect('user-1', { email: 'Otra@B.pe', password: 'y' });
+    await pro.service.connect('user-1', { email: 'otra@b.pe ', password: 'z' });
+    await pro.service.disconnect('user-1');
+    expect(pro.history.map((h) => h.action)).toEqual(['connect', 'connect', 'connect', 'disconnect']);
+    // La anterior al historial queda primero, con la fecha en que se conectó.
+    expect(pro.history[0].createdAt).toEqual(since);
+    const [a, b, b2, out] = pro.history.map((h) => h.accountHash);
+    expect(a).not.toBe(b); // otro correo: otra cuenta
+    expect(b2).toBe(b); // el mismo correo (mayúsculas y espacios aparte)
+    expect(out).toBe(b);
+    expect(pro.history[0].senderHash).toBe(pro.history[1].senderHash); // el mismo remitente (mismo documento)
+    expect(pro.history[0].senderHash).toMatch(/^[0-9a-f]{32}$/);
+    expect(JSON.stringify(pro.history)).not.toMatch(/a@b\.pe|otra@b\.pe|44556677/i);
   });
 
   it('con un plan sin varias cuentas: reconecta la misma cuenta, pero no conecta otra', async () => {

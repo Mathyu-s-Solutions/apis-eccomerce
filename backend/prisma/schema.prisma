@@ -35,6 +35,7 @@ model User {
   sunatCompanies SunatCompany[]
   profile       ClientProfile?
   apiRequests   ApiRequest[]
+  proConnections ShalomProConnection[]
 
   @@map("users")
 }
@@ -247,6 +248,24 @@ model ShalomProAccount {
 
   @@id([userId, ref])
   @@map("shalom_pro_accounts")
+}
+
+// Historial de las cuentas de Shalom Pro que cada cliente conectó y desconectó: para ver si
+// cambia de negocio en una misma cuenta en vez de usar el plan Plataforma (varias cuentas).
+// Sin credenciales ni datos: solo huellas (HMAC con SUNAT_SECRETS_KEY, que no está en la base)
+// del correo de la cuenta y del documento del remitente, que dicen si es la misma o no.
+model ShalomProConnection {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  ref         String
+  action      String // connect | disconnect
+  accountHash String   @map("account_hash")
+  senderHash  String?  @map("sender_hash")
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("shalom_pro_connections")
 }
 
 // Guías creadas por la API con Shalom Pro: el rótulo y el ticket solo se

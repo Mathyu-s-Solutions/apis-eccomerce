@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
 import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { CONFIG_TOKEN, type AppConfig } from '../../config/configuration';
 
@@ -21,6 +21,15 @@ export class SecretBox {
 
   get available(): boolean {
     return !!this.key;
+  }
+
+  /**
+   * Huella de un dato (HMAC-SHA256 con una llave derivada): dice si dos valores son iguales
+   * sin poder recuperarlos, ni probando todos los DNI, porque la llave no está en la base.
+   */
+  fingerprint(value: string): string {
+    const key = createHmac('sha256', this.requireKey()).update('mathyu/fingerprint/v1').digest();
+    return createHmac('sha256', key).update(value).digest('hex').slice(0, 32);
   }
 
   private requireKey(): Buffer {

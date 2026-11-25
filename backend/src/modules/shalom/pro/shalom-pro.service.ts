@@ -275,7 +275,8 @@ export class ShalomProService {
   async connect(userId: string, dto: ShalomProAccountDto, ref: string = DEFAULT_PRO_ACCOUNT, limit: number = PRO_ACCOUNTS_LIMIT.base): Promise<ShalomProAccountView> {
     const db = this.db();
     const where = { userId_ref: { userId, ref } };
-    if (!(await db.shalomProAccount.findUnique({ where, select: { ref: true } }))) {
+    const existing = await db.shalomProAccount.findUnique({ where });
+    if (!existing) {
       const others = await db.shalomProAccount.findMany({ where: { userId }, select: { ref: true }, orderBy: { createdAt: 'asc' }, take: limit });
       if (others.length >= limit) {
         throw new ForbiddenException(
@@ -302,7 +303,42 @@ export class ShalomProService {
     const account = await db.shalomProAccount.upsert({ where, create: { userId, ref, ...data }, update: data });
     this.sessions.set(sessionKey(account), { jar, stamp: account.password });
     this.productsCache.delete(sessionKey(account));
+    if (existing) await this.ensureHistory(existing);
+    await this.logConnection(account, 'connect');
     return view(account);
+  }
+
+  /**
+   * Historial de cuentas (shalom_pro_connections): solo huellas del correo de la cuenta y del
+   * documento del remitente, para ver si un cliente cambia de negocio en una misma cuenta.
+   * No frena la conexión si falla.
+   */
+  private async logConnection(account: Pick<ShalomProAccount, 'userId' | 'ref' | 'email' | 'sender' | 'createdAt'>, action: 'connect' | 'disconnect', at?: Date): Promise<void> {
+    try {
+      const sender = account.sender as Partial<ProSender> | null;
+      await this.prisma.shalomProConnection.create({
+        data: {
+          userId: account.userId,
+          ref: account.ref,
+          action,
+          accountHash: this.secrets.fingerprint(`email:${account.email.trim().toLowerCase()}`),
+          senderHash: sender?.document ? this.secrets.fingerprint(`doc:${sender.documentType ?? ''}:${sender.document}`) : null,
+          ...(at ? { createdAt: at } : {}),
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`No se guardó el historial de Shalom Pro de ${account.userId}/${account.ref}: ${String(err)}`);
+    }
+  }
+
+  /** Una cuenta conectada antes del historial: se anota su conexión, con su fecha, antes del primer cambio. */
+  private async ensureHistory(account: ShalomProAccount): Promise<void> {
+    try {
+      if (await this.prisma.shalomProConnection.count({ where: { userId: account.userId, ref: account.ref } })) return;
+    } catch {
+      return;
+    }
+    await this.logConnection(account, 'connect', account.createdAt);
   }
 
   /** Las cuentas conectadas, de la primera a la última. */
@@ -322,7 +358,9 @@ export class ShalomProService {
     const jar = this.cached(account) ?? this.restore(account);
     this.sessions.delete(key);
     this.productsCache.delete(key);
+    await this.ensureHistory(account);
     await this.db().shalomProAccount.delete({ where: { userId_ref: { userId, ref } } });
+    await this.logConnection(account, 'disconnect');
     if (jar) void this.client.request(jar, 'POST', '/auth/logout').catch(() => undefined);
   }
 
