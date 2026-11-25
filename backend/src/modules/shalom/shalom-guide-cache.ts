@@ -3,6 +3,9 @@ import { promisify } from 'node:util';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
+/** Las marcas de guías que Shalom nunca encontró se borran pasado este tiempo. */
+const MISSING_KEEP_MS = 24 * 60 * 60 * 1000;
+
 const scryptAsync = promisify(scrypt) as (input: string, salt: string, keylen: number, options: { N: number }) => Promise<Buffer>;
 
 /**
@@ -30,6 +33,9 @@ export interface CachedGuide {
 @Injectable()
 export class ShalomGuideCache {
   private readonly memory = new Map<string, CachedGuide>();
+  /** Guías que Shalom nunca encontró → cuándo se buscaron (sin BD). */
+  private readonly missingMemory = new Map<string, Date>();
+  private lastPrune = 0;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -65,6 +71,7 @@ export class ShalomGuideCache {
   async save(key: string, guide: CachedGuide): Promise<void> {
     if (!this.prisma.enabled) {
       this.memory.set(key, { ...guide, goneAt: null });
+      this.missingMemory.delete(key);
       return;
     }
     await this.prisma.shalomGuide.upsert({
@@ -72,5 +79,30 @@ export class ShalomGuideCache {
       create: { keyHash: key, oseId: guide.oseId, transitTime: guide.transitTime },
       update: { oseId: guide.oseId, transitTime: guide.transitTime, lastUsedAt: new Date(), goneAt: null },
     });
+    void this.prisma.shalomMissingGuide.deleteMany({ where: { keyHash: key } }).catch(() => {});
+  }
+
+  /** Cuándo se buscó por última vez esta guía sin que Shalom la encontrara (nunca la encontró). */
+  async missingSince(key: string): Promise<Date | null> {
+    if (!this.prisma.enabled) return this.missingMemory.get(key) ?? null;
+    const row = await this.prisma.shalomMissingGuide.findUnique({ where: { keyHash: key } });
+    return row?.checkedAt ?? null;
+  }
+
+  /** Shalom no la encontró (y nunca la había encontrado). */
+  markMissing(key: string): void {
+    const now = new Date();
+    if (!this.prisma.enabled) {
+      this.missingMemory.set(key, now);
+      return;
+    }
+    void this.prisma.shalomMissingGuide
+      .upsert({ where: { keyHash: key }, create: { keyHash: key, checkedAt: now }, update: { checkedAt: now } })
+      .catch(() => {});
+    // De paso, a lo más una vez por hora, se borran las de más de un día.
+    if (now.getTime() - this.lastPrune > 60 * 60 * 1000) {
+      this.lastPrune = now.getTime();
+      void this.prisma.shalomMissingGuide.deleteMany({ where: { checkedAt: { lt: new Date(now.getTime() - MISSING_KEEP_MS) } } }).catch(() => {});
+    }
   }
 }

@@ -126,10 +126,26 @@ describe('caché de guías de Shalom', () => {
     expect(await service.statusByOseId('1')).toBeNull();
   });
 
-  it('una guía inexistente da null (y no se guarda)', async () => {
+  it('una guía inexistente da null y no se guarda; la segunda vez, sin volver a Shalom', async () => {
     const { service, captchas } = fakeShalom();
     expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
     expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
+    expect(captchas()).toBe(1);
+  });
+
+  it('una guía que Shalom nunca encontró: 404 por 2 h sin preguntarle; luego se vuelve a buscar', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.parse('2026-11-25T15:00:00Z') });
+    const { service, hidden, captchas } = fakeShalom();
+    const guide = { orderNumber: '66479332', orderCode: 'CD34' };
+    hidden.add(556); // todavía no aparece en Shalom
+    expect(await service.trackGuide(guide)).toBeNull();
+    vi.setSystemTime(Date.parse('2026-11-25T16:59:00Z'));
+    expect(await service.trackGuide(guide)).toBeNull();
+    expect(captchas()).toBe(1);
+    // Pasadas 2 h se pregunta de nuevo: apareció, se guarda y se rastrea.
+    hidden.delete(556);
+    vi.setSystemTime(Date.parse('2026-11-25T17:01:00Z'));
+    expect(await service.trackGuide(guide)).toMatchObject({ oseId: '556' });
     expect(captchas()).toBe(2);
   });
 
@@ -153,10 +169,10 @@ describe('caché de guías de Shalom', () => {
     vi.setSystemTime(Date.parse('2026-11-25T21:33:00Z'));
     expect(await service.trackGuide(guide)).not.toBeNull();
     expect(captchas()).toBe(4);
-    // Otra guía que nunca encontró no se marca: sigue preguntando.
+    // Una que nunca encontró se marca aparte (por 2 h): la segunda vez tampoco pregunta.
     expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
     expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
-    expect(captchas()).toBe(6);
+    expect(captchas()).toBe(5);
   });
 
   it('sin turno (Shalom limitando) responde el 503 sin gastar captcha; con turno, rastrea y lo anota', async () => {

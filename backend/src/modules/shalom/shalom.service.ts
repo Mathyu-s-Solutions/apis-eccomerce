@@ -24,6 +24,12 @@ const BATCH_MAX_WAIT_MS = 150_000;
  * encontró antes y ahora no se responde 404 sin volver a preguntarle durante este tiempo.
  */
 export const GONE_TTL_MS = 6 * HOUR;
+/**
+ * Una guía que Shalom nunca encontró (clave mal escrita, o entregada antes de consultarla) se
+ * responde 404 sin volver a preguntarle durante este tiempo. Más corto: el cliente recibe guía
+ * y clave en el comprobante, cuando Shalom ya la registró, pero por si tarda en aparecer.
+ */
+export const MISSING_TTL_MS = 2 * HOUR;
 const byName = (a: Place, b: Place) => a.name.localeCompare(b.name, 'es');
 
 /** Una guía buscada y sus estados, leídos en la misma sesión de Shalom. */
@@ -216,6 +222,11 @@ export class ShalomService implements CourierAdapter {
     // Shalom la encontró antes y hace poco dejó de mostrarla (entregada): 404 sin
     // preguntarle de nuevo, que cada búsqueda gasta captcha y del cupo por minuto.
     if (cached?.goneAt && Date.now() - cached.goneAt.getTime() < GONE_TTL_MS) return null;
+    // Nunca la encontró y la buscó hace poco: lo mismo.
+    if (!cached) {
+      const missing = await this.guides.missingSince(key);
+      if (missing && Date.now() - missing.getTime() < MISSING_TTL_MS) return null;
+    }
     let found: ShalomLookup | null;
     if (cached) {
       found = await this.lookupCached(cached.oseId, by, opts.maxWaitMs);
@@ -223,7 +234,10 @@ export class ShalomService implements CourierAdapter {
       else this.guides.markGone(key);
     } else {
       found = await this.lookup(by, opts.maxWaitMs);
-      if (!found) return null;
+      if (!found) {
+        this.guides.markMissing(key);
+        return null;
+      }
       const t = found.search.tiempo_llegada;
       await this.guides.save(key, { oseId: found.oseId, transitTime: typeof t === 'string' && t.trim() ? t.trim() : null });
       // Así la siguiente consulta antes del minuto no vuelve a Shalom.

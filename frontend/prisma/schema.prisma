@@ -190,6 +190,17 @@ model ShalomGuide {
   @@map("shalom_guides")
 }
 
+// Guías (guía + clave) que Shalom nunca encontró: por 2 h se responde 404 sin volver a
+// preguntarle (cada búsqueda gasta captcha y del cupo por minuto). Solo el hash, como
+// shalom_guides; las de más de un día se borran.
+model ShalomMissingGuide {
+  keyHash   String   @id @map("key_hash")
+  checkedAt DateTime @default(now()) @map("checked_at")
+
+  @@index([checkedAt])
+  @@map("shalom_missing_guides")
+}
+
 model SentEmail {
   key       String   @id
   createdAt DateTime @default(now()) @map("created_at")
