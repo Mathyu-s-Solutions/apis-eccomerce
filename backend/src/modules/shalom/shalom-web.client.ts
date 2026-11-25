@@ -33,30 +33,75 @@ export class ShalomWebClient {
   private readonly logger = new Logger(ShalomWebClient.name);
   private readonly UPSTREAM = 'shalom';
   private session: Session | null = null;
+  /** Sesiones del rastreo: cada una la usa un rastreo a la vez (ver `isolated`). */
+  private readonly lanes: Array<{ session: Session | null; busy: boolean }>;
 
-  constructor(@Inject(CONFIG_TOKEN) private readonly config: AppConfig) {}
+  constructor(@Inject(CONFIG_TOKEN) private readonly config: AppConfig) {
+    // Tantas como captchas a la vez: el rastreo no va más rápido que eso.
+    this.lanes = Array.from({ length: Math.max(1, config.shalom.captcha?.poolSize ?? 1) }, () => ({ session: null, busy: false }));
+  }
 
   private get base(): string {
     return this.config.shalom.webBase;
   }
 
+  /** Vigente con margen: lo que se haga con ella (buscar + estados) cabe antes de que venza. */
+  private static fresh(s: Session | null, marginS: number): s is Session {
+    return !!s && Math.floor(Date.now() / 1000) < s.expiresAt - marginS;
+  }
+
   /** La sesión compartida (agencias, ubicaciones, tarifas): se renueva al vencer. */
   private async ensureSession(): Promise<Session> {
-    const now = Math.floor(Date.now() / 1000);
-    if (this.session && now < this.session.expiresAt - 5) return this.session;
+    if (ShalomWebClient.fresh(this.session, 5)) return this.session;
     this.session = await this.openSession();
     return this.session;
   }
 
   /**
-   * Corre `fn` en una sesión nueva, solo suya. Desde nov-2026 Shalom guarda en la
-   * sesión la orden buscada y `rastrea/estados` solo responde esa ("Busque
-   * nuevamente la orden de servicio." si no): buscar y estados van en la misma
-   * sesión y no en la compartida, donde otra búsqueda a la vez la pisaría.
+   * Corre `fn` en una sesión que nadie más usa mientras tanto. Desde nov-2026 Shalom
+   * guarda en la sesión la orden buscada y `rastrea/estados` solo responde esa ("Busque
+   * nuevamente la orden de servicio." si no): buscar y estados van en la misma sesión,
+   * sin que otra búsqueda a la vez la pise. Las sesiones se reutilizan hasta que vencen
+   * (120 s): Shalom limita cuántas se abren por IP (429 "Too many requests").
    */
   async isolated<T>(fn: (post: ShalomPost) => Promise<T>): Promise<T> {
-    const s = await this.openSession();
-    return fn((path, body, extraHeaders) => this.request(s, path, body, extraHeaders));
+    const lane = await this.acquireLane();
+    try {
+      if (!ShalomWebClient.fresh(lane.session, 30)) {
+        lane.session = null;
+        lane.session = await this.openSession();
+      }
+      const s = lane.session;
+      return await fn((path, body, extraHeaders) => this.request(s, path, body, extraHeaders));
+    } finally {
+      lane.busy = false;
+    }
+  }
+
+  /** Espera una sesión libre (hasta 30 s). */
+  private async acquireLane() {
+    const deadline = Date.now() + 30_000;
+    for (;;) {
+      const free = this.lanes.find((l) => !l.busy);
+      if (free) {
+        free.busy = true;
+        return free;
+      }
+      if (Date.now() > deadline) {
+        throw new UpstreamError(this.UPSTREAM, 'Hay demasiados rastreos de Shalom en curso: reintenta en unos segundos.', { status: 503 });
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+
+  /** Shalom limita por IP: 429 "Too many requests" con Retry-After. */
+  private tooMany(res: Response): UpstreamError {
+    const after = Number(res.headers.get('retry-after'));
+    const wait = after > 0 ? `en ${after} s` : 'en unos segundos';
+    return new UpstreamError(this.UPSTREAM, `Shalom está limitando las consultas (Too many requests): reintenta ${wait}.`, {
+      status: 503,
+      detail: after > 0 ? { retryAfterSeconds: after } : undefined,
+    });
   }
 
   private async openSession(): Promise<Session> {
@@ -78,6 +123,7 @@ export class ShalomWebClient {
         cause: err,
       });
     }
+    if (res.status === 429) throw this.tooMany(res);
     const cookies = res.headers.getSetCookie?.() ?? [];
     const body = (await res.json().catch(() => null)) as {
       csrf?: string;
@@ -134,6 +180,7 @@ export class ShalomWebClient {
       throw new UpstreamError(this.UPSTREAM, `Fallo de red en ${clean}`, { cause: err });
     }
 
+    if (res.status === 429) throw this.tooMany(res);
     let payload = (await res.json().catch(() => null)) as any;
     if (payload?.encrypted === true && payload?.data) {
       payload = this.decrypt(s.sessionKey, payload.data);
