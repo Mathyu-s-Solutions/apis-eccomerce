@@ -210,6 +210,7 @@ model ShalomGuide {
   oseId       String   @map("ose_id")
   transitTime String?  @map("transit_time")
   createdAt   DateTime @default(now()) @map("created_at")
+  // Última vez que Shalom la encontró (no la última consulta): /status prueba con la más reciente.
   lastUsedAt  DateTime @default(now()) @map("last_used_at")
 
   @@map("shalom_guides")

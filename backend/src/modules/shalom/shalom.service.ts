@@ -211,6 +211,7 @@ export class ShalomService implements CourierAdapter {
     let found: ShalomLookup | null;
     if (cached) {
       found = await this.lookupCached(cached.oseId, by, opts.maxWaitMs);
+      if (found) this.guides.touch(key);
     } else {
       found = await this.lookup(by, opts.maxWaitMs);
       if (!found) return null;

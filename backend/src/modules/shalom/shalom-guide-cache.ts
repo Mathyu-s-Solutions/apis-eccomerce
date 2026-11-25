@@ -35,9 +35,16 @@ export class ShalomGuideCache {
     if (!this.prisma.enabled) return this.memory.get(key) ?? null;
     const row = await this.prisma.shalomGuide.findUnique({ where: { keyHash: key } });
     if (!row) return null;
-    // Uso reciente: sirve para limpiar las que nadie consulta.
-    void this.prisma.shalomGuide.update({ where: { keyHash: key }, data: { lastUsedAt: new Date() } }).catch(() => {});
     return { oseId: row.oseId, transitTime: row.transitTime };
+  }
+
+  /**
+   * Shalom la volvió a encontrar (lastUsedAt). No se marca al consultarla: unos días después
+   * de entregada Shalom ya no la muestra, y /status prueba con la última marcada.
+   */
+  touch(key: string): void {
+    if (!this.prisma.enabled) return;
+    void this.prisma.shalomGuide.update({ where: { keyHash: key }, data: { lastUsedAt: new Date() } }).catch(() => {});
   }
 
   async save(key: string, guide: CachedGuide): Promise<void> {

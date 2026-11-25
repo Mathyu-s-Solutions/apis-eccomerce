@@ -204,9 +204,13 @@ export class StatusService {
           // Un cliente rastreó una guía completa hace poco: eso ya lo prueba, y no se le
           // quita a nadie un turno de Shalom (admite ~20 búsquedas por minuto).
           if (this.shalom.trackedRecently(TRACKED_RECENTLY_MS)) return;
-          const guide = await this.trackingGuide();
-          const found = await this.shalom.probe(guide ?? NO_GUIDE, 25_000);
-          if (guide && !found) throw new ProbeError('No encontró una guía que existe');
+          // Unos días después de entregada, Shalom ya no muestra una guía (ni por ose_id): si
+          // la última encontrada ya no aparece, se prueba la anterior antes de darlo por caído.
+          const guides = await this.trackingGuides();
+          for (const guide of guides.length ? guides : [NO_GUIDE]) {
+            if (await this.shalom.probe(guide, 25_000)) return;
+          }
+          if (guides.length) throw new ProbeError('No encontró guías que existen');
         },
       });
     }
@@ -228,21 +232,22 @@ export class StatusService {
   }
 
   /**
-   * La guía con la que se prueba el rastreo de Shalom: SHALOM_STATUS_GUIDE o, sin ella, la
-   * última que alguien rastreó en los últimos 30 días (solo su ose_id; de ella no se guarda
-   * ni se muestra nada).
+   * Las guías con las que se prueba el rastreo de Shalom: SHALOM_STATUS_GUIDE o, sin ella, las
+   * dos que Shalom encontró más recientemente en los últimos 30 días (solo su ose_id; de ellas
+   * no se guarda ni se muestra nada).
    */
-  private async trackingGuide(): Promise<LookupBy | null> {
+  private async trackingGuides(): Promise<LookupBy[]> {
     const configured = this.config.shalom.statusGuide;
     if (configured) {
       const [number, code] = configured.split(':');
-      return code ? { orderNumber: number, orderCode: code } : { oseId: number };
+      return [code ? { orderNumber: number, orderCode: code } : { oseId: number }];
     }
-    const row = await this.prisma.shalomGuide.findFirst({
+    const rows = await this.prisma.shalomGuide.findMany({
       where: { lastUsedAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
       orderBy: { lastUsedAt: 'desc' },
       select: { oseId: true },
+      take: 2,
     });
-    return row ? { oseId: row.oseId } : null;
+    return rows.map((r) => ({ oseId: r.oseId }));
   }
 }
