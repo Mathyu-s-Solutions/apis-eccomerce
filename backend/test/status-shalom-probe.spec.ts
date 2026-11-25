@@ -14,18 +14,21 @@ import type { StatusAlerts } from '../src/modules/status/status-alerts';
  */
 function setup(opts: { guides: string[]; visible: string[]; trackedRecently?: boolean }) {
   const config = buildConfig(envSchema.parse({ SHALOM_CAPTCHA_PROVIDER: 'playwright' }));
-  const prisma = { enabled: true, shalomGuide: { findMany: async () => opts.guides.map((oseId) => ({ oseId })) } } as unknown as PrismaService;
+  const findMany = vi.fn(async () => opts.guides.map((oseId) => ({ oseId })));
+  const prisma = { enabled: true, shalomGuide: { findMany } } as unknown as PrismaService;
   const probe = vi.fn(async (by: LookupBy) => ('oseId' in by && opts.visible.includes(by.oseId) ? {} : null));
   const shalom = { trackedRecently: () => !!opts.trackedRecently, probe } as unknown as ShalomService;
   const service = new StatusService(config, prisma, {} as ShalomWebClient, shalom, {} as PadronService, {} as StatusAlerts);
   const check = service.probes().find((p) => p.id === 'shalom-tracking')!;
-  return { run: () => check.run(new AbortController().signal), probe };
+  return { run: () => check.run(new AbortController().signal), probe, findMany };
 }
 
 describe('chequeo del rastreo de Shalom', () => {
   it('prueba con la última guía que Shalom encontró', async () => {
-    const { run, probe } = setup({ guides: ['2', '1'], visible: ['2', '1'] });
+    const { run, probe, findMany } = setup({ guides: ['2', '1'], visible: ['2', '1'] });
     await expect(run()).resolves.toBeUndefined();
+    // Las que Shalom ya no muestra (gone_at) no sirven para probar.
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ goneAt: null }) }));
     expect(probe).toHaveBeenCalledTimes(1);
     expect(probe).toHaveBeenCalledWith({ oseId: '2' }, 25_000);
   });

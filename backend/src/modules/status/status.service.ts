@@ -243,7 +243,7 @@ export class StatusService {
       return [code ? { orderNumber: number, orderCode: code } : { oseId: number }];
     }
     const rows = await this.prisma.shalomGuide.findMany({
-      where: { lastUsedAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
+      where: { lastUsedAt: { gte: new Date(Date.now() - 30 * 86_400_000) }, goneAt: null },
       orderBy: { lastUsedAt: 'desc' },
       select: { oseId: true },
       take: 2,

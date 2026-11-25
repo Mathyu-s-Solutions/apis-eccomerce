@@ -97,7 +97,9 @@ hasta 20 s y cada guía de `/track/batch` hasta 150 s; si no alcanza, o si Shalo
 llamar hasta que vence el corte. Las llamadas a Shalom cortan a los 20 s (504). En las suscripciones, un
 503 no cuenta como fallo de la guía. El `ose_id` se guarda en
 `shalom_guides` (con un hash scrypt de guía + clave; la clave nunca se guarda) y el estado de una
-guía (Shalom y Olva) se guarda 60 s en memoria: repetir la consulta dentro del minuto no gasta captcha.
+guía (Shalom y Olva) se guarda 60 s en memoria: repetir la consulta dentro del minuto no gasta captcha. Unos días después
+de entregada, Shalom deja de mostrar la guía (ni por `ose_id`): si una que ya encontró deja de
+aparecer, se marca `gone_at` y por 6 h responde 404 sin preguntarle (sin captcha ni cupo).
 Agencias, ubigeos y ubicaciones se guardan en memoria (6 h y 24 h): los endpoints gratuitos no le pegan a las webs de los couriers en cada request.
 
 ### SUNAT: facturación electrónica

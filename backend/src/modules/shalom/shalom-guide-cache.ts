@@ -18,6 +18,8 @@ export async function guideKey(orderNumber: string, orderCode: string): Promise<
 export interface CachedGuide {
   oseId: string;
   transitTime: string | null;
+  /** Desde cuándo Shalom ya no la muestra (la encontró antes y ahora no). */
+  goneAt?: Date | null;
 }
 
 /**
@@ -35,7 +37,7 @@ export class ShalomGuideCache {
     if (!this.prisma.enabled) return this.memory.get(key) ?? null;
     const row = await this.prisma.shalomGuide.findUnique({ where: { keyHash: key } });
     if (!row) return null;
-    return { oseId: row.oseId, transitTime: row.transitTime };
+    return { oseId: row.oseId, transitTime: row.transitTime, goneAt: row.goneAt };
   }
 
   /**
@@ -43,19 +45,32 @@ export class ShalomGuideCache {
    * de entregada Shalom ya no la muestra, y /status prueba con la última marcada.
    */
   touch(key: string): void {
-    if (!this.prisma.enabled) return;
-    void this.prisma.shalomGuide.update({ where: { keyHash: key }, data: { lastUsedAt: new Date() } }).catch(() => {});
+    this.mark(key, { lastUsedAt: new Date(), goneAt: null });
+  }
+
+  /** Shalom la encontró antes y ahora no: unos días después de entregada la quita del rastreo. */
+  markGone(key: string): void {
+    this.mark(key, { goneAt: new Date() });
+  }
+
+  private mark(key: string, data: { lastUsedAt?: Date; goneAt: Date | null }): void {
+    if (!this.prisma.enabled) {
+      const guide = this.memory.get(key);
+      if (guide) guide.goneAt = data.goneAt;
+      return;
+    }
+    void this.prisma.shalomGuide.update({ where: { keyHash: key }, data }).catch(() => {});
   }
 
   async save(key: string, guide: CachedGuide): Promise<void> {
     if (!this.prisma.enabled) {
-      this.memory.set(key, guide);
+      this.memory.set(key, { ...guide, goneAt: null });
       return;
     }
     await this.prisma.shalomGuide.upsert({
       where: { keyHash: key },
       create: { keyHash: key, oseId: guide.oseId, transitTime: guide.transitTime },
-      update: { oseId: guide.oseId, transitTime: guide.transitTime, lastUsedAt: new Date() },
+      update: { oseId: guide.oseId, transitTime: guide.transitTime, lastUsedAt: new Date(), goneAt: null },
     });
   }
 }

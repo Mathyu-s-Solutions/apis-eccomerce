@@ -23,6 +23,8 @@ function fakeShalom() {
   const calls: Record<string, number> = {};
   let captchas = 0;
   let sessions = 0;
+  // Guías que Shalom ya no muestra (unos días después de entregadas).
+  const hidden = new Set<number>();
   const agencies = [
     { ter_id: 220, lugar_over: 'MALVINAS', zona: 'LIMA', departamento: 'LIMA', provincia: 'LIMA', destino: 1, origen: 1, ter_aereo: 1, dep_id: 15, prov_id: 1, dist_id: 1 },
     { ter_id: 7, lugar_over: 'AV PARRA 379', zona: 'AREQUIPA', departamento: 'AREQUIPA', provincia: 'AREQUIPA', destino: 1, origen: 1, ter_aereo: 1, dep_id: 4, prov_id: 1, dist_id: 1 },
@@ -36,7 +38,7 @@ function fakeShalom() {
       // Otra búsqueda puede colarse aquí si la sesión fuera compartida.
       await new Promise((r) => setImmediate(r));
       const o = ORDERS.find((x) => (body.ose_id ? String(x.ose_id) === String(body.ose_id) : x.numero === body.numero && x.codigo === body.codigo));
-      if (!o) throw new UpstreamError('shalom', 'No se encontró la orden de servicio.', { status: 400 });
+      if (!o || hidden.has(o.ose_id)) throw new UpstreamError('shalom', 'No se encontró la orden de servicio.', { status: 400 });
       session.searched = o.ose_id;
       return { data: { ose_id: o.ose_id, entregado: false, tiempo_llegada: '24 horas' } };
     }
@@ -65,7 +67,7 @@ function fakeShalom() {
   const config = { shalom: { captcha: { poolSize: 2 } } } as unknown as AppConfig;
   const cache = new ShalomGuideCache({ enabled: false } as unknown as PrismaService);
   const service = new ShalomService(web, captcha, config, cache);
-  return { service, web, calls, captchas: () => captchas, sessions: () => sessions };
+  return { service, web, calls, hidden, captchas: () => captchas, sessions: () => sessions };
 }
 
 afterEach(() => {
@@ -129,6 +131,32 @@ describe('caché de guías de Shalom', () => {
     expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
     expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
     expect(captchas()).toBe(2);
+  });
+
+  it('una guía que Shalom encontró y ya no muestra: 404 por 6 h sin volver a preguntarle', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.parse('2026-11-25T15:00:00Z') });
+    const { service, hidden, captchas } = fakeShalom();
+    const guide = { orderNumber: '66479331', orderCode: 'AB12' };
+    expect(await service.trackGuide(guide)).not.toBeNull();
+    hidden.add(555); // entregada: Shalom la quita del rastreo
+    vi.setSystemTime(Date.parse('2026-11-25T15:30:00Z'));
+    expect(await service.trackGuide(guide)).toBeNull();
+    expect(captchas()).toBe(2);
+    // Las siguientes, sin captcha ni Shalom.
+    vi.setSystemTime(Date.parse('2026-11-25T21:29:00Z'));
+    expect(await service.trackGuide(guide)).toBeNull();
+    expect(captchas()).toBe(2);
+    // Pasadas 6 h se vuelve a preguntar; si reaparece, se rastrea de nuevo y deja de estar marcada.
+    vi.setSystemTime(Date.parse('2026-11-25T21:31:00Z'));
+    hidden.delete(555);
+    expect(await service.trackGuide(guide)).not.toBeNull();
+    vi.setSystemTime(Date.parse('2026-11-25T21:33:00Z'));
+    expect(await service.trackGuide(guide)).not.toBeNull();
+    expect(captchas()).toBe(4);
+    // Otra guía que nunca encontró no se marca: sigue preguntando.
+    expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
+    expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
+    expect(captchas()).toBe(6);
   });
 
   it('sin turno (Shalom limitando) responde el 503 sin gastar captcha; con turno, rastrea y lo anota', async () => {

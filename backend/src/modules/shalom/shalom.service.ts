@@ -19,6 +19,11 @@ import { mapShalomAgency, mapShalomStatus, type ShalomSearch } from './shalom.ma
 const HOUR = 60 * 60 * 1000;
 /** Lo que espera su turno cada guía de /track/batch (Cloud Run corta a los 300 s). */
 const BATCH_MAX_WAIT_MS = 150_000;
+/**
+ * Unos días después de entregada, Shalom deja de mostrar la guía (ni por ose_id). Una que
+ * encontró antes y ahora no se responde 404 sin volver a preguntarle durante este tiempo.
+ */
+export const GONE_TTL_MS = 6 * HOUR;
 const byName = (a: Place, b: Place) => a.name.localeCompare(b.name, 'es');
 
 /** Una guía buscada y sus estados, leídos en la misma sesión de Shalom. */
@@ -208,10 +213,14 @@ export class ShalomService implements CourierAdapter {
     const by = { orderNumber: query.orderNumber, orderCode: query.orderCode ?? '' };
     const key = await guideKey(by.orderNumber, by.orderCode);
     const cached = await this.guides.find(key);
+    // Shalom la encontró antes y hace poco dejó de mostrarla (entregada): 404 sin
+    // preguntarle de nuevo, que cada búsqueda gasta captcha y del cupo por minuto.
+    if (cached?.goneAt && Date.now() - cached.goneAt.getTime() < GONE_TTL_MS) return null;
     let found: ShalomLookup | null;
     if (cached) {
       found = await this.lookupCached(cached.oseId, by, opts.maxWaitMs);
       if (found) this.guides.touch(key);
+      else this.guides.markGone(key);
     } else {
       found = await this.lookup(by, opts.maxWaitMs);
       if (!found) return null;

@@ -280,7 +280,7 @@ describe('ShalomProService', () => {
       email: '',
       phone: '987654321',
     });
-    expect(await pro.guides.find(await guideKey('87654321', 'XK29'))).toEqual({ oseId: '999001', transitTime: null });
+    expect(await pro.guides.find(await guideKey('87654321', 'XK29'))).toEqual({ oseId: '999001', transitTime: null, goneAt: null });
     expect(pro.logins()).toBe(1);
   });
 

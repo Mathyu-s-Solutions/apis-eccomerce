@@ -212,6 +212,8 @@ model ShalomGuide {
   createdAt   DateTime @default(now()) @map("created_at")
   // Última vez que Shalom la encontró (no la última consulta): /status prueba con la más reciente.
   lastUsedAt  DateTime @default(now()) @map("last_used_at")
+  // Shalom la encontró antes y ahora no (la quita unos días después de entregada): 404 por 6 h sin preguntarle.
+  goneAt      DateTime? @map("gone_at")
 
   @@map("shalom_guides")
 }
