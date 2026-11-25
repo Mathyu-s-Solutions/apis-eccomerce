@@ -23,6 +23,8 @@ const PADRON_MAX_AGE_DAYS = 7;
 const NIL_CLIENT = '00000000-0000-0000-0000-000000000000';
 /** Sin ninguna guía conocida, se busca una que no existe (prueba el captcha y la búsqueda). */
 const NO_GUIDE: LookupBy = { orderNumber: '99999999', orderCode: 'ZZZZ' };
+/** Un rastreo completo de un cliente en estos minutos cuenta como chequeo del rastreo. */
+const TRACKED_RECENTLY_MS = 5 * 60_000;
 
 export type StatusSummary =
   | { skipped: 'sin base de datos' }
@@ -199,8 +201,11 @@ export class StatusService {
         timeoutMs: 45_000,
         slowMs: 30_000,
         run: async () => {
+          // Un cliente rastreó una guía completa hace poco: eso ya lo prueba, y no se le
+          // quita a nadie un turno de Shalom (admite ~20 búsquedas por minuto).
+          if (this.shalom.trackedRecently(TRACKED_RECENTLY_MS)) return;
           const guide = await this.trackingGuide();
-          const found = await this.shalom.probe(guide ?? NO_GUIDE);
+          const found = await this.shalom.probe(guide ?? NO_GUIDE, 25_000);
           if (guide && !found) throw new ProbeError('No encontró una guía que existe');
         },
       });

@@ -54,6 +54,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.warn(`${req.method} ${req.url} -> ${status}`);
     }
 
+    // Cuándo reintentar (p. ej. Shalom limitando): el header estándar, además del cuerpo.
+    const retryAfter = (payload as { detail?: { retryAfterSeconds?: unknown } }).detail?.retryAfterSeconds;
+    if (typeof retryAfter === 'number' && retryAfter > 0) void res.header('Retry-After', String(Math.ceil(retryAfter)));
+
     void res.status(status).send({
       success: false,
       ...payload,

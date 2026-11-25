@@ -53,6 +53,7 @@ function fakeShalom() {
   };
   const shared = {};
   const web = {
+    trackSlot: async () => {},
     post: (route: string, body: Record<string, unknown>) => handle(shared, route, body),
     isolated: async <T>(fn: (post: (route: string, body: Record<string, unknown>) => Promise<unknown>) => Promise<T>) => {
       sessions++;
@@ -64,7 +65,7 @@ function fakeShalom() {
   const config = { shalom: { captcha: { poolSize: 2 } } } as unknown as AppConfig;
   const cache = new ShalomGuideCache({ enabled: false } as unknown as PrismaService);
   const service = new ShalomService(web, captcha, config, cache);
-  return { service, calls, captchas: () => captchas, sessions: () => sessions };
+  return { service, web, calls, captchas: () => captchas, sessions: () => sessions };
 }
 
 afterEach(() => {
@@ -128,6 +129,20 @@ describe('caché de guías de Shalom', () => {
     expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
     expect(await service.trackGuide({ orderNumber: '99999999', orderCode: 'ZZZZ' })).toBeNull();
     expect(captchas()).toBe(2);
+  });
+
+  it('sin turno (Shalom limitando) responde el 503 sin gastar captcha; con turno, rastrea y lo anota', async () => {
+    const { service, web, calls, captchas } = fakeShalom();
+    const busy = new UpstreamError('shalom', 'Shalom está limitando las consultas (Too many requests): reintenta en 60 s.', { status: 503 });
+    const slot = vi.spyOn(web, 'trackSlot').mockRejectedValueOnce(busy);
+    await expect(service.trackGuide({ orderNumber: '66479331', orderCode: 'AB12' })).rejects.toBe(busy);
+    expect(captchas()).toBe(0);
+    expect(calls['rastrea/buscar']).toBeUndefined();
+    expect(service.trackedRecently(60_000)).toBe(false);
+    // Un batch espera su turno más que un rastreo suelto.
+    await service.trackBatch([{ orderNumber: '66479331', orderCode: 'AB12' }]);
+    expect(slot).toHaveBeenLastCalledWith(150_000);
+    expect(service.trackedRecently(60_000)).toBe(true);
   });
 });
 

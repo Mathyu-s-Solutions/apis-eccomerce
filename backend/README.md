@@ -88,8 +88,14 @@ orden que buscó esa misma sesión ("Busque nuevamente la orden de servicio." si
 resuelve el captcha de `rastrea/buscar` (por guía + clave o por `ose_id`) y lee los estados en una
 sesión de Shalom que nadie más usa mientras tanto. Esas sesiones se reutilizan hasta que vencen
 (120 s): Shalom deja abrir unas 20 por minuto por IP, y cada ruta (`buscar`, `estados`) acepta
-unas 20 consultas por minuto por IP: unos 20 rastreos por minuto entre todos los clientes. Un 429 de Shalom ("Too many requests") se
-devuelve como **503** con cuándo reintentar, no como un error de la consulta. El `ose_id` se guarda en
+unas 20 consultas por minuto por IP: unos 20 rastreos por minuto entre todos los clientes. Pasado
+eso, Shalom corta esa IP **60 s** (429 "Too many requests") y cada intento en el corte igual gasta un
+captcha. Por eso los rastreos van por turno (`ShalomWebClient.trackSlot`): 3 seguidos y luego uno cada
+4 s (`SHALOM_TRACK_PER_MINUTE=15` por instancia; a lo más 18 en un minuto). Un rastreo espera su turno
+hasta 20 s y cada guía de `/track/batch` hasta 150 s; si no alcanza, o si Shalom cortó, responde
+**503** con `Retry-After` sin llamar a Shalom ni gastar captcha. Tras un 429 esa ruta no se vuelve a
+llamar hasta que vence el corte. Las llamadas a Shalom cortan a los 20 s (504). En las suscripciones, un
+503 no cuenta como fallo de la guía. El `ose_id` se guarda en
 `shalom_guides` (con un hash scrypt de guía + clave; la clave nunca se guarda) y el estado de una
 guía (Shalom y Olva) se guarda 60 s en memoria: repetir la consulta dentro del minuto no gasta captcha.
 Agencias, ubigeos y ubicaciones se guardan en memoria (6 h y 24 h): los endpoints gratuitos no le pegan a las webs de los couriers en cada request.

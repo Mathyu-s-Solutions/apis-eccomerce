@@ -17,6 +17,8 @@ import { CAPTCHA_PROVIDER, type CaptchaProvider } from '../../common/captcha/cap
 import { mapShalomAgency, mapShalomStatus, type ShalomSearch } from './shalom.mapper';
 
 const HOUR = 60 * 60 * 1000;
+/** Lo que espera su turno cada guía de /track/batch (Cloud Run corta a los 300 s). */
+const BATCH_MAX_WAIT_MS = 150_000;
 const byName = (a: Place, b: Place) => a.name.localeCompare(b.name, 'es');
 
 /** Una guía buscada y sus estados, leídos en la misma sesión de Shalom. */
@@ -130,10 +132,12 @@ export class ShalomService implements CourierAdapter {
    * la orden que buscó esa sesión. Con SHALOM_CAPTCHA_PROVIDER=none devuelve 501.
    * `null` = Shalom no tiene esa guía (con esa clave, o con ese ose_id).
    */
-  private async lookup(by: LookupBy): Promise<ShalomLookup | null> {
-    // El token primero: la sesión de Shalom dura 120 s.
+  private async lookup(by: LookupBy, maxWaitMs?: number): Promise<ShalomLookup | null> {
+    // Primero el turno (Shalom corta pasadas ~20 búsquedas por minuto): si no hay, el 503
+    // sale sin gastar captcha. Luego el token, y recién la sesión: dura 120 s.
+    await this.web.trackSlot(maxWaitMs);
     const recaptchaToken = await this.captcha.getToken('rastrea_buscar');
-    return this.web.isolated(async (post) => {
+    const found = await this.web.isolated(async (post) => {
       let found: { data?: Record<string, any> };
       try {
         found = await post<{ data?: Record<string, any> }>('rastrea/buscar', {
@@ -154,20 +158,30 @@ export class ShalomService implements CourierAdapter {
       const status = await post<{ message?: string; data?: Record<string, any> }>('rastrea/estados', { ose_id: String(oseId) });
       return { oseId: String(oseId), search: found.data ?? {}, message: status?.message, data: status?.data ?? null };
     });
+    if (found) this.lastFoundAt = Date.now();
+    return found;
+  }
+
+  /** Cuándo se rastreó completa (buscar y estados) una guía por última vez en esta instancia. */
+  private lastFoundAt = 0;
+
+  /** Si en los últimos `ms` se rastreó completa alguna guía: el rastreo funciona. */
+  trackedRecently(ms: number): boolean {
+    return Date.now() - this.lastFoundAt < ms;
   }
 
   /**
    * Para la página de estado: el rastreo completo (captcha, buscar y estados), sin
    * cachés. `null` = Shalom no tiene esa guía.
    */
-  async probe(by: LookupBy): Promise<TrackingResult | null> {
-    const found = await this.lookup(by);
+  async probe(by: LookupBy, maxWaitMs?: number): Promise<TrackingResult | null> {
+    const found = await this.lookup(by, maxWaitMs);
     return found && ShalomService.toResult(found, found.oseId);
   }
 
   /** Lo consultado hace menos de un minuto sale del caché, sin captcha. */
-  private lookupCached(oseId: string, by: LookupBy): Promise<ShalomLookup | null> {
-    return this.statusCache.get(oseId, () => this.lookup(by), (found) => found !== null);
+  private lookupCached(oseId: string, by: LookupBy, maxWaitMs?: number): Promise<ShalomLookup | null> {
+    return this.statusCache.get(oseId, () => this.lookup(by, maxWaitMs), (found) => found !== null);
   }
 
   private static toResult(found: ShalomLookup, trackingNumber: string): TrackingResult {
@@ -190,15 +204,15 @@ export class ShalomService implements CourierAdapter {
    * con él, consultar de nuevo antes del minuto no gasta captcha. `null` = Shalom
    * no tiene esa guía con esa clave.
    */
-  async trackGuide(query: TrackQuery): Promise<TrackedGuide | null> {
+  async trackGuide(query: TrackQuery, opts: { maxWaitMs?: number } = {}): Promise<TrackedGuide | null> {
     const by = { orderNumber: query.orderNumber, orderCode: query.orderCode ?? '' };
     const key = await guideKey(by.orderNumber, by.orderCode);
     const cached = await this.guides.find(key);
     let found: ShalomLookup | null;
     if (cached) {
-      found = await this.lookupCached(cached.oseId, by);
+      found = await this.lookupCached(cached.oseId, by, opts.maxWaitMs);
     } else {
-      found = await this.lookup(by);
+      found = await this.lookup(by, opts.maxWaitMs);
       if (!found) return null;
       const t = found.search.tiempo_llegada;
       await this.guides.save(key, { oseId: found.oseId, transitTime: typeof t === 'string' && t.trim() ? t.trim() : null });
@@ -209,13 +223,15 @@ export class ShalomService implements CourierAdapter {
   }
 
   /** Rastreo por guía + clave. `null` = Shalom no tiene esa guía con esa clave. */
-  async track(query: TrackQuery): Promise<TrackingResult | null> {
-    return (await this.trackGuide(query))?.tracking ?? null;
+  async track(query: TrackQuery, opts: { maxWaitMs?: number } = {}): Promise<TrackingResult | null> {
+    return (await this.trackGuide(query, opts))?.tracking ?? null;
   }
 
   /**
    * Varias guías, en el mismo orden; `null` en las que no existen. Cada guía
-   * resuelve su captcha: van de a tantas como páginas tenga el pool de Chromium.
+   * resuelve su captcha: van de a tantas como páginas tenga el pool de Chromium,
+   * al ritmo que admite Shalom (20 guías: ~1 min). Cada una espera su turno hasta
+   * BATCH_MAX_WAIT_MS, no los 20 s de un rastreo suelto.
    */
   async trackBatch(queries: TrackQuery[]): Promise<Array<TrackingResult | null>> {
     const results: Array<TrackingResult | null> = new Array(queries.length).fill(null);
@@ -223,7 +239,7 @@ export class ShalomService implements CourierAdapter {
     const worker = async () => {
       while (next < queries.length) {
         const i = next++;
-        results[i] = await this.track(queries[i]);
+        results[i] = await this.track(queries[i], { maxWaitMs: BATCH_MAX_WAIT_MS });
       }
     };
     const lanes = Math.max(1, Math.min(this.config.shalom.captcha.poolSize, queries.length));

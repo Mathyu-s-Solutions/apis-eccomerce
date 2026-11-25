@@ -5,6 +5,7 @@ import type { AppConfig } from '../src/config/configuration';
 import { PrismaService } from '../src/prisma/prisma.service';
 import type { ApiKeyRecord } from '../src/auth/api-key.store';
 import { ShipmentStatus, type TrackingResult } from '../src/common/courier/tracking.model';
+import { UpstreamError } from '../src/common/errors/upstream.error';
 import { TrackingSubscriptionsService } from '../src/modules/webhooks/tracking-subscriptions.service';
 import { MAX_ATTEMPTS, WebhooksService } from '../src/modules/webhooks/webhooks.service';
 import type { WebhookSender } from '../src/modules/webhooks/webhook-sender';
@@ -37,13 +38,17 @@ describe.skipIf(!url)('webhooks y suscripciones (Postgres)', () => {
 
   // Couriers simulados: cada guía devuelve lo que diga `state`.
   const state = new Map<string, TrackingResult | null>();
+  let shalomDown: Error | null = null;
   const olva = { track: async (q: { orderNumber: string }) => state.get(q.orderNumber) ?? null } as unknown as OlvaService;
   const shalom = {
     trackGuide: async (q: { orderNumber: string }) => {
       const tracking = state.get(q.orderNumber);
       return tracking ? { oseId: `ose-${q.orderNumber}`, tracking } : null;
     },
-    statusByOseId: async (oseId: string) => state.get(oseId.replace('ose-', '')) ?? null,
+    statusByOseId: async (oseId: string) => {
+      if (shalomDown) throw shalomDown;
+      return state.get(oseId.replace('ose-', '')) ?? null;
+    },
   } as unknown as ShalomService;
 
   // Envío simulado: guarda lo que se mandó y responde `nextStatus`.
@@ -143,5 +148,23 @@ describe.skipIf(!url)('webhooks y suscripciones (Postgres)', () => {
     await expect(subs.subscribe(record, 'olva', { orderNumber: '3000006' })).rejects.toThrow(ConflictException);
     await subs.unsubscribe(record, 'olva', '3000001');
     await expect(subs.subscribe(record, 'olva', { orderNumber: '3000006' })).resolves.toBeTruthy();
+  });
+
+  it('Shalom limitando (503) no cuenta como fallo de la guía; que no la encuentre, sí', async () => {
+    state.set('4000001', tracking(ShipmentStatus.IN_TRANSIT, ['REGISTRADO']));
+    await subs.subscribe(record, 'shalom', { orderNumber: '4000001', orderCode: 'AB12' });
+    const sub = () => prisma.trackingSubscription.findFirstOrThrow({ where: { userId, orderNumber: '4000001' } });
+
+    shalomDown = new UpstreamError('shalom', 'Shalom está limitando las consultas (Too many requests): reintenta en 60 s.', { status: 503 });
+    await due('4000001');
+    expect((await subs.pollDue()).errors).toBe(1);
+    expect(await sub()).toMatchObject({ failures: 0, active: true });
+    expect((await sub()).nextCheckAt.getTime()).toBeGreaterThan(Date.now());
+
+    shalomDown = null;
+    state.set('4000001', null);
+    await due('4000001');
+    await subs.pollDue();
+    expect(await sub()).toMatchObject({ failures: 1, active: true });
   });
 });

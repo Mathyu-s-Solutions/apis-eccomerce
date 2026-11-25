@@ -57,6 +57,9 @@ export const envSchema = z.object({
   SHALOM_CAPTCHA_NAV_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   SHALOM_CAPTCHA_TOKEN_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
   SHALOM_CAPTCHA_PAGE_TTL_MS: z.coerce.number().int().positive().default(600000),
+  // Búsquedas de guías por minuto que se le hacen a Shalom (por instancia). Shalom corta
+  // 60 s a la IP que pasa de ~20 por minuto: se va más lento, con margen.
+  SHALOM_TRACK_PER_MINUTE: z.coerce.number().int().min(1).max(60).default(15),
   // Guía con la que la página de estado prueba el rastreo de Shalom: "numero:clave" o un
   // ose_id. Sin ella, se usa la última guía que alguien rastreó.
   SHALOM_STATUS_GUIDE: z.preprocess((v) => (v === '' ? undefined : v), z.string().regex(/^\d+(:\w+)?$/).optional()),

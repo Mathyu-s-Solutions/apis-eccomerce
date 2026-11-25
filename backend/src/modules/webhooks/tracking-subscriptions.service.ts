@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type { ApiKeyRecord } from '../../auth/api-key.store';
 import { quotaScope } from '../../auth/plan-quota';
 import { ShipmentStatus, type TrackingResult } from '../../common/courier/tracking.model';
+import { UpstreamError } from '../../common/errors/upstream.error';
 import { ShalomService } from '../shalom/shalom.service';
 import { OlvaService } from '../olva/olva.service';
 import { WebhooksService } from './webhooks.service';
@@ -189,6 +190,12 @@ export class TrackingSubscriptionsService {
       tracking = await this.current(s);
       if (!tracking) throw new Error('El courier ya no encuentra la guía.');
     } catch (err) {
+      // Shalom limitando (o la cola de rastreos llena) no es que la guía falle: no cuenta
+      // como fallo (con 20 se apaga) y se revisa en el siguiente tick (pollDue ya la corrió 10 min).
+      if (err instanceof UpstreamError && err.getStatus() === 503) {
+        this.logger.warn(`Guía ${s.product} ${id}: ${err.message}`);
+        return 'error';
+      }
       const failures = s.failures + 1;
       await this.prisma.trackingSubscription.update({
         where: { id },

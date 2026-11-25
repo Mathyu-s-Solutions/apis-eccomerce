@@ -53,6 +53,8 @@ export interface AppConfig {
     captchaProvider: Env['SHALOM_CAPTCHA_PROVIDER'];
     /** Guía de la página de estado: "numero:clave" o un ose_id. */
     statusGuide?: string;
+    /** Búsquedas de guías por minuto a Shalom (por instancia). */
+    trackPerMinute: number;
     captcha: {
       headless: boolean;
       poolSize: number;
@@ -112,6 +114,7 @@ export function buildConfig(env: Env): AppConfig {
       recaptchaSiteKey: env.SHALOM_RECAPTCHA_SITEKEY,
       captchaProvider: env.SHALOM_CAPTCHA_PROVIDER,
       statusGuide: env.SHALOM_STATUS_GUIDE,
+      trackPerMinute: env.SHALOM_TRACK_PER_MINUTE,
       captcha: {
         headless: env.SHALOM_CAPTCHA_HEADLESS,
         poolSize: env.SHALOM_CAPTCHA_POOL_SIZE,
