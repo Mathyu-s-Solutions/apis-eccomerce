@@ -86,7 +86,10 @@ van a 60 por minuto por key y `/track/batch` a 6.
 **Un captcha por rastreo en Shalom:** desde el 19-nov-2026, `rastrea/estados` solo responde la
 orden que buscó esa misma sesión ("Busque nuevamente la orden de servicio." si no). Cada rastreo
 resuelve el captcha de `rastrea/buscar` (por guía + clave o por `ose_id`) y lee los estados en una
-sesión de Shalom propia, que no comparte con otros rastreos. El `ose_id` se guarda en
+sesión de Shalom que nadie más usa mientras tanto. Esas sesiones se reutilizan hasta que vencen
+(120 s): Shalom deja abrir unas 20 por minuto por IP, y cada ruta (`buscar`, `estados`) acepta
+unas 20 consultas por minuto por IP: unos 20 rastreos por minuto entre todos los clientes. Un 429 de Shalom ("Too many requests") se
+devuelve como **503** con cuándo reintentar, no como un error de la consulta. El `ose_id` se guarda en
 `shalom_guides` (con un hash scrypt de guía + clave; la clave nunca se guarda) y el estado de una
 guía (Shalom y Olva) se guarda 60 s en memoria: repetir la consulta dentro del minuto no gasta captcha.
 Agencias, ubigeos y ubicaciones se guardan en memoria (6 h y 24 h): los endpoints gratuitos no le pegan a las webs de los couriers en cada request.
@@ -358,10 +361,11 @@ depende (`src/modules/status/`) y guarda el resultado en `status_checks` (90 dí
 El portal muestra esa tabla en `/status` leyéndola directo de Neon, así la página
 sigue funcionando aunque la API esté caída.
 
-| Componente | Qué se prueba (sin captcha ni cuota) |
+| Componente | Qué se prueba (sin cuota) |
 |---|---|
 | `api` | `SELECT 1` en la base; si el chequeo llega, la API y el worker corren. Los huecos entre chequeos cuentan como caída. |
-| `shalom-web` | Sesión en shalom.com.pe + `agencias/version` (el proxy del rastreo, agencias y cotización). |
+| `shalom-tracking` | El rastreo completo de una guía real, sin cachés: captcha, `rastrea/buscar` y `rastrea/estados` en la misma sesión (un captcha cada 10 min). La guía es `SHALOM_STATUS_GUIDE` (`numero:clave` u ose_id) o, sin ella, la última que alguien rastreó en 30 días. 45 s por intento (puede abrir Chromium). Solo con captcha configurado. |
+| `shalom-web` | Sesión en shalom.com.pe + `agencias/version` (el proxy de agencias y cotización). Sigue en verde aunque el rastreo falle: para eso está `shalom-tracking`. |
 | `shalom-pro` | `GET /sanctum/csrf-cookie` de pro.shalom.pe. |
 | `olva-tracking` | Una guía que no existe: Olva debe responder 404 (con la apikey vencida sería 403). |
 | `olva-web` | Cotización de un sobre Lima → Lima en olvacourier.com. |
@@ -373,8 +377,16 @@ sigue funcionando aunque la API esté caída.
 Cada chequeo tiene 10 s; si falla se reintenta una vez a los 2 s (si responde, queda
 "con demoras"), y más de 5 s también es "con demoras". El motivo que se guarda es
 público ("HTTP 503", "No respondió en 10 s"): nunca el error crudo. Un componente
-nuevo se agrega aquí y en `COMPONENTS` de `frontend/src/lib/status.ts` (mismo id).
+nuevo se agrega aquí, en `COMPONENTS` de `frontend/src/lib/status.ts` (mismo id) y en
+`NAMES` de `src/modules/status/status-alerts.ts`.
 `STATUS_LIVE=1 pnpm test` corre los chequeos contra los servicios reales.
+
+**Alertas al admin** (`status-alerts.ts`): cuando un componente lleva 2 chequeos seguidos
+caído (unos 20 min; una falla suelta no avisa), un correo a `ADMIN_EMAILS` (separados por
+`;`; sin ella, `EMAIL_REPLY_TO`) con el motivo público y el error interno. Otro cuando
+vuelve, con cuánto estuvo caído. Varios caídos a la vez van en un solo correo, y cada
+caída se avisa una vez (`sent_emails`). Necesita `RESEND_API_KEY`. Si la API o el worker
+se caen, no hay quién avise: eso solo se ve como hueco en `/status`.
 
 ## Prueba rápida
 

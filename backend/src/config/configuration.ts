@@ -23,6 +23,8 @@ export interface AppConfig {
     from: string;
     replyTo: string;
     panelUrl: string;
+    /** Alertas de la página de estado. */
+    adminEmails: string[];
   };
   auth: {
     databaseUrl?: string;
@@ -49,6 +51,8 @@ export interface AppConfig {
     proBase: string;
     recaptchaSiteKey: string;
     captchaProvider: Env['SHALOM_CAPTCHA_PROVIDER'];
+    /** Guía de la página de estado: "numero:clave" o un ose_id. */
+    statusGuide?: string;
     captcha: {
       headless: boolean;
       poolSize: number;
@@ -79,6 +83,8 @@ export function buildConfig(env: Env): AppConfig {
       from: env.EMAIL_FROM,
       replyTo: env.EMAIL_REPLY_TO,
       panelUrl: env.PANEL_URL.replace(/\/+$/, ''),
+      // ";" y no ",": en `gcloud run deploy --set-env-vars` la coma separa variables.
+      adminEmails: (env.ADMIN_EMAILS ?? env.EMAIL_REPLY_TO).split(';').map((e) => e.trim()).filter(Boolean),
     },
     auth: {
       databaseUrl: env.DATABASE_URL,
@@ -105,6 +111,7 @@ export function buildConfig(env: Env): AppConfig {
       proBase: env.SHALOM_PRO_BASE,
       recaptchaSiteKey: env.SHALOM_RECAPTCHA_SITEKEY,
       captchaProvider: env.SHALOM_CAPTCHA_PROVIDER,
+      statusGuide: env.SHALOM_STATUS_GUIDE,
       captcha: {
         headless: env.SHALOM_CAPTCHA_HEADLESS,
         poolSize: env.SHALOM_CAPTCHA_POOL_SIZE,

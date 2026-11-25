@@ -57,6 +57,9 @@ export const envSchema = z.object({
   SHALOM_CAPTCHA_NAV_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   SHALOM_CAPTCHA_TOKEN_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
   SHALOM_CAPTCHA_PAGE_TTL_MS: z.coerce.number().int().positive().default(600000),
+  // Guía con la que la página de estado prueba el rastreo de Shalom: "numero:clave" o un
+  // ose_id. Sin ella, se usa la última guía que alguien rastreó.
+  SHALOM_STATUS_GUIDE: z.preprocess((v) => (v === '' ? undefined : v), z.string().regex(/^\d+(:\w+)?$/).optional()),
 
   // Llave con la que se cifran en la BD las claves SOL y los certificados de los
   // clientes (AES-256-GCM). Sin ella no se pueden guardar credenciales: solo beta.
@@ -79,6 +82,9 @@ export const envSchema = z.object({
   EMAIL_REPLY_TO: z.string().email().default('mathyusolutions@gmail.com'),
   // Panel de los clientes, para los enlaces de los correos.
   PANEL_URL: z.string().url().default('https://apis.mathyusolutions.com'),
+  // Quiénes reciben las alertas de la página de estado (un servicio caído y cuando vuelve),
+  // separados por ";". Sin ella, EMAIL_REPLY_TO.
+  ADMIN_EMAILS: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;

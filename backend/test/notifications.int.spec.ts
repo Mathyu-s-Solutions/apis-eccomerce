@@ -32,7 +32,7 @@ describe.skipIf(!url)('avisos por correo (Postgres)', () => {
   const service = new NotificationsService(prisma, mailer);
 
   /** Solo lo que se mandó a los usuarios de este test (la BD puede tener otros). */
-  const mine = () => sent.filter((e) => e.to.startsWith(tag));
+  const mine = () => sent.filter((e) => String(e.to).startsWith(tag));
   const subjects = () => mine().map((e) => e.subject);
 
   const user = (name: string) => prisma.user.create({ data: { email: `${tag}-${name}@test.local`, name } });

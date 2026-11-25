@@ -28,7 +28,7 @@ interface ShalomLookup {
 }
 
 /** Cómo se busca una guía en Shalom: con guía + clave, o con su ose_id. */
-type LookupBy = { orderNumber: string; orderCode: string } | { oseId: string };
+export type LookupBy ={ orderNumber: string; orderCode: string } | { oseId: string };
 
 /** Una guía rastreada y su ose_id (lo que guarda la suscripción, nunca la clave). */
 export interface TrackedGuide {
@@ -154,6 +154,15 @@ export class ShalomService implements CourierAdapter {
       const status = await post<{ message?: string; data?: Record<string, any> }>('rastrea/estados', { ose_id: String(oseId) });
       return { oseId: String(oseId), search: found.data ?? {}, message: status?.message, data: status?.data ?? null };
     });
+  }
+
+  /**
+   * Para la página de estado: el rastreo completo (captcha, buscar y estados), sin
+   * cachés. `null` = Shalom no tiene esa guía.
+   */
+  async probe(by: LookupBy): Promise<TrackingResult | null> {
+    const found = await this.lookup(by);
+    return found && ShalomService.toResult(found, found.oseId);
   }
 
   /** Lo consultado hace menos de un minuto sale del caché, sin captcha. */

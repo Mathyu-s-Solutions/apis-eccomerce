@@ -381,7 +381,7 @@ model SunatExchangeRate {
 // que depende cada 10 minutos (src/modules/status). Se guardan 90 días; el portal
 // lee esta tabla directo, así la página funciona aunque la API esté caída.
 model StatusCheck {
-  // api | shalom-web | shalom-pro | olva-tracking | olva-web | sunat-cpe | sunat-beta | sunat-api | sunat-padron | sunat-exchange
+  // api | shalom-web | shalom-tracking | shalom-pro | olva-tracking | olva-web | sunat-cpe | sunat-beta | sunat-api | sunat-padron | sunat-exchange
   component String
   checkedAt DateTime @map("checked_at")
   status    String // up | degraded | down

@@ -38,7 +38,8 @@ export class CronController {
     const b = Buffer.from(expected);
     if (a.length !== b.length || !timingSafeEqual(a, b)) throw new UnauthorizedException();
 
-    // En paralelo con el resto (son esperas a servicios externos, ~25 s como mucho). No lanza.
+    // En paralelo con el resto (esperas a servicios externos: ~25 s, hasta ~1.5 min si el
+    // rastreo de Shalom no responde). Avisa al admin si algo se cayó o volvió. No lanza.
     const status = this.status.runChecks();
     const tracking = await this.subs.pollDue();
     const deliveries = await this.webhooks.dispatchDue();

@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CONFIG_TOKEN, type AppConfig } from '../../config/configuration';
 
 export interface Email {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
 }

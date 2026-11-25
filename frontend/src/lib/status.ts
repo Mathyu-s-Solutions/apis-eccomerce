@@ -38,7 +38,8 @@ export interface StatusComponent {
 
 export const COMPONENTS: StatusComponent[] = [
   { id: 'api', group: 'platform', name: 'API REST y webhooks', description: 'Recibe tus consultas, valida la key y la cuota, y manda los webhooks.' },
-  { id: 'shalom-web', group: 'shalom', name: 'Rastreo, agencias y cotización', description: 'Conexión con la web de Shalom (shalom.com.pe).' },
+  { id: 'shalom-tracking', group: 'shalom', name: 'Rastreo de guías', description: 'Rastreo completo de una guía real en shalom.com.pe: búsqueda y estados.' },
+  { id: 'shalom-web', group: 'shalom', name: 'Agencias y cotización', description: 'Conexión con la web de Shalom (shalom.com.pe).' },
   { id: 'shalom-pro', group: 'shalom', name: 'Creación de guías', description: 'Conexión con Shalom Pro (pro.shalom.pe).' },
   { id: 'olva-tracking', group: 'olva', name: 'Rastreo', description: 'Conexión con el rastreo de Olva.' },
   { id: 'olva-web', group: 'olva', name: 'Agencias y cotización', description: 'Conexión con olvacourier.com.' },

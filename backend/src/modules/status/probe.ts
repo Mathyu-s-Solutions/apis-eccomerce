@@ -11,6 +11,8 @@ export interface Probe {
   id: string;
   /** Más lento que esto cuenta como "con demoras" (por defecto 5 s). */
   slowMs?: number;
+  /** Límite de cada intento, si necesita otro que el de todos (por defecto 10 s). */
+  timeoutMs?: number;
   /** Lanza si el servicio no funciona. Puede devolver `degraded` si responde pero con un problema. */
   run(signal: AbortSignal): Promise<{ degraded?: string } | void>;
 }
@@ -82,7 +84,7 @@ async function attempt(probe: Probe, timeoutMs: number): Promise<Attempt> {
  * falla aislada que se recupera al reintentar cuenta como "con demoras", no como caída.
  */
 export async function runProbe(probe: Probe, opts: ProbeOptions = {}): Promise<CheckResult> {
-  const timeoutMs = opts.timeoutMs ?? 10_000;
+  const timeoutMs = probe.timeoutMs ?? opts.timeoutMs ?? 10_000;
   const slowMs = probe.slowMs ?? DEFAULT_SLOW_MS;
 
   let result = await attempt(probe, timeoutMs);

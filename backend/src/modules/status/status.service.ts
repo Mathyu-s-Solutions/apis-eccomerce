@@ -2,12 +2,14 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CONFIG_TOKEN, type AppConfig } from '../../config/configuration';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ShalomWebClient } from '../shalom/shalom-web.client';
+import { ShalomService, type LookupBy } from '../shalom/shalom.service';
 import { BCRP } from '../sunat/consultas/exchange-rate.service';
 import { PadronService } from '../sunat/consultas/padron.service';
 import { limaNow } from '../sunat/core/time';
 import { BILL_SERVICE_URL } from '../sunat/transport/bill-service';
 import { SCOPES, SECURITY } from '../sunat/transport/sunat-rest';
 import { ProbeError, runProbe, type CheckResult, type Probe } from './probe';
+import { StatusAlerts, type AlertsSummary } from './status-alerts';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
@@ -19,11 +21,13 @@ const PROBE_RUC = '20131312955';
 /** Un padrón más viejo que esto: SUNAT no publicó uno nuevo o falló el workflow padron-ruc. */
 const PADRON_MAX_AGE_DAYS = 7;
 const NIL_CLIENT = '00000000-0000-0000-0000-000000000000';
+/** Sin ninguna guía conocida, se busca una que no existe (prueba el captcha y la búsqueda). */
+const NO_GUIDE: LookupBy = { orderNumber: '99999999', orderCode: 'ZZZZ' };
 
 export type StatusSummary =
   | { skipped: 'sin base de datos' }
   | { failed: true }
-  | { checked: number; down: string[]; degraded: string[] };
+  | { checked: number; down: string[]; degraded: string[]; alerts: AlertsSummary };
 
 function get(url: string | URL, signal: AbortSignal, headers: Record<string, string> = {}): Promise<Response> {
   return fetch(url, { signal, headers: { 'user-agent': UA, ...headers } });
@@ -61,23 +65,33 @@ export class StatusService {
     @Inject(CONFIG_TOKEN) private readonly config: AppConfig,
     private readonly prisma: PrismaService,
     private readonly shalomWeb: ShalomWebClient,
+    private readonly shalom: ShalomService,
     private readonly padron: PadronService,
+    private readonly alerts: StatusAlerts,
   ) {}
 
-  /** Corre todos los chequeos y los guarda. Nunca lanza: el worker sigue con lo suyo. */
+  /** Corre todos los chequeos, los guarda y avisa al admin si algo se cayó o volvió. Nunca lanza. */
   async runChecks(): Promise<StatusSummary> {
     if (!this.prisma.enabled) return { skipped: 'sin base de datos' };
     try {
       const checkedAt = new Date();
+      // El último error de cada chequeo: va en la alerta al admin, nunca a la página.
+      const errors = new Map<string, unknown>();
       const results = await Promise.all(
         this.probes().map((p) =>
-          runProbe(p, { onError: (probe, err) => this.logger.warn(`Chequeo de estado ${probe.id} falló: ${String(err)}`) }),
+          runProbe(p, {
+            onError: (probe, err) => {
+              errors.set(probe.id, err);
+              this.logger.warn(`Chequeo de estado ${probe.id} falló: ${String(err)}`);
+            },
+          }),
         ),
       );
       await this.prisma.statusCheck.createMany({ data: results.map((r) => ({ ...r, checkedAt })), skipDuplicates: true });
       await this.prisma.statusCheck.deleteMany({ where: { checkedAt: { lt: new Date(Date.now() - RETENTION_DAYS * 86_400_000) } } });
+      const alerts = await this.alerts.notify(results, errors, checkedAt);
       const ids = (status: CheckResult['status']) => results.filter((r) => r.status === status).map((r) => r.component);
-      return { checked: results.length, down: ids('down'), degraded: ids('degraded') };
+      return { checked: results.length, down: ids('down'), degraded: ids('degraded'), alerts };
     } catch (e) {
       this.logger.error(`No se pudieron guardar los chequeos de estado: ${String(e)}`);
       return { failed: true };
@@ -175,6 +189,23 @@ export class StatusService {
       },
     ];
 
+    if (shalom.captchaProvider !== 'none') {
+      probes.push({
+        // El rastreo completo de una guía real (captcha, rastrea/buscar y rastrea/estados en la
+        // misma sesión), sin cachés. shalom-web solo prueba la sesión: siguió en verde los días
+        // de nov-2026 en que Shalom cambió el rastreo y fallaban todas las guías.
+        id: 'shalom-tracking',
+        // En una instancia nueva, la primera vez abre Chromium para el captcha.
+        timeoutMs: 45_000,
+        slowMs: 30_000,
+        run: async () => {
+          const guide = await this.trackingGuide();
+          const found = await this.shalom.probe(guide ?? NO_GUIDE);
+          if (guide && !found) throw new ProbeError('No encontró una guía que existe');
+        },
+      });
+    }
+
     if (this.config.sunat.padronUrl) {
       probes.push({
         id: 'sunat-padron',
@@ -189,5 +220,24 @@ export class StatusService {
       });
     }
     return probes;
+  }
+
+  /**
+   * La guía con la que se prueba el rastreo de Shalom: SHALOM_STATUS_GUIDE o, sin ella, la
+   * última que alguien rastreó en los últimos 30 días (solo su ose_id; de ella no se guarda
+   * ni se muestra nada).
+   */
+  private async trackingGuide(): Promise<LookupBy | null> {
+    const configured = this.config.shalom.statusGuide;
+    if (configured) {
+      const [number, code] = configured.split(':');
+      return code ? { orderNumber: number, orderCode: code } : { oseId: number };
+    }
+    const row = await this.prisma.shalomGuide.findFirst({
+      where: { lastUsedAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
+      orderBy: { lastUsedAt: 'desc' },
+      select: { oseId: true },
+    });
+    return row ? { oseId: row.oseId } : null;
   }
 }
