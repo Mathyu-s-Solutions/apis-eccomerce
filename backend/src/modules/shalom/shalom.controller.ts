@@ -124,10 +124,13 @@ export class ShalomController {
   @Post('track/status')
   @HttpCode(HttpStatus.OK)
   @Cost(0)
+  // Resuelve un captcha como /track (las consultadas hace menos de un minuto no).
+  @Throttle({ key: { limit: 60, ttl: 60_000 } })
   @ApiOperation({
-    summary: 'Estado por ose_id (endpoint abierto). No enumerar ids.',
+    summary: 'Estado por ose_id (requiere captcha configurado). No enumerar ids.',
   })
   @ApiQuery(RAW_QUERY)
+  @ApiNotFoundResponse({ description: 'Shalom no tiene ese ose_id.' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -139,7 +142,9 @@ export class ShalomController {
     @Body(new ZodValidationPipe(ShalomStatusSchema)) dto: ShalomStatusDto,
     @Query(new ZodValidationPipe(RawQuerySchema)) query: RawQueryDto,
   ) {
-    return withRaw(await this.shalom.statusByOseId(dto.oseId), query.raw);
+    const result = await this.shalom.statusByOseId(dto.oseId);
+    if (!result) throw new NotFoundException('No se encontró la guía con ese ose_id en Shalom.');
+    return withRaw(result, query.raw);
   }
 
   @Post('track')

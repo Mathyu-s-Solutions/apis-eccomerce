@@ -42,15 +42,15 @@ Scripts de prueba: [scripts/probes/shalom-probe.mjs](../scripts/probes/shalom-pr
 | `agencias/distritos` | `{ depid, provid }` | no | sin probar |
 | `tarifa/mostrar` | `{ origin, destiny, recaptcha_token }` (`destiny` con prefijo `"0"` = aéreo) | `tarifa_mostrar` | ✅ 403 "Token de seguridad requerido." sin token |
 | `tarifa/reparto` | `{ dep_id, prov_id, dist_id }` | ? | sin probar |
-| `rastrea/buscar` | `{ numero, codigo, ose_id, recaptcha_token }` + header `X-Auth-Token` | `rastrea_buscar` | ✅ **se valida en el servidor** ("Verificación de seguridad fallida" con un token falso) |
-| `rastrea/estados` | `{ ose_id }` | **no** | ✅ 200 sin login ni captcha |
+| `rastrea/buscar` | `{ numero, codigo, ose_id, recaptcha_token }` + header `X-Auth-Token` | `rastrea_buscar` | ✅ **se valida en el servidor** ("Verificación de seguridad fallida" con un token falso). Acepta guía + clave o solo `ose_id` (lo usa su lector de QR) |
+| `rastrea/estados` | `{ ose_id }` | no, pero… | ✅ desde el 19-nov-2026 solo responde la orden que **esa misma sesión** buscó con `rastrea/buscar`; si no, 409 "Busque nuevamente la orden de servicio." |
 | `rastrea/comprobante` | `{ serie, numero, cop_id, recaptcha_token }` | `rastrea_comprobante` | sin probar |
 | `rastrea/grt` | `{ ose_id, cap_id }` | ? | sin probar |
 | `pro/login` | `{ email, password }` | ? | sin probar |
 
-**Implicación para el tracking:** cada guía nueva cuesta **un** reCAPTCHA (`rastrea/buscar`, de guía + clave a `ose_id`). Después, consultar `rastrea/estados` por `ose_id` es libre. Por eso shalom-api cachea y refresca cada 30 min / 2 h / 6 h según el estado.
+**Implicación para el tracking:** cada consulta cuesta **un** reCAPTCHA. Hasta el 19-nov-2026 bastaba uno por guía (de guía + clave a `ose_id`) y después `rastrea/estados` por `ose_id` era libre; ahora la sesión de Shalom (120 s) guarda la orden buscada y `estados` solo responde esa. Por eso `buscar` y `estados` van juntos en una sesión propia de cada rastreo (`ShalomWebClient.isolated`): en una sesión compartida, otra búsqueda a la vez la pisaría. Una búsqueda fallida no borra la orden ya buscada en la sesión. El 409 se ve con `scripts/probes/shalom-track-probe.mjs`.
 
-> ⚠️ Los `ose_id` son secuenciales y `rastrea/estados` no pide autenticación. **No enumerar.** Usar solo ids de guías que nuestros clientes nos den.
+> ⚠️ Los `ose_id` son secuenciales. **No enumerar.** Usar solo ids de guías que nuestros clientes nos den.
 
 ### 1.2 Shalom Pro: pro.shalom.pe (SPA en Vue + Laravel Sanctum)
 

@@ -13,6 +13,13 @@ interface Session {
   cookies: string[];
 }
 
+/** POST dentro de una sesión de Shalom. */
+export type ShalomPost = <T = unknown>(
+  path: string,
+  body: Record<string, unknown>,
+  extraHeaders?: Record<string, string>,
+) => Promise<T>;
+
 /**
  * Cliente del proxy web de shalom.com.pe (/api/v1/web/*).
  * Protocolo reproducido en scripts/probes/shalom-probe.mjs y documentado en
@@ -33,10 +40,27 @@ export class ShalomWebClient {
     return this.config.shalom.webBase;
   }
 
+  /** La sesión compartida (agencias, ubicaciones, tarifas): se renueva al vencer. */
   private async ensureSession(): Promise<Session> {
     const now = Math.floor(Date.now() / 1000);
     if (this.session && now < this.session.expiresAt - 5) return this.session;
+    this.session = await this.openSession();
+    return this.session;
+  }
 
+  /**
+   * Corre `fn` en una sesión nueva, solo suya. Desde nov-2026 Shalom guarda en la
+   * sesión la orden buscada y `rastrea/estados` solo responde esa ("Busque
+   * nuevamente la orden de servicio." si no): buscar y estados van en la misma
+   * sesión y no en la compartida, donde otra búsqueda a la vez la pisaría.
+   */
+  async isolated<T>(fn: (post: ShalomPost) => Promise<T>): Promise<T> {
+    const s = await this.openSession();
+    return fn((path, body, extraHeaders) => this.request(s, path, body, extraHeaders));
+  }
+
+  private async openSession(): Promise<Session> {
+    const now = Math.floor(Date.now() / 1000);
     const sessionKey = crypto.randomBytes(32).toString('base64');
     let res: Response;
     try {
@@ -64,22 +88,30 @@ export class ShalomWebClient {
         status: 502,
       });
     }
-    this.session = {
+    return {
       sessionKey,
       csrf: body.csrf,
-      expiresAt: body.expiresAt ?? now + 300,
+      // Shalom da 120 s.
+      expiresAt: body.expiresAt ?? now + 120,
       cookies: cookies.map((c) => c.split(';')[0]),
     };
-    return this.session;
   }
 
-  /** POST a /api/v1/web/<path>, descifrando la respuesta si viene cifrada. */
+  /** POST a /api/v1/web/<path> en la sesión compartida, descifrando la respuesta si viene cifrada. */
   async post<T = unknown>(
     path: string,
     body: Record<string, unknown>,
     extraHeaders: Record<string, string> = {},
   ): Promise<T> {
-    const s = await this.ensureSession();
+    return this.request(await this.ensureSession(), path, body, extraHeaders);
+  }
+
+  private async request<T = unknown>(
+    s: Session,
+    path: string,
+    body: Record<string, unknown>,
+    extraHeaders: Record<string, string> = {},
+  ): Promise<T> {
     const clean = path.startsWith('/') ? path : `/${path}`;
     let res: Response;
     try {

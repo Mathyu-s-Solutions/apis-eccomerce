@@ -160,7 +160,7 @@ model TrackingSubscription {
   orderNumber   String            @map("order_number")
   // Olva: año de emisión. Shalom: no se guarda (con la clave se retira el paquete).
   orderCode     String?           @map("order_code")
-  // Shalom: ose_id (se rastrea sin captcha).
+  // Shalom: ose_id (se rastrea con él, sin la clave).
   upstreamRef   String?           @map("upstream_ref")
   status        String?
   // Estado + último evento: si cambia, hay aviso.

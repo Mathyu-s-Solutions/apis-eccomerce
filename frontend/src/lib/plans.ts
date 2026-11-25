@@ -38,7 +38,7 @@ export const PLANS: Record<Product, Plan[]> = {
 /** Uso razonable de los planes ilimitados (los límites por minuto del backend). */
 export function fairUse(product: Product): string {
   const base = 'Ilimitadas con uso razonable: hasta 1.000 consultas por minuto por key.';
-  return product === 'shalom' ? `${base} En Shalom, 60 rastreos o cotizaciones por minuto (cada guía nueva resuelve un captcha; las ya consultadas no).` : base;
+  return product === 'shalom' ? `${base} En Shalom, 60 rastreos o cotizaciones por minuto (cada rastreo resuelve un captcha; repetir la misma guía dentro del minuto, no).` : base;
 }
 
 /** "Consultas ilimitadas" / "Comprobantes ilimitados". */

@@ -62,7 +62,7 @@ Todas las rutas bajo `/v1` requieren la cabecera `x-api-key`.
 | Olva | `GET /v1/olva/agencies`, `/agencies/search`, `/locations/*`, `/locations/ubigeos` | ✅ |
 | Olva | `POST /v1/olva/quote` | ✅ (cotización real) |
 | Shalom | `GET /v1/shalom/agencies`, `/agencies/search`, `/locations/*` | ✅ (proxy web + descifrado AES) |
-| Shalom | `POST /v1/shalom/track/status` (por ose_id) | ✅ (endpoint abierto) |
+| Shalom | `POST /v1/shalom/track/status` (por ose_id) | ✅ con captcha, como `/track` (si no, 501) |
 | Shalom | `POST /v1/shalom/track`, `/track/batch` (hasta 20, 1 por guía) | ✅ con `SHALOM_CAPTCHA_PROVIDER=playwright` (si no, 501) |
 | Shalom | `POST /v1/shalom/quote` (terrestre o aéreo, recargo a domicilio) | ✅ captcha `tarifa_mostrar`, una vez por ruta cada 6 h |
 | Webhooks | `/v1/webhooks`, `/v1/{shalom,olva}/tracking/subscriptions` | ✅ worker cada 10 min (Cloud Scheduler) |
@@ -83,10 +83,12 @@ Los planes Básico de Shalom y Olva son **ilimitados** (sin cuota mensual): el u
 ponen estos límites. En Shalom, lo caro es el captcha, así que `/track`, `/quote` y la suscripción
 van a 60 por minuto por key y `/track/batch` a 6.
 
-**Captcha una vez por guía:** la primera consulta de una guía de Shalom resuelve el captcha y
-guarda su `ose_id` en `shalom_guides` (con un hash scrypt de guía + clave; la clave nunca se
-guarda). Las siguientes van directo a `rastrea/estados`, sin captcha. Además, el estado de una
-guía (Shalom y Olva) se guarda 60 s en memoria.
+**Un captcha por rastreo en Shalom:** desde el 19-nov-2026, `rastrea/estados` solo responde la
+orden que buscó esa misma sesión ("Busque nuevamente la orden de servicio." si no). Cada rastreo
+resuelve el captcha de `rastrea/buscar` (por guía + clave o por `ose_id`) y lee los estados en una
+sesión de Shalom propia, que no comparte con otros rastreos. El `ose_id` se guarda en
+`shalom_guides` (con un hash scrypt de guía + clave; la clave nunca se guarda) y el estado de una
+guía (Shalom y Olva) se guarda 60 s en memoria: repetir la consulta dentro del minuto no gasta captcha.
 Agencias, ubigeos y ubicaciones se guardan en memoria (6 h y 24 h): los endpoints gratuitos no le pegan a las webs de los couriers en cada request.
 
 ### SUNAT: facturación electrónica
@@ -198,7 +200,7 @@ Necesita BD, `SUNAT_SECRETS_KEY` (cifra la contraseña y la sesión) y el captch
    `phone`), y opcionales `senderPhone`, `securityCode` (si falta se genera),
    `referralGuides` y `declaration`. Valida la ruta con las agencias de Shalom Pro, pide
    la tarifa y registra la guía. Devuelve `orderNumber` + `orderCode` (ya quedan en el
-   caché de guías: el rastreo no gasta captcha), `securityCode`, `oseId` y `price`.
+   caché de guías), `securityCode`, `oseId` y `price`.
 3. `GET /v1/shalom/shipments/{oseId}/label` y `/ticket`: rótulo y ticket en PDF, solo
    de guías que ese cliente creó con la API (`shalom_pro_shipments`). Los `ose_id` son
    correlativos: así la API no sirve para pedir PDFs de guías ajenas. Se piden con la
@@ -264,8 +266,8 @@ y declaración jurada (valor declarado de más de S/ 500).
    completo: no se vuelve a mostrar. Solo https a hosts públicos (se bloquean IPs
    privadas y de metadatos al guardar y al enviar).
 2. `POST /v1/{shalom,olva}/tracking/subscriptions {"orderNumber","orderCode"}` (1 consulta):
-   valida la guía y la vigila hasta que se entrega o devuelve (máx. 60 días). Shalom
-   resuelve el captcha una sola vez: se guarda el `ose_id`, **no la clave**. Plan gratis:
+   valida la guía y la vigila hasta que se entrega o devuelve (máx. 60 días). En Shalom
+   se guarda el `ose_id`, **no la clave**, y cada revisión resuelve un captcha. Plan gratis:
    5 guías a la vez por API.
 3. El worker (`POST /v1/internal/cron/tick` con `x-cron-secret`, Cloud Scheduler cada
    10 min) revisa cada guía según su estado (30 min a 2 h) y, si cambió, manda

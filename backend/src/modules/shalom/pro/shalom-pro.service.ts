@@ -397,7 +397,7 @@ export class ShalomProService {
     await this.prisma.shalomProShipment
       .upsert({ where: { oseId }, create: { oseId, ...record }, update: record })
       .catch((err) => this.logger.error(`No se registró la guía ${orderNumber} (ose_id ${oseId}) de ${userId}: ${String(err)}`));
-    // Así el rastreo de esta guía no gasta captcha (se guarda un hash, no la clave).
+    // El rastreo de esta guía ya conoce su ose_id (se guarda un hash, no la clave).
     if (orderCode) {
       await guideKey(orderNumber, orderCode)
         .then((key) => this.guides.save(key, { oseId, transitTime: null }))

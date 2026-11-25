@@ -19,17 +19,21 @@ import { mapShalomAgency, mapShalomStatus, type ShalomSearch } from './shalom.ma
 const HOUR = 60 * 60 * 1000;
 const byName = (a: Place, b: Place) => a.name.localeCompare(b.name, 'es');
 
-/** Una guía encontrada con su clave: el ose_id (para rastrearla sin captcha) y los datos de la búsqueda. */
-export interface ShalomGuide {
+/** Una guía buscada y sus estados, leídos en la misma sesión de Shalom. */
+interface ShalomLookup {
   oseId: string;
   search: ShalomSearch;
+  message?: string;
+  data: Record<string, any> | null;
 }
 
-/** Guía resuelta: recién buscada (con `search`) o del caché (sin captcha). */
-export interface ResolvedGuide {
+/** Cómo se busca una guía en Shalom: con guía + clave, o con su ose_id. */
+type LookupBy = { orderNumber: string; orderCode: string } | { oseId: string };
+
+/** Una guía rastreada y su ose_id (lo que guarda la suscripción, nunca la clave). */
+export interface TrackedGuide {
   oseId: string;
-  search?: ShalomSearch;
-  transitTime: string | null;
+  tracking: TrackingResult;
 }
 
 export interface ShalomQuote {
@@ -55,8 +59,8 @@ export class ShalomService implements CourierAdapter {
   readonly carrier = 'shalom' as const;
   private readonly agenciesCache = new TtlCache<Agency[]>(6 * HOUR);
   private readonly placesCache = new TtlCache<Place[]>(24 * HOUR);
-  // Un minuto: el que consulta seguido la misma guía no le pega a Shalom cada vez.
-  private readonly statusCache = new TtlCache<{ message?: string; data?: Record<string, any> }>(60_000);
+  // Un minuto por ose_id: el que consulta seguido la misma guía no gasta un captcha cada vez.
+  private readonly statusCache = new TtlCache<ShalomLookup | null>(60_000);
   // Las tarifas cambian poco: un captcha por ruta cada 6 h.
   private readonly quoteCache = new TtlCache<Record<string, any>>(6 * HOUR);
   private readonly repartoCache = new TtlCache<Array<{ size: string; price: number }>>(24 * HOUR);
@@ -121,69 +125,83 @@ export class ShalomService implements CourierAdapter {
   // ─── Rastreo ───────────────────────────────────────────────────────────────
 
   /**
-   * Estado por ose_id. Endpoint abierto (sin captcha).
+   * Busca la guía (rastrea/buscar, un reCAPTCHA de action rastrea_buscar) y lee
+   * sus estados en la misma sesión: desde nov-2026 rastrea/estados solo responde
+   * la orden que buscó esa sesión. Con SHALOM_CAPTCHA_PROVIDER=none devuelve 501.
+   * `null` = Shalom no tiene esa guía (con esa clave, o con ese ose_id).
+   */
+  private async lookup(by: LookupBy): Promise<ShalomLookup | null> {
+    // El token primero: la sesión de Shalom dura 120 s.
+    const recaptchaToken = await this.captcha.getToken('rastrea_buscar');
+    return this.web.isolated(async (post) => {
+      let found: { data?: Record<string, any> };
+      try {
+        found = await post<{ data?: Record<string, any> }>('rastrea/buscar', {
+          numero: 'oseId' in by ? '' : by.orderNumber,
+          codigo: 'oseId' in by ? '' : by.orderCode,
+          ose_id: 'oseId' in by ? by.oseId : '',
+          recaptcha_token: recaptchaToken,
+        });
+      } catch (err) {
+        // Shalom responde "No se encontró la orden de servicio."
+        if (err instanceof UpstreamError && err.getStatus() === 400 && /no se encontr/i.test(err.message)) {
+          return null;
+        }
+        throw err;
+      }
+      const oseId = found?.data?.ose_id;
+      if (!oseId) return null;
+      const status = await post<{ message?: string; data?: Record<string, any> }>('rastrea/estados', { ose_id: String(oseId) });
+      return { oseId: String(oseId), search: found.data ?? {}, message: status?.message, data: status?.data ?? null };
+    });
+  }
+
+  /** Lo consultado hace menos de un minuto sale del caché, sin captcha. */
+  private lookupCached(oseId: string, by: LookupBy): Promise<ShalomLookup | null> {
+    return this.statusCache.get(oseId, () => this.lookup(by), (found) => found !== null);
+  }
+
+  private static toResult(found: ShalomLookup, trackingNumber: string): TrackingResult {
+    return mapShalomStatus(trackingNumber, found.message, found.data, found.search);
+  }
+
+  /**
+   * Estado por ose_id (un captcha, como el rastreo por guía). `null` = Shalom no
+   * tiene ese ose_id.
    * ⚠️ Los ose_id son correlativos: usar SOLO ids que el cliente provea (o que
    * resolvimos con su guía y clave), nunca enumerarlos. Ver docs/investigacion-upstreams.md §1.1 y §4.
    */
-  async statusByOseId(oseId: string, trackingNumber = oseId, search?: ShalomSearch): Promise<TrackingResult> {
-    const res = await this.statusCache.get(oseId, () =>
-      this.web.post<{ message?: string; data?: Record<string, any> }>('rastrea/estados', { ose_id: oseId }),
-    );
-    return mapShalomStatus(trackingNumber, res?.message, res?.data ?? null, search);
+  async statusByOseId(oseId: string, trackingNumber = oseId): Promise<TrackingResult | null> {
+    const found = await this.lookupCached(oseId, { oseId });
+    return found && ShalomService.toResult(found, trackingNumber);
   }
 
   /**
-   * De guía + clave al ose_id. Resuelve un reCAPTCHA (action rastrea_buscar):
-   * con SHALOM_CAPTCHA_PROVIDER=none devuelve 501. `null` = Shalom no tiene
-   * esa guía con esa clave.
+   * Rastreo por guía + clave, con su ose_id. El ose_id se guarda (sin la clave):
+   * con él, consultar de nuevo antes del minuto no gasta captcha. `null` = Shalom
+   * no tiene esa guía con esa clave.
    */
-  async findGuide(query: TrackQuery): Promise<ShalomGuide | null> {
-    const recaptchaToken = await this.captcha.getToken('rastrea_buscar');
-    let found: { data?: Record<string, any> };
-    try {
-      found = await this.web.post<{ data?: Record<string, any> }>('rastrea/buscar', {
-        numero: query.orderNumber,
-        codigo: query.orderCode ?? '',
-        ose_id: '',
-        recaptcha_token: recaptchaToken,
-      });
-    } catch (err) {
-      // Shalom responde 400 "No se encontró la orden de servicio."
-      if (err instanceof UpstreamError && err.getStatus() === 400 && /no se encontr/i.test(err.message)) {
-        return null;
-      }
-      throw err;
-    }
-    const oseId = found?.data?.ose_id;
-    return oseId ? { oseId: String(oseId), search: found.data ?? {} } : null;
-  }
-
-  /**
-   * Guía + clave → ose_id. La primera vez resuelve el captcha y lo guarda (sin
-   * la clave); las siguientes salen del caché. `null` = no existe.
-   */
-  async resolveGuide(query: TrackQuery): Promise<ResolvedGuide | null> {
-    const key = await guideKey(query.orderNumber, query.orderCode ?? '');
+  async trackGuide(query: TrackQuery): Promise<TrackedGuide | null> {
+    const by = { orderNumber: query.orderNumber, orderCode: query.orderCode ?? '' };
+    const key = await guideKey(by.orderNumber, by.orderCode);
     const cached = await this.guides.find(key);
-    if (cached) return { oseId: cached.oseId, transitTime: cached.transitTime };
-    const found = await this.findGuide(query);
-    if (!found) return null;
-    const transitTime = typeof found.search.tiempo_llegada === 'string' && found.search.tiempo_llegada.trim() ? found.search.tiempo_llegada.trim() : null;
-    await this.guides.save(key, { oseId: found.oseId, transitTime });
-    return { oseId: found.oseId, search: found.search, transitTime };
-  }
-
-  /** Estado de una guía ya resuelta (con la búsqueda si es reciente; si no, por sus hitos). */
-  async statusOf(guide: ResolvedGuide, trackingNumber: string): Promise<TrackingResult> {
-    const result = await this.statusByOseId(guide.oseId, trackingNumber, guide.search);
-    if (!guide.search && !result.delivered && guide.transitTime) result.transitTime = guide.transitTime;
-    return result;
+    let found: ShalomLookup | null;
+    if (cached) {
+      found = await this.lookupCached(cached.oseId, by);
+    } else {
+      found = await this.lookup(by);
+      if (!found) return null;
+      const t = found.search.tiempo_llegada;
+      await this.guides.save(key, { oseId: found.oseId, transitTime: typeof t === 'string' && t.trim() ? t.trim() : null });
+      // Así la siguiente consulta antes del minuto no vuelve a Shalom.
+      this.statusCache.set(found.oseId, found);
+    }
+    return found && { oseId: found.oseId, tracking: ShalomService.toResult(found, query.orderNumber) };
   }
 
   /** Rastreo por guía + clave. `null` = Shalom no tiene esa guía con esa clave. */
   async track(query: TrackQuery): Promise<TrackingResult | null> {
-    const guide = await this.resolveGuide(query);
-    return guide ? this.statusOf(guide, query.orderNumber) : null;
+    return (await this.trackGuide(query))?.tracking ?? null;
   }
 
   /**

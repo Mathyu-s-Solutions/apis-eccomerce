@@ -39,8 +39,10 @@ describe.skipIf(!url)('webhooks y suscripciones (Postgres)', () => {
   const state = new Map<string, TrackingResult | null>();
   const olva = { track: async (q: { orderNumber: string }) => state.get(q.orderNumber) ?? null } as unknown as OlvaService;
   const shalom = {
-    resolveGuide: async (q: { orderNumber: string }) => (state.get(q.orderNumber) ? { oseId: `ose-${q.orderNumber}`, transitTime: null } : null),
-    statusOf: async (g: { oseId: string }) => state.get(g.oseId.replace('ose-', '')) ?? null,
+    trackGuide: async (q: { orderNumber: string }) => {
+      const tracking = state.get(q.orderNumber);
+      return tracking ? { oseId: `ose-${q.orderNumber}`, tracking } : null;
+    },
     statusByOseId: async (oseId: string) => state.get(oseId.replace('ose-', '')) ?? null,
   } as unknown as ShalomService;
 

@@ -27,6 +27,10 @@ export class TtlCache<T> {
     return p;
   }
 
+  set(key: string, value: T): void {
+    this.entries.set(key, { value, expires: Date.now() + this.ttlMs });
+  }
+
   delete(key: string): void {
     this.entries.delete(key);
   }
